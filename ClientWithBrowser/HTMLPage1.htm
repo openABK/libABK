@@ -1,0 +1,1022 @@
+﻿<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <script type="text/javascript" src="simpletabs_1.3.js"></script>
+  <script type="text/javascript" src="Abk.js"></script>
+  <script type="text/javascript" src="AbkDemoHelpers.js"></script>
+  <script type="text/javascript" src="AbkDemoShowHelp.js"></script>
+  <link rel="stylesheet" type="text/css" href="./AbkDemo.css" />
+  <link rel="stylesheet" type="text/css" href="./simpletabs.css" />
+  <style type="text/css">
+    .blackback
+    {
+      z-index:100;
+      filter: alpha(opacity=80); /*older IE*/
+      filter: progid:DXImageTransform.Microsoft.Alpha(opacity=80); /* IE */
+      -moz-opacity: .80; /*older Mozilla*/
+      -khtml-opacity: 0.8; /*older Safari*/
+      opacity: 0.8; /*supported by current Mozilla, Safari, and Opera*/
+      background-color: #000000;
+      position: fixed;
+      top: 0px;
+      left: 0px;
+      width: 100%;
+      height: 100%;
+      text-align: center;
+      vertical-align: middle;
+      color: #FFF;
+      font-weight: bold;
+      
+    }
+    
+  </style>
+  <title>Untitled Page</title>
+</head>
+<body>
+      <div style="width:160px; float:right; vertical-align:top">
+        <br />
+        <br />
+        <table width="100%">
+          <tr>
+            <td width="100%" align="center">
+              <button id="btnTrigger" style="width: 150px; height: 40px; font-size: large; background-color: #FF0000;" onmousedown="HandleButtonMouseDown(this.id)"
+                onmouseup="HandleButtonMouseUp(this.id)" onmouseout="HandleButtonMouseOut(this.id)">
+                Trigger
+              </button>
+            </td>
+          </tr>
+          </table>
+          <br />
+        <table width="100%">
+          <tr>
+            <td width="50%" align="center">
+              <button id="btnF1" style="width: 75px; height: 40px; font-size: large;" onmousedown="HandleButtonMouseDown(this.id)"
+                onmouseup="HandleButtonMouseUp(this.id)" onmouseout="HandleButtonMouseOut(this.id)">
+                F1
+              </button>
+            </td>
+            <td width="50%" align="center">
+              <button id="btnF2" style="width: 75px; height: 40px; font-size: large;" onmousedown="HandleButtonMouseDown(this.id)"
+                onmouseup="HandleButtonMouseUp(this.id)" onmouseout="HandleButtonMouseOut(this.id)">
+                F2
+              </button>
+            </td>
+          </tr>
+        </table>
+        <table width="100%">
+          <tr>
+            <td align="center">
+            </td>
+            <td align="center">
+              <button id="btnUp" style="width: 50px; height: 50px" onmousedown="HandleButtonMouseDown(this.id)"
+                onmouseup="HandleButtonMouseUp(this.id)" onmouseout="HandleButtonMouseOut(this.id)">
+                <img src="ArrowUp.png" alt="Up" />
+              </button>
+            </td>
+            <td align="center">
+            </td>
+          </tr>
+          <tr>
+            <td align="center">
+              <button id="btnLeft" style="width: 50px; height: 50px" onmousedown="HandleButtonMouseDown(this.id)"
+                onmouseup="HandleButtonMouseUp(this.id)" onmouseout="HandleButtonMouseOut(this.id)">
+                <img src="ArrowLeft.png" alt="Left" />
+              </button>
+            </td>
+            <td align="center">
+              <button id="btnEnter" style="width: 50px; height: 50px" onmousedown="HandleButtonMouseDown(this.id)"
+                onmouseup="HandleButtonMouseUp(this.id)" onmouseout="HandleButtonMouseOut(this.id)">
+                <img src="Enter.png" alt="Enter" />
+              </button>
+            </td>
+            <td align="center">
+              <button id="btnRight" style="width: 50px; height: 50px" onmousedown="HandleButtonMouseDown(this.id)"
+                onmouseup="HandleButtonMouseUp(this.id)" onmouseout="HandleButtonMouseOut(this.id)">
+                <img src="ArrowRight.png" alt="Right" />
+              </button>
+            </td>
+          </tr>
+          <tr>
+            <td align="center">
+            </td>
+            <td align="center">
+              <button id="btnDown" style="width: 50px; height: 50px" onmousedown="HandleButtonMouseDown(this.id)"
+                onmouseup="HandleButtonMouseUp(this.id)" onmouseout="HandleButtonMouseOut(this.id)">
+                <img src="ArrowDown.png" alt="Down" />
+              </button>
+            </td>
+            <td align="center">
+            </td>
+          </tr>
+        </table>
+        <table width="100%">
+          <tr>
+            <td width="50%" align="center">
+              <button id="btnMenu" style="width: 75px; height: 40px; font-size: large;" onmousedown="HandleButtonMouseDown(this.id)"
+                onmouseup="HandleButtonMouseUp(this.id)" onmouseout="HandleButtonMouseOut(this.id)">
+                Menu
+              </button>
+            </td>
+            <td width="50%" align="center">
+              <button id="btnBack" style="width: 75px; height: 40px; font-size: large;" onmousedown="HandleButtonMouseDown(this.id)"
+                onmouseup="HandleButtonMouseUp(this.id)" onmouseout="HandleButtonMouseOut(this.id)">
+                Back
+              </button>
+            </td>
+          </tr>
+        </table>
+      </div>    <div style="width:700px;">
+      
+      
+      
+    <div class="simpleTabs">
+      <ul class="simpleTabsNavigation">
+        <li><a href="#">Messwerte</a></li>
+        <li><a href="#">Grenzwerte</a></li>
+        <li><a href="#">Großanzeige</a></li>
+        <li><a href="#">Tools</a></li>
+      </ul>
+      <div class="simpleTabsContent" id="pgMess">
+      </div>
+      <div class="simpleTabsContent" id="pgLimits">
+      </div>
+      <div class="simpleTabsContent" id="pgLargeDisplay">
+      </div>
+      <div class="simpleTabsContent" id="pgTools">
+        <!-- TAB TOOLS -->
+        Empfangene Ereignisse:
+        <span class='whatIsThis' onmouseover="ShowHelp('Ereignisliste.htm');"
+          onmouseout="HideHelp();">&nbsp;?&nbsp;</span>
+        <br />
+        <select id="eventdump" size="10" style="width: 100%">
+        </select>
+        <br />
+        <table border="0" cellpadding="0" cellspacing="0" id="tblVersionInfo">
+          <tr>
+            <td width="30%">
+              <br />
+              ServerInformationen:
+            </td>
+            <td>
+              <br />
+              &nbsp;&nbsp;&nbsp;
+            </td>
+            <td width="30%">
+              <br />
+              Status:
+            </td>
+            <td>
+              <br />
+              &nbsp;&nbsp;&nbsp;
+            </td>
+            <td width="30%">
+              <br />
+              Statistik: <span class='whatIsThis' onmouseover="ShowHelp('ServerInformationen.htm');"
+                onmouseout="HideHelp();">&nbsp;?&nbsp;</span>
+            </td>
+          </tr>
+          <tr>
+            <td id="VersionInfo" valign="top" height="50" style="border-style: solid; border-width: thin;
+              font-size: 10px">
+            </td>
+            <td>
+            </td>
+            <td valign="top" style="margin: 3px; padding: 5px; border-style: solid; border-width: thin;">
+              SessionId:<br />
+              <input id="SessionId" style="width: 30px"/><br />
+              ServerTime:<br />
+              <input id="ServerTime" style="width: 250px"/><br />
+              Total Storage:<br />
+              <input id="StorageTotal" style="width: 50px"/> MB<br />
+              Available Storage:<br />
+              <input id="StorageFree" style="width: 50px"/> MB<br />
+            </td>
+            <td>
+            </td>
+            <td id="Statistics" valign="top" height="50" width="50%" style="border-style: solid;
+              border-width: thin; font-size: 10px">
+            </td>
+          </tr>
+        </table>
+        <!-- END OF TAB TOOLS -->
+      </div>
+    </div>
+  </div>
+
+  <input id="btnReset" onclick="ResetValues();" type="button" value="Reset Counter"/>
+  <script type="text/javascript">
+
+    //    var xhrRecieve = null;
+    //    xhrRecieve = new XMLHttpRequest();
+    var g_tmStartPerformance; // start time of performance measurement
+    var g_nTransfers=0; // number of transfers since start
+    var tblVar; // variable list table within the DOM
+    var tblLimits; // variable limit list table within the DOM
+    var tblLarge; // table (DOM) for large display
+    var g_arryMetaLarge; // meta info of large display variable
+    var g_arryMetaAll; // meta data of all variables;
+    var colorValue = ["#FA1BD5", "#B339FA", "#0D2CFA", "#000000", "#FAB62D", "#FA1808"]; // colors for values: negative critical, negative marginal, normal, positive marginal, positive critical
+    var g_arryAlert = new Array(); // alert in an array
+    var g_SuppressedAlerts = new Object();  // alerts not to be shown any more
+    var nLargeDisplayYCount = 2;
+    var nLargeDisplayXCount = 2;
+    var g_idIntervalIdentify = 0; // timer for hiding the indentification message
+    var objMe = { strClass: 'Display', strType: 'AbkDemoOnBrowser', strSerial:'0' };
+    var g_bStallValueList = false; // true stalls the output to the list
+
+
+
+
+
+
+
+    function OnLoggerEvent(objEvent)
+    {
+      var nList;
+
+      if (objEvent.Events)
+      {
+        AddEventsToDump(objEvent.Events);
+        for (var iterEvent in objEvent.Events)
+        {
+          ProcessEvent(objEvent.Events[iterEvent]);
+        }
+
+        // check for variable value limit alert
+        for (var iterEvent in objEvent.Events)
+        {
+          var objAlert = objEvent.Events[iterEvent];
+          if (objAlert.EventType == "LimitAlert")
+          {
+            AddAlert(objAlert);
+          }
+        }
+      }
+
+      if (objEvent.DataLists)
+      {
+        if (objEvent.DataLists.FirstList)
+        {
+          var nDataCount = objEvent.DataLists.FirstList.length;
+          if (g_bStallValueList == false)
+          {
+            for (nVar = 0; nVar < nDataCount; nVar++)
+            {
+              var varValue = objEvent.DataLists.FirstList[nVar];
+              varValue = varValue * g_arryMetaAll[nVar].Factor + g_arryMetaAll[nVar].Offset;
+              tblVar.rows[nVar + 1].cells[1].innerHTML = varValue.toFixed(2);
+            }
+          }
+          g_nTransfers += nDataCount;
+        }
+        if (objEvent.DataLists.LargeDisplayList)
+        {
+          var nDisplayCount = nLargeDisplayYCount * nLargeDisplayXCount;
+          for (var nDisplay = 0; nDisplay < nDisplayCount; nDisplay++)
+          {
+            var varValue = objEvent.DataLists.LargeDisplayList[nDisplay];
+            varValue = varValue * g_arryMetaLarge[nDisplay].Factor + g_arryMetaLarge[nDisplay].Offset;
+            var cellValue = document.getElementById("largeValue" + nDisplay);
+            cellValue.innerHTML = varValue.toFixed(2);
+            cellValue.style.color = GetValueColor(varValue, g_arryMetaLarge[nDisplay].Thresholds);
+          }
+          g_nTransfers += nDisplayCount;
+        }
+        if (objEvent.DataLists.Trend1)
+        {
+          var nDataCount = objEvent.DataLists.Trend1.length;
+          g_nTransfers += nDataCount;
+          // var strVal1 = objEvent.DataLists.Trend1;
+        }
+      }
+    }
+
+
+    function ResetValues()
+    {
+      AbkSetVarValue("Reifendruck", 12);
+
+    }
+
+    function GetVarList()
+    {
+      var objVarList = AbkHttpGet("/abk/variables/var_list");
+      var nVarCount = objVarList.VarList.length;
+
+      // page with values
+      var nColWidth = [200, 100, 80, "60%", 70, 70];
+      var strCaptions = ["Name", "Wert", "Einheit", "Kommentar", "Min", "Max"];
+      var pg = document.getElementById("pgMess");
+      var strHtml = WriteEmptyTableToString(nVarCount + 1, "tblValues", nColWidth, strCaptions);
+      strHtml += "<br/>Aktualisierungsrate: "
+      strHtml += "<input onclick='AbkSetDaqUpdateCycle(\"FirstList\",1000);' type='button' value='1 Hz' />&nbsp;";
+      strHtml += "<input onclick='AbkSetDaqUpdateCycle(\"FirstList\",100);' type='button' value='10 Hz' />&nbsp;";
+      strHtml += "<input onclick='AbkSetDaqUpdateCycle(\"FirstList\",10);' type='button' value='100 Hz' />&nbsp;";
+      strHtml += "&nbsp;&nbsp;Stall <input type='checkbox' id='ckStallListUpdae' value='' onclick='StallListUpdate(this.checked);' />";
+      strHtml += "&nbsp;&nbsp;&nbsp;&nbsp;Rate: <input id='TransfersPerSecond' style='width: 50px; text-align: right' /> values/s";
+      strHtml += "&nbsp;&nbsp;<input onclick='ResetPerformanceMeter()' type='button' value='Reset' />";
+      pg.innerHTML = strHtml;
+      tblVar = document.getElementById("tblValues");
+
+      // page with limit values
+      nColWidth = ["30%", "10%", "10%", "10%", "50%"];
+      strCaptions = ["Name", "Min", "Max", "Einheit", "Kommentar"];
+      pg = document.getElementById("pgLimits");
+      pg.innerHTML = WriteEmptyTableToString(nVarCount + 1, "tblLimits", nColWidth, strCaptions);
+      tblLimits = document.getElementById("tblLimits");
+
+      // page with large display
+      pg = document.getElementById("pgLargeDisplay");
+      strHtml = "<table cellpadding='20'>";
+      for (var nY = 0; nY < nLargeDisplayYCount; nY++)
+      {
+        strHtml += "<tr>";
+        for (var nX = 0; nX < nLargeDisplayXCount; nX++)
+        {
+          strHtml += "<td>" + WriteLargeDisplayToString(nY * nLargeDisplayXCount + nX) + "</td>";
+        }
+        strHtml += "</tr>";
+      }
+      strHtml += "</table>";
+      pg.innerHTML = strHtml;
+      var nDisplayCount = nLargeDisplayYCount * nLargeDisplayXCount;
+      for (var nCombo = 0; nCombo < nDisplayCount; nCombo++)
+        FillComboWithVars("cbLargeSelect" + nCombo, objVarList.VarList);
+      SyncForLargeSelect(); // init large display for first use
+
+      g_arryMetaAll = AbkGetVarMetaMultipleVars(objVarList.VarList);
+      for (nVar = 0; nVar < nVarCount; nVar++)
+      {
+        var strVarName = objVarList.VarList[nVar];
+        tblVar.rows[nVar + 1].cells[0].innerHTML = g_arryMetaAll[nVar].Name;
+        tblVar.rows[nVar + 1].cells[2].innerHTML = g_arryMetaAll[nVar].Unit;
+        tblVar.rows[nVar + 1].cells[3].innerHTML = g_arryMetaAll[nVar].Comment;
+        tblVar.rows[nVar + 1].cells[4].innerHTML = g_arryMetaAll[nVar].RangeMin;
+        tblVar.rows[nVar + 1].cells[5].innerHTML = g_arryMetaAll[nVar].RangeMax;
+
+        tblLimits.rows[nVar + 1].cells[0].innerHTML = g_arryMetaAll[nVar].Name;
+        tblLimits.rows[nVar + 1].cells[1].innerHTML = g_arryMetaAll[nVar].RangeMin;
+        tblLimits.rows[nVar + 1].cells[2].innerHTML = g_arryMetaAll[nVar].RangeMax;
+        tblLimits.rows[nVar + 1].cells[3].innerHTML = g_arryMetaAll[nVar].Unit;
+        tblLimits.rows[nVar + 1].cells[4].innerHTML = g_arryMetaAll[nVar].Comment;
+      }
+
+      // setup daq list for table
+      AbkSetupDaqList("FirstList", 1000, objVarList.VarList);
+
+
+      // ### test
+      // AbkSetupDaqTrend("Trend1", 1000, "Reifendruck");
+
+      // performance measurement
+      ResetPerformanceMeter();
+      window.setInterval("UpdatePerformaceMeter()", 100);
+
+
+    }
+
+
+
+
+
+
+
+
+
+
+    function ShowStatistics()
+    {
+
+      var objResponse = AbkHttpGet("/abk/system_information/interface_statistic");
+      var cellDump = document.getElementById("Statistics");
+      var strDump = DumpObject(objResponse);
+      // var strDump = JSON.stringify(objResponse,"");
+      cellDump.innerHTML = strDump;
+    }
+
+
+
+    function UpdatePerformaceMeter()
+    {
+      var tmNow = new Date();
+      var ctrlTransfersPerSecond = document.getElementById("TransfersPerSecond");
+      var tmUp = tmNow - g_tmStartPerformance;
+      var dRate = g_nTransfers / tmUp * 1000
+      ctrlTransfersPerSecond.value = dRate.toFixed(0);
+    }
+
+    function ResetPerformanceMeter()
+    {
+      g_nTransfers = 0;
+      g_tmStartPerformance = new Date();
+    }
+
+
+
+    function ShowServerInfo()
+    {
+      var objResponse = AbkHttpGet("/abk/system_information/server_info");
+      var cellDump = document.getElementById("VersionInfo");
+      var strDump = DumpObject(objResponse);
+      if (objResponse.DescriptionUrl)
+      {
+        document.writeln("<a href='" + objResponse.DescriptionUrl + "'>Logger-Beschreibung</a>");
+      }
+      cellDump.innerHTML = strDump;
+    }
+
+
+    function StallListUpdate(bStall)
+    {
+      g_bStallValueList = bStall;
+    }
+
+
+    function ShowServerTime()
+    {
+      document.getElementById("ServerTime").value = AbkGetServerTime();
+    }
+
+    function ShowServerStorage()
+    {
+      var objServerStorage = AbkHttpGet("/abk/system_information/storage_info");
+      document.getElementById("StorageTotal").value = (objServerStorage.Total / 1024 / 1024).toFixed(2);
+      document.getElementById("StorageFree").value = (objServerStorage.Free / 1024 / 1024).toFixed(2);
+    }
+
+    function ShowServerStatus()
+    {
+      ShowServerTime();
+      ShowServerStorage();
+    }
+
+
+
+
+
+
+
+
+
+    function DumpObject(arr, level)
+    {
+      var dumped_text = "";
+      if (!level) level = 0;
+
+      //The padding given at the beginning of the line.
+      var level_padding = "";
+      for (var j = 0; j < level + 1; j++) level_padding += "&nbsp;&nbsp;&nbsp;&nbsp;";
+
+      if (typeof (arr) == 'object')
+      { //Array/Hashes/Objects
+        for (var item in arr)
+        {
+          var value = arr[item];
+          if (typeof (value) == 'object')
+          { //If it is an array,
+            dumped_text += level_padding + "[-" + item + "-] ...<br />";
+            dumped_text += DumpObject(value, level + 1);
+          } else
+          {
+            dumped_text += level_padding + item + " : " + value + "<br />";
+          }
+        }
+      } else
+      { //Stings/Chars/Numbers etc.
+        dumped_text = "===>" + arr + "<===(" + typeof (arr) + ")";
+      }
+      return dumped_text;
+    }
+
+
+    function SyncForLargeSelect()
+    {
+      var nDisplayCount = nLargeDisplayYCount * nLargeDisplayXCount;
+      var objVarList = new Array();
+      for (nDisplay = 0; nDisplay < nDisplayCount; nDisplay++)
+      {
+        var cbSelection = document.getElementById("cbLargeSelect" + nDisplay);
+        var strVarName = cbSelection.options[cbSelection.options.selectedIndex].value;
+        objVarList[nDisplay] = strVarName;
+        }
+      g_arryMetaLarge= AbkGetVarMetaMultipleVars(objVarList);
+      for (nDisplay = 0; nDisplay < nDisplayCount; nDisplay++)
+      {
+        var cellUnit = document.getElementById("largeUnit" + nDisplay);
+        cellUnit.innerHTML = g_arryMetaLarge[nDisplay].Unit;
+        var cellName = document.getElementById("largeName" + nDisplay);
+        cellName.innerHTML = g_arryMetaLarge[nDisplay].Name;
+      }
+      AbkSetupDaqList("LargeDisplayList", null, objVarList);
+    }
+
+    function RestoreLargeSelect(objSelection)
+    {
+      var nDisplayCount = nLargeDisplayYCount * nLargeDisplayXCount;
+      for (nDisplay = 0; nDisplay < nDisplayCount; nDisplay++)
+      {
+        var cbSelection = document.getElementById("cbLargeSelect" + nDisplay);
+        var strVarName = objSelection[nDisplay];
+        var nIndex = 0;
+        for (nIndex = 0; nIndex < cbSelection.options.length; nIndex++)
+        {
+          if (cbSelection.options[nIndex].value == strVarName)
+            break;
+        }
+        if (nIndex < cbSelection.options.length)
+          cbSelection.selectedIndex = nIndex;
+      }
+      SyncForLargeSelect();
+    }
+
+    function GetLargeSelection()
+    {
+      var objVarList = new Array();
+      var nDisplayCount = nLargeDisplayYCount * nLargeDisplayXCount;
+      for (nDisplay = 0; nDisplay < nDisplayCount; nDisplay++)
+      {
+        var cbSelection = document.getElementById("cbLargeSelect" + nDisplay);
+        var strVarName = cbSelection.options[cbSelection.options.selectedIndex].value;
+        objVarList[nDisplay] = strVarName;
+      }
+      return objVarList;
+    }
+
+
+    function GetValueColor(dValue, arryThresholds)
+    {
+      var nThreshold;
+      for (nThreshold = 0; nThreshold < 5; nThreshold++)
+      {
+        if (dValue < arryThresholds[nThreshold])
+          break;
+      }
+      return colorValue[nThreshold];
+    }
+
+
+
+    function AddEventsToDump(objEvent)
+    {
+      var lstEvent = document.getElementById("eventdump");
+      for (var iterEvent in objEvent)
+      {
+        var strDump = "";
+        var nItem = 0;
+        for (var item in objEvent[iterEvent])
+        {
+          var value = objEvent[iterEvent][item];
+          if (nItem > 0)
+            strDump += "   |   ";
+          if (typeof (value) != 'object')
+          {
+            if ((typeof (value) == "string") && (item == "Time"))
+            {
+              value = AbkParseDate(value);
+              strDump += value.getDate() + "." + (value.getMonth() + 1) + "., " + value.toTimeString().slice(0, 8);
+            }
+            else
+            {
+              strDump += /*item + ": " +*/value;
+            }
+          }
+          nItem++;
+        }
+        lstEvent.add(new Option(strDump, 0), 0);
+        if (lstEvent.options.length > 10)
+          lstEvent.remove(10);
+      }
+    }
+
+
+    function ProcessEvent(objEvent)
+    {
+      var bPrimary = false;
+      if (objEvent.Role == "primary")
+        bPrimary = true;
+      switch (objEvent.EventType)
+      {
+        case "Button":
+          if ((objEvent.Sender == g_nSessionId) || (bPrimary)) // only process my own button events of if i am the primary client
+          {
+            if (objEvent.StringParam == "Right" && objEvent.Param1 == 0)
+            {
+              var tab = document.getElementById("tabber0");
+              kmrSimpleTabs.gotoNext(tab);
+            }
+            else if (objEvent.StringParam == "Left" && objEvent.Param1 == 0)
+            {
+              var tab = document.getElementById("tabber0");
+              kmrSimpleTabs.gotoPrev(tab);
+            }
+          }
+          break;
+        case "MeasurementStopped":
+          if (bPrimary)
+            ShowRouteDialog();
+          break;
+        case "MeasurementStarted":
+          if (bPrimary)
+            ShowRouteDialog();
+          break;
+        case "Identify":
+          ShowIdentification(objEvent.StringParam, true);
+          break;
+        case "AppChanged":
+          window.location.reload();
+          break;
+        case "FormRequired":
+          if (bPrimary)
+            ShowForm(objEvent.StringParam);
+          break;
+      }
+    }
+    
+    
+    AbkGetClientAddress(); // query the client address (the server knows it)
+
+    // open a session
+    AbkGetSession(objMe.strClass,objMe.strType,objMe.strSerial);
+    document.getElementById("SessionId").value = g_nSessionId;
+
+
+
+    // get the list of variables
+    GetVarList();
+
+
+
+    // see also http://www.bennadel.com/blog/1504-Ask-Ben-Parsing-CSV-Strings-With-Javascript-Exec-Regular-Expression-Command.htm
+    // This will parse a delimited string into an array of arrays. The default delimiter is the comma, but this can be overriden in the second argument. 
+    function CSVToArray(strData, strDelimiter)
+    {
+      strDelimiter = (strDelimiter || ","); // Check to see if the delimiter is defined. If not, then default to comma. 
+      // Create a regular expression to parse the CSV values.
+      var objPattern = new RegExp((/*Delimiters: */"(\\" + strDelimiter + "|\\r?\\n|\\r|^)" + /*Quoted fields: */"(?:\"([^\"]*(?:\"\"[^\"]*)*)\"|" + /*Standard fields: */"([^\"\\" + strDelimiter + "\\r\\n]*))"), "gi");
+      var arrData = [[]]; // Create an array to hold our data. Give the array a default empty first row. 
+      var arrMatches = null; // Create an array to hold our individual pattern matching groups. 
+      while (arrMatches = objPattern.exec(strData))
+      { // Keep looping over the regular expression matches until we can no longer find a match. 
+        var strMatchedDelimiter = arrMatches[1]; // Get the delimiter that was found.
+        // Check to see if the given delimiter has a length (is not the start of string) and if it matches field delimiter. If id does not, then we know that this delimiter is a row delimiter.
+        if (strMatchedDelimiter.length && (strMatchedDelimiter != strDelimiter))
+        {
+          arrData.push([]); // Since we have reached a new row of data, add an empty row to our data array.
+        }
+        // Now that we have our delimiter out of the way, let's check to see which kind of value we captured (quoted or unquoted). 
+        if (arrMatches[2])
+          var strMatchedValue = arrMatches[2].replace(new RegExp("\"\"", "g"), "\""); // We found a quoted value. When we capture this value, unescape any double quotes.
+        else
+          var strMatchedValue = arrMatches[3]; // We found a non-quoted value.
+        arrData[arrData.length - 1].push(strMatchedValue); // Now that we have our value string, let's add it to the data array.
+      }
+      return (arrData);
+    }
+
+
+    function DHTMLSound(surl)
+    {
+      document.getElementById("soundspan").innerHTML = "<embed src='" + surl + "' hidden=true autostart=true loop=false>";
+    }
+
+
+    function ShowAlerts()
+    {
+      var divShader = document.getElementById('backshader');
+      var nAlerts = g_arryAlert.length;
+      if (nAlerts > 0)
+      {
+        divShader.style.display = "";
+        var strInnterHtml="";
+        var nBox;
+        for (nBox = 0; nBox < nAlerts; nBox++)
+        {
+          var objAlert = g_arryAlert[nBox];
+          strInnterHtml += "<div id='alertbox" + nBox + "' class='alertbox' style='left:" + (nBox + 1) * 30 + "px; top:" + (nBox + 1) * 30 + "px;'>";
+          strInnterHtml += "<u>"+objAlert.Message + "</u><br/>";
+
+          if (objAlert.EventType == "LimitAlert")
+          {
+            var objAuxData = objAlert.AuxData;
+            strInnterHtml += "Messstelle:" + objAuxData.Name + "<br/>Wert bei Überschreitung: " + objAuxData.Value + "<br/>";
+            var VarValue = AbkGetVarValue(objAuxData.Name);
+          }
+
+          strInnterHtml += AbkParseDate(objAlert.Time);
+          strInnterHtml += "<input id='AlertButtonConfirm' onclick='RemoveAlert(" + nBox + ")' type='button' value='Schließen' />";
+          strInnterHtml += "&nbsp; &nbsp; &nbsp; &nbsp; <input type='checkbox' name='ckInhibit' onclick='InhibitAlert(" + nBox + ")' /> Nicht mehr anzeigen";
+          strInnterHtml += "</div>";
+        }
+        divShader.innerHTML = strInnterHtml;
+      }
+      else
+      {
+        divShader.style.display = "none";
+        divShader.innerHTML = "";
+      }
+    }
+
+    function RemoveAlert(nIndex)
+    {
+      g_arryAlert.splice(nIndex, 1);
+      ShowAlerts();
+    }
+
+    function InhibitAlert(nIndex)
+    {
+      var objAlert = g_arryAlert[nIndex];
+      var strHash = objAlert.EventType + objAlert.strContext;
+      g_SuppressedAlerts[strHash] = { nCounter: 0 }; ; // the not-show-state
+    }
+
+    function AlertMaintainPersistance()
+    {
+      var nAlert;
+      for (nAlert = 0; nAlert < g_arryAlert.length; nAlert++)
+      {
+        if (g_arryAlert[nAlert].nPersistance > 0)
+        {
+          g_arryAlert[nAlert].nPersistance--;
+          if (g_arryAlert[nAlert].nPersistance == 0)
+          {
+            RemoveAlert(nAlert);
+            nAlert--;
+          }
+        }
+      }
+    }
+
+    function AlertSort(a, b)
+    {
+      return a.Severity - b.Severity;
+    }
+
+    function AddAlert(objAlert)
+    {
+      objAlert.nPersistance = -1; // default: infinite display of the alert
+      objAlert.strContext = ""; // default context
+      var bStackable = false; // default: when same alert type with same context, the alert will be suppressed
+      var nDisplayCount = -1; // default: do not suppress, show alert infinite times
+      var strSound = "Alert.wav";
+      if (objAlert.EventType == "LimitAlert")
+      {
+        objAlert.Severity = 3;
+        // objAlert.nPersistance = 3;
+        nDisplayCount = 5; // show 5 times
+        objAlert.Message = "Grenzwertüberschreitung";
+        objAlert.AuxData = JSON.parse(objAlert.StringParam);
+        objAlert.strContext = objAlert.AuxData.Name; // context, may prevent from double showing an alert the same time
+      }
+
+      var bSuppress = false; // true if alert shall be suppressed
+      if (!bStackable)
+      {
+        var nAlert;
+        for (nAlert = 0; nAlert < g_arryAlert.length; nAlert++)
+        {
+          if ((g_arryAlert[nAlert].strContext == objAlert.strContext) && (g_arryAlert[nAlert].EventType == objAlert.EventType))
+          {
+            bSuppress = true;
+            break;
+          }
+        }
+      }
+
+      if (bSuppress == false)
+      {
+        // check for suppression of alert in the suppression list
+        var strHash = objAlert.EventType + objAlert.strContext;
+        if (g_SuppressedAlerts[strHash])
+        { // if suppression info available
+          var objSuppress = g_SuppressedAlerts[strHash];
+          if (objSuppress.nCounter == 0)
+          {
+            bSuppress = true;
+          }
+          else if (objSuppress.nCounter > 0)
+          {
+            objSuppress.nCounter--;
+          }
+        }
+        else
+        {
+          if (nDisplayCount >= 0)
+          {
+            g_SuppressedAlerts[strHash] = { nCounter: 5 };
+            g_SuppressedAlerts[strHash].nCounter = nDisplayCount - 1;
+          }
+        }
+      }
+
+      if (bSuppress == false)
+      {
+        g_arryAlert.push(objAlert);
+        if (strSound != "")
+        {
+          DHTMLSound(strSound);
+        }
+        g_arryAlert.sort(AlertSort); // sort according to severity
+        ShowAlerts();
+      }
+    }
+
+
+    function ShowForm(strFormName)
+    {
+      var divForm1 = document.getElementById('dialog');
+      divForm1.style.display = "";
+      var strInnterHtml = AbkGetFormAsHtml(strFormName, "FormOnButton");
+      divForm1.innerHTML = strInnterHtml;
+    }
+
+    function FormOnButton(strFormName, strFireButtonName)
+    {
+      if (AbkSendForm(strFormName, strFireButtonName))
+      {
+        var divForm1 = document.getElementById('dialog');
+        divForm1.style.display = "none";
+        divForm1.innerHTML = "";
+      }
+    }
+
+
+    // route dialog demo
+    var g_idIntervalProgress = 0;
+    var g_bTransferStarted = false;
+
+    function ShowRouteDialog()
+    {
+      var divDialog = document.getElementById('dialog');
+      divDialog.style.display = "";
+      var strInnterHtml;
+      strInnterHtml = "<h2>Streckeneingabe</h2><br/>";
+
+      strInnterHtml += "<table border='0' cellpadding='5' cellspacing='0'>";
+      strInnterHtml += "<tr><td>Streckenauswahl</td><td><select size='1' style='width: 200px' id='cbRoute' /></td></tr>";
+      strInnterHtml += "<tr><td>Speicherort</td><td><select size='1' style='width: 200px' id='cbStorage' /></td></tr>";
+      strInnterHtml += "</table>";
+      strInnterHtml += "<br/><span id='spanTransferStatus'>Bitte geben Sie die Strecke ein und wählen Sie die Speicherart</span>";
+      strInnterHtml += "<br/><br/><input id='TransferStart' onclick='StartDataTransfer()' type='button' value='Start' />";
+      divDialog.innerHTML = strInnterHtml;
+
+      // read Strecken.txt and fill to the combo
+      xhrSend.open("GET", "/Strecken.txt", false);
+      xhrSend.setRequestHeader("If-Modified-Since", new Date(0));
+      xhrSend.send(); // JSON.stringify(objSend));
+      if (xhrSend.readyState == 4 && xhrSend.status == 200)
+      {
+        var strRouteList = xhrSend.responseText;
+        var objRoutes = CSVToArray(strRouteList);
+        var cbRoute = document.getElementById("cbRoute");
+        for (nRoute in objRoutes)
+        {
+          var strRoute = objRoutes[nRoute][0];
+          var elOptNew = document.createElement('option');
+          elOptNew.text = strRoute;
+          elOptNew.value = strRoute;
+          cbRoute.add(elOptNew, null);
+        }
+
+        // get the storage options
+        var objStorage = AbkHttpPost("/abk/variables/mailbox_value", { GetList: ["StorageMedia"] });
+        objStorage = CSVToArray(objStorage.Data[0]);
+        var cbStorage = document.getElementById("cbStorage");
+        for (nStorage in objStorage)
+        {
+          var strStorageKey = objStorage[nStorage][0];
+          var strStorageText = objStorage[nStorage][1];
+          var elOptNew = document.createElement('option');
+          elOptNew.text = strStorageText;
+          elOptNew.value = strStorageKey;
+          cbStorage.add(elOptNew, null);
+        }
+
+        g_bTransferStarted = false;
+        g_idIntervalProgress = window.setInterval("UpdateransferStatus()", 500);
+      }
+
+
+
+
+
+
+    }
+
+    function StartDataTransfer()
+    {
+      var cbStorage = document.getElementById("cbStorage");
+      var cbRoute = document.getElementById("cbRoute");
+      var btnTransfer = document.getElementById("TransferStart");
+      var spanStatus = document.getElementById("spanTransferStatus");
+      cbStorage.disabled = true;
+      cbRoute.disabled = true;
+      btnTransfer.disabled = true;
+      spanStatus.innerHTML = "Übertragung wird gestartet...";
+
+      // send event that user wants to start the data transfer
+      var strRoute = cbRoute.options[cbRoute.options.selectedIndex].value;
+      var strStorage = cbStorage.options[cbStorage.options.selectedIndex].value;
+      var strEventInfo = JSON.stringify({ Route: strRoute, Storage: strStorage });
+      AbkSendEvent("Custom_StartDataTransfer", strEventInfo, 1, 0,false);
+    }
+
+    function UpdateransferStatus()
+    {
+      var spanStatus = document.getElementById("spanTransferStatus");
+      var objTransfer = AbkHttpPost("/abk/variables/mailbox_value", { GetList: ["TransferProgress", "TransferStatus"] });
+      var btnTransfer = document.getElementById("TransferStart");
+      var nProgress = objTransfer.Data[0];
+      var strStatus = objTransfer.Data[1];
+      if (nProgress >= 0)
+      {
+        g_bTransferStarted = true;
+        spanStatus.innerHTML = "Status: " + strStatus;
+        btnTransfer.disabled = true;
+      }
+      if ((nProgress < 0) && (g_bTransferStarted)) // if transfer got completed
+        HideRouteDialog();
+    }
+
+    function HideRouteDialog()
+    {
+      var divDialog = document.getElementById('dialog');
+      divDialog.style.display = "none";
+      divDialog.innerHTML = "";
+      window.clearInterval(g_idIntervalProgress);
+    }
+
+
+
+
+    function ShowIdentification(strMessage, bOn)
+    {
+      var divShader = document.getElementById('backshader');
+      if (bOn)
+      {
+        divShader.style.display = "";
+        divShader.innerHTML = "<br/><br/>" + strMessage;
+        g_idIntervalIdentify=window.setInterval("ShowIdentification('',false)", 3000);
+      }
+      else
+      {
+        divShader.style.display = "none";
+        divShader.innerHTML = "";
+        window.clearInterval(g_idIntervalIdentify);
+      }
+
+    }
+
+
+    function End()
+    {
+      AbkDeleteSession();
+      var objState=GetLargeSelection();
+      var strState=JSON.stringify(objState);
+      AbkPutClientState(objMe.strClass, objMe.strType, objMe.strSerial, strState);
+    }
+
+
+    var poller = new AbkEventPoller(OnLoggerEvent);
+
+    window.setInterval("ShowStatistics()", 500);
+    window.setInterval("ShowServerStatus()", 500);
+    window.setInterval("AlertMaintainPersistance()", 1000); // maintain auto-removing alerts
+
+    window.onbeforeunload = End;
+
+
+    if ("WebSocket" in window)
+    {
+      // alert("WebSocket is supported by your Browser!");
+    }
+    else
+    {
+      // alert("WebSocket NOT supported by your Browser!");
+    }
+
+
+    // var Socket = new WebSocket(url, [protocal]);
+
+
+  </script>
+  <div id="backshader" class="blackback" style="display: none;">
+  </div>
+  <div id="dialog" class="dialog" style="display: none;">
+  </div>
+  <div id="soundspan" />
+  <div id="helpbubble1" class="helpbubble" style="display: none" onclick="HideHelp();" />
+
+  <script type="text/javascript">
+    ShowServerInfo();
+
+    var strState = AbkGetClientState(objMe.strClass, objMe.strType, objMe.strSerial);
+    if (strState)
+    {
+      var objState = JSON.parse(strState);
+      RestoreLargeSelect(objState);
+    }
+
+
+  </script>
+</body>
+</html>

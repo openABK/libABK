@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 10.00
+# Visual Studio 2008
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ClientLibCe7", "ClientLib\ClientLibCe7.vcproj", "{409BD4D0-1CA8-4CC7-9BF0-95A296CDE3EF}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Toradex_CE700 (ARMv4I) = Debug|Toradex_CE700 (ARMv4I)
+		Release|Toradex_CE700 (ARMv4I) = Release|Toradex_CE700 (ARMv4I)
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{409BD4D0-1CA8-4CC7-9BF0-95A296CDE3EF}.Debug|Toradex_CE700 (ARMv4I).ActiveCfg = Debug|Toradex_CE700 (ARMv4I)
+		{409BD4D0-1CA8-4CC7-9BF0-95A296CDE3EF}.Debug|Toradex_CE700 (ARMv4I).Build.0 = Debug|Toradex_CE700 (ARMv4I)
+		{409BD4D0-1CA8-4CC7-9BF0-95A296CDE3EF}.Debug|Toradex_CE700 (ARMv4I).Deploy.0 = Debug|Toradex_CE700 (ARMv4I)
+		{409BD4D0-1CA8-4CC7-9BF0-95A296CDE3EF}.Release|Toradex_CE700 (ARMv4I).ActiveCfg = Release|Toradex_CE700 (ARMv4I)
+		{409BD4D0-1CA8-4CC7-9BF0-95A296CDE3EF}.Release|Toradex_CE700 (ARMv4I).Build.0 = Release|Toradex_CE700 (ARMv4I)
+		{409BD4D0-1CA8-4CC7-9BF0-95A296CDE3EF}.Release|Toradex_CE700 (ARMv4I).Deploy.0 = Release|Toradex_CE700 (ARMv4I)
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

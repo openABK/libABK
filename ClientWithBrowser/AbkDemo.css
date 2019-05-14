@@ -1,0 +1,62 @@
+body
+{
+  margin: 3px;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: medium;
+  background-color: #CCCCCC;
+}
+td
+{
+  border-width: thin;
+}
+
+
+.whatIsThis
+{
+  margin: 3px;
+  background-color: #FFFFCC;
+  border: 1px solid #C0C0C0;
+  font-size: small;
+  color: #CF3830;
+  font-weight: bold;
+  cursor: help;
+}
+
+.helpbubble
+{
+  z-index:1000;
+  padding: 10px;
+  background-color: #FFFFCC;
+  border: 1px solid #C0C0C0;
+  color: #808080;
+  position: fixed;
+  font-size: small;
+}
+
+.alertbox
+{
+  background-color: white;
+  position: fixed;
+  width: 300px;
+  height: 120px;
+  text-align: center;
+  vertical-align: middle;
+  border: thick dashed red;
+  padding: 5px;
+  font-size: medium;
+  color: #000000;
+}
+    
+.dialog
+{
+  background-color: white;
+  position: fixed;
+  top: 100px;
+  left: 50px;
+  width: 500px;
+  height: 300px;
+  vertical-align: middle;
+  border: medium solid black;
+  padding: 20px;
+}
+
