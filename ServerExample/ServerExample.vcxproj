@@ -68,6 +68,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>AbkServerLib.lib;HttpServerLib.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>..\ServerLib\$(PlatformName)\$(Configuration);..\HttpServerLib\$(PlatformName)\$(Configuration)</AdditionalLibraryDirectories>
+      <AdditionalOptions>/ignore:4254 %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -89,6 +90,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalDependencies>AbkServerLib.lib;HttpServerLib.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>..\ServerLib\$(PlatformName)\$(Configuration);..\HttpServerLib\$(PlatformName)\$(Configuration)</AdditionalLibraryDirectories>
+      <AdditionalOptions>/ignore:4254 %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>

@@ -69,6 +69,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>AbkClientLib.lib;MfcToolsLib.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>..\ClientLib\$(PlatformName)\$(Configuration);..\..\mfc-tools\$(PlatformName)\$(Configuration)</AdditionalLibraryDirectories>
+      <AdditionalOptions>/ignore:4254 %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -90,6 +91,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalLibraryDirectories>..\ClientLib\$(PlatformName)\$(Configuration);..\..\mfc-tools\$(PlatformName)\$(Configuration)</AdditionalLibraryDirectories>
       <AdditionalDependencies>AbkClientLib.lib;MfcToolsLib.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions>/ignore:4254 %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
