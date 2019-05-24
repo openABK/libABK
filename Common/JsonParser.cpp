@@ -949,49 +949,75 @@ bool CJsonParser::ScanDate (const char *pszDate, size_t nLen, time_t *pReturn) c
 //--------------------------------------------------------------------------
 // UnescapeString()        unescapes a string
 // ----------------
-// Input: strStart = 
-//        strEnd = 
-//        strGet = 
-// Return: 
+// Input: pStart = [in] start of the escaped source string
+//        pEnd = [in] end of the escaped source string. It points to the fist position behind the unescaped string
+//        pGet = [out] string to receive the result
+// Return: true if succeeded, false if unsupported character encountered
 
 /*static*/ bool CJsonParser::UnescapeString (const char *pStart, const char *pEnd, std::string *pGet)
   {
   assert(pStart);
   assert(pEnd);
-  const char *pSrc;
-  pGet->clear();
-  for(pSrc=pStart;pSrc<pEnd;pSrc++)
+  assert(pGet);
+  bool bSuccess=true;
+  if(pStart==pEnd)
+    pGet->clear();
+  else
     {
-    char c=*pSrc;
-    if(c=='\\')
+    int nJunkCount=0;
+    const char *pSrc;
+    char cBuf[256]; // temporary buffer in order to avoid frequent append() operations
+    size_t nBufEntities=0; // number of entities in the buffer
+    for(pSrc=pStart;pSrc<pEnd;pSrc++)
       {
-      pSrc++;
-      c=*pSrc;
-      switch(c)
+      char c=*pSrc;
+      if(c=='\\')
         {
-      case 'b':
-        c='\b';
-        break;
-      case 'f':
-        c='\f';
-        break;
-      case 'n':
-        c='\n';
-        break;
-      case 'r':
-        c='\r';
-        break;
-      case 't':
-        c='\t';
-        break;
-      case 'u':
-        assert(false); // \u not implemented
-        break;
+        pSrc++;
+        c=*pSrc;
+        switch(c)
+          {
+        case 'b':
+          c='\b';
+          break;
+        case 'f':
+          c='\f';
+          break;
+        case 'n':
+          c='\n';
+          break;
+        case 'r':
+          c='\r';
+          break;
+        case 't':
+          c='\t';
+          break;
+        case 'u':
+          assert(false); // \u not implemented
+          bSuccess=false;
+          break;
+          }
+        }
+      cBuf[nBufEntities++]=c;
+      if(nBufEntities>=_countof(cBuf))
+        {
+        if(nJunkCount==0)
+          pGet->assign(cBuf,nBufEntities);
+        else
+          pGet->append(cBuf,nBufEntities);
+        nBufEntities=0;
+        ++nJunkCount;
         }
       }
-    pGet->append(1,c);
+    if(nBufEntities)
+      {
+      if(nJunkCount==0)
+        pGet->assign(cBuf,nBufEntities);
+      else
+        pGet->append(cBuf,nBufEntities);
+      }
     }
-  return true;
+  return bSuccess;
   }
 
 
