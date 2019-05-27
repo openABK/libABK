@@ -23,11 +23,11 @@
 #pragma once
 
 
-#include <winsock2.h>
 #include <string>
 #include <map>
 #include <vector>
 #include <afxmt.h>
+#include <winsock2.h>
 
 
 
