@@ -46,7 +46,7 @@
 #ifndef WINCE
 #include <process.h>
 #endif
-#include <winsock.h>
+#include <winsock2.h>
 //#include <io.h>
 #else
 #error Please define your target system

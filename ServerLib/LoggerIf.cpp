@@ -2228,6 +2228,7 @@ void CLoggerInterface::FireEventToAllClientsFormClose (std::string formName)
 void CLoggerInterface::FireEventToAllClientsVarlistChanged ()
   {
   FireEventToAllClients(ABK_SVREVENT_VARLISTCHANGED);
+  m_bFirstRequest = true;
   }
 
 
