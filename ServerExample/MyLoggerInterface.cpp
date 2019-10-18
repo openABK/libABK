@@ -168,7 +168,7 @@ void CMyVarRef::SetLocation (CMyFakeLogger *pLogger, bool bMailbox, int nIndex)
   if(IsMailbox())
     {
     FAKEMAILBOX *pLoggerMailbox=m_pLogger->GetMailbox(m_nIndex);
-    if(pLoggerMailbox->nDataType==CMyFakeLogger::DATATYPE_DOUBLE)
+    pLoggerMailbox->nDataType=CMyFakeLogger::DATATYPE_DOUBLE;
       pLoggerMailbox->dValue=dSet;
     }
   else

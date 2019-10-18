@@ -26,7 +26,7 @@
 #include <atlhttp.h>
 #include <string>
 #include <sstream>
-#include <list>
+#include <vector>
 #include <map>
 #include "CrossPlatform.h"
 #include "LogQueue.h"
@@ -99,8 +99,8 @@ namespace Abk
         bool GetLastModified (LPCTSTR pszUrl, CTime *pGet); // returns the last modified date of a file by given url
         template <typename U> bool GetVarOrMailboxValue (LPCTSTR pszPath, const char *pszName, U *pGet); // queries value of variable or mailbox
         template <typename U> bool SetVarOrMailboxValue (LPCTSTR pszPath, const char *pszName, const U *pSet); // sets value of variable or mailbox
-        bool GetVarOrMailboxMeta (const std::list<LPCTSTR> &lstVarNames, std::list<CAbkClientMeta> *pGet, bool bMailboxFlag); // requests meta data of a variables or mailboxes
-        bool GetVarOrMailboxList (LPCTSTR pszPath, std::list<CString> *pGet); // requests list of variables or mailboxes
+        bool GetVarOrMailboxMeta (const std::vector<LPCTSTR> &lstVarNames, std::vector<CAbkClientMeta> *pGet, bool bMailboxFlag); // requests meta data of a variables or mailboxes
+        bool GetVarOrMailboxList (LPCTSTR pszPath, std::vector<CString> *pGet); // requests list of variables or mailboxes
       };
 
     public:
@@ -114,7 +114,7 @@ namespace Abk
         TYPE m_nType; // type of form element
         CString m_strName; // name of the entity
         CString m_strCaption; // caption of the entity
-        std::list<CString> m_lstOptions; // options for list/combo
+        std::vector<CString> m_vectOptions; // options for list/combo
         _variant_t m_varValue; // value of the element
         int m_nMaxLen; // maximum length for edit type. 0 if no limitation desired
         UINT m_nFlags; // attribute-flags
@@ -259,18 +259,18 @@ namespace Abk
       bool SetMailboxValue (LPCTSTR pszMailboxName, int nSet); // sets a mailbox value
       bool SetMailboxValue (LPCTSTR pszMailboxName, bool bSet); // sets a mailbox value
       bool SetMailboxValue (LPCTSTR pszMailboxName, const CTime &tmSet); // sets a mailbox value
-      bool GetVarMeta (const std::list<LPCTSTR> &lstVarNames, std::list<CAbkClientMeta> *pGet); // requests meta data of one or more variables
+      bool GetVarMeta (const std::vector<LPCTSTR> &lstVarNames, std::vector<CAbkClientMeta> *pGet); // requests meta data of one or more variables
       bool GetVarMeta (LPCTSTR pszVarName, CAbkClientMeta *pGet); // requests meta data of a variable
-      bool GetMailboxMeta (const std::list<LPCTSTR> &lstMailboxNames, std::list<CAbkClientMeta> *pGet); // requests meta data of a mailbox
+      bool GetMailboxMeta (const std::vector<LPCTSTR> &vectMailboxNames, std::vector<CAbkClientMeta> *pGet); // requests meta data of a mailbox
       bool GetMailboxMeta (LPCTSTR pszMailboxName, CAbkClientMeta *pGet); // requests meta data of a mailbox
-      bool GetVarList (std::list<CString> *pGet); // requests list of variables
-      bool GetMailboxList (std::list<CString> *pGet); // requests list of mailboxes
-      bool GetForm (LPCTSTR pszFormName, std::list<CFormElement> &lstGet, CString &strCaptionGet, int &nPersitenceMs); // requests a form
-      bool SendForm (LPCTSTR pszFormName, const std::list<CFormElement> &lstSend); // sends a form
+      bool GetVarList (std::vector<CString> *pGet); // requests list of variables
+      bool GetMailboxList (std::vector<CString> *pGet); // requests list of mailboxes
+      bool GetForm (LPCTSTR pszFormName, std::vector<CFormElement> &lstGet, CString &strCaptionGet, int &nPersitenceMs); // requests a form
+      bool SendForm (LPCTSTR pszFormName, const std::vector<CFormElement> &lstSend); // sends a form
       const char *GetClientState (LPCTSTR pszFileExtension); // reads client configuration from server
       bool SetClientState (const char *pConfigString, LPCTSTR pszFileExtension); // writes client configuration to server
       bool GetClientConfigInfo (CString &strUrl, CString &strMd5, LPCTSTR pszClientType=NULL); // queries the client configuration/app information
-      bool GetClientFirmwareInfo (std::list<CFirmwareInfo> &lstGet, LPCTSTR pszClientType=NULL); // queries the available client firmware information
+      bool GetClientFirmwareInfo (std::vector<CFirmwareInfo> &lstGet, LPCTSTR pszClientType=NULL); // queries the available client firmware information
       bool DownloadFile (LPCTSTR pszUrl, LPCTSTR pszStorePath, PFNATLSTATUSCALLBACK pfnReadCallback=NULL, DWORD_PTR dwCookie=0); // downloads a file
       bool DownloadFile (LPCTSTR pszUrl, CFile &fileStore, PFNATLSTATUSCALLBACK pfnReadCallback=NULL, DWORD_PTR dwCookie=0); // downloads a file
       const char *GetServerInfo (void); // returns server information as json formatted string
