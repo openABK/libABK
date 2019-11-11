@@ -23,14 +23,16 @@
 
 #pragma once
 
-#include <atlhttp.h>
 #include <string>
 #include <sstream>
 #include <vector>
 #include <map>
 #include "CrossPlatform.h"
 #include "LogQueue.h"
+#ifndef NO_ATL
+#include <atlhttp.h>
 #include <afxmt.h>
+#endif
 #include <comutil.h>
 
 
