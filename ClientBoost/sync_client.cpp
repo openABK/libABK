@@ -8,16 +8,93 @@
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
 
+#include "stdafx.h"
 #include <iostream>
 #include <istream>
 #include <ostream>
 #include <string>
-#include <boost/asio.hpp>
 
+#include "JsonFormatter.h"
+#include "JsonParser.h"
+#include "ValuesFromSpec.h"
+
+#include "LogQueue.h"
+
+using namespace Abk;
 using boost::asio::ip::tcp;
+
+class CAbkClient
+{
+public:
+	  enum LOGSEVERITY  // inherit the log severities from the logging queue
+		{
+		LOGSEVERITY_INFO    =CLogQueue<TCHAR>::LOGSEVERITY_INFO    ,
+		LOGSEVERITY_DEBUG   =CLogQueue<TCHAR>::LOGSEVERITY_DEBUG   ,
+		LOGSEVERITY_TRACE   =CLogQueue<TCHAR>::LOGSEVERITY_TRACE   ,
+		LOGSEVERITY_WARNING =CLogQueue<TCHAR>::LOGSEVERITY_WARNING ,
+		LOGSEVERITY_ERROR   =CLogQueue<TCHAR>::LOGSEVERITY_ERROR
+		};
+	
+public:
+	CJsonFormatter formatter;
+	const char *NavigatePost (LPCTSTR pszPath, int nSessionId, CJsonFormatter *pPostData)
+	{
+		std::cout << pszPath << std::endl;
+		return "{\"SessionId\":19}";
+	}
+	
+	void AddLog (LOGSEVERITY nSeverity, LPCTSTR pszMessage, ...)
+	  {
+	  va_list args;
+	  va_start(args,pszMessage);
+	  //AddLogV(nSeverity,pszMessage,args);
+	  vprintf(pszMessage, args);
+	  va_end(args);
+	  }
+	
+	int ObtainSessionId (LPCTSTR pszClientClass, LPCTSTR pszClientType, LPCTSTR pszClientSerial/*=NULL*/)
+	  {
+	  int nSessionId=-1; // result
+	  assert(pszClientClass);
+	  assert(pszClientType);
+	  CJsonFormatter jfPost;
+	  jfPost.WriteValue(ABK_REQ_SESSIONID_CLASS,CT2A(pszClientClass));
+	  jfPost.WriteValue(ABK_REQ_SESSIONID_TYPE,CT2A(pszClientType));
+	  if(pszClientSerial)
+		jfPost.WriteValue(ABK_REQ_SESSIONID_SERIAL,CT2A(pszClientSerial));
+
+	  const char *pReturn=NavigatePost(_T(ABK_REQUESTURL_SESSIONID),-1,&jfPost);
+	  if(!pReturn)
+		return -1;
+
+	  // extract the session id
+	  CJsonParser parsResponse(pReturn);
+	  for(;!parsResponse.IsDone();++parsResponse)
+		parsResponse.ExtractValue(ABK_RSP_SESSIONID_ID,&nSessionId);
+	  if(nSessionId<0)
+		{
+		AddLog(LOGSEVERITY_ERROR,_T("Got no session id from server."));
+		return -1;
+		}
+	  return nSessionId;
+	  }
+};
 
 int main(int argc, char* argv[])
 {
+	CAbkClient testClient;
+	CJsonFormatter formatter;
+	testClient.NavigatePost("/abk/events/server_event", 1, &formatter);
+	int sessionId = testClient.ObtainSessionId("Display", "EMBU-Sys_EMBU-Boost", "12-34-45-67-89-0a");
+	
+	std::cout << "Got session id: " << sessionId << std::endl;
+	
+	
+	bool bPrivate = true;
+	formatter.WriteValue("private",bPrivate);
+	formatter.Close();
+	
+	std::cout << "Formatter output: " << formatter.GetStream()->str() << std::endl;
   try
   {
 /*     if (argc != 3)
