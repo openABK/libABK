@@ -22,7 +22,7 @@
 #include "stdafx.h"
 #include "JsonParserAtl.h"
 #include <assert.h>
-#include <afxdisp.h>
+//#include <afxdisp.h>
 #include <comutil.h>
 
 //--------------------------------------------------------------------------
@@ -128,14 +128,14 @@ bool CJsonParserAtl::ExtractValueAtl (_variant_t &rGet) const
       if((c=='.')||(c=='e')||(c=='E')||(c==',')) // these characters identify a floating point
         {
         double dValue;
-        if(!__super::ExtractValue(&dValue))
+        if(!CJsonParser::ExtractValue(&dValue))
           return false;
         rGet=dValue;
         return true;
         }
       }
     int nValue;
-    if(!__super::ExtractValue(&nValue))
+    if(!CJsonParser::ExtractValue(&nValue))
       return false;
     rGet.vt=VT_I4;
     rGet.lVal=nValue;
@@ -164,7 +164,11 @@ bool CJsonParserAtl::ExtractValueAtl (_variant_t &rGet) const
     if(!ExtractValueAtl(strGet))
       return false;
     rGet=strGet;
-    if(_tcscmp(rGet.bstrVal,(LPCTSTR)strGet))
+    #ifndef OLE2ANSI
+    if(_tcscmp(CW2T(rGet.bstrVal),(LPCTSTR)strGet))
+    #else
+    if(_tcscmp(CA2T(rGet.bstrVal),(LPCTSTR)strGet))
+    #endif
       {
       ASSERT(FALSE);
       }

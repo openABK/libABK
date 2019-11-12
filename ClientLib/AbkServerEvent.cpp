@@ -160,7 +160,7 @@ BOOL CAbkServerEvent::CData::IsButton (void) const
 
 CString CAbkServerEvent::CData::GetButtonName (void) const
   {
-  return CString(CA2T(m_strParam.c_str(),CP_UTF8));
+  return CString(CA2T(m_strParam.c_str()));
   }
 
 
@@ -208,7 +208,7 @@ BOOL CAbkServerEvent::CData::IsWheel (void) const
 
 CString CAbkServerEvent::CData::GetWheelName (void) const
   {
-  return CString(CA2T(m_strParam.c_str(),CP_UTF8));
+  return CString(CA2T(m_strParam.c_str()));
   }
 
 
@@ -256,7 +256,7 @@ BOOL CAbkServerEvent::CData::IsIdentification (void) const
 
 CString CAbkServerEvent::CData::GetIndentificationMessage (void) const
   {
-  return CString(CA2T(m_strParam.c_str(),CP_UTF8));
+  return CString(CA2T(m_strParam.c_str()));
   }
 
 
@@ -340,7 +340,7 @@ BOOL CAbkServerEvent::CData::IsFormClose (void) const
 
 CString CAbkServerEvent::CData::GetFormName (void) const
   {
-  return CString(CA2T(m_strParam.c_str(),CP_UTF8));
+  return CString(CA2T(m_strParam.c_str()));
   }
 
 

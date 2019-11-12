@@ -19,6 +19,7 @@
 #include "ValuesFromSpec.h"
 
 #include "LogQueue.h"
+#include "AbkServerEvent.h"
 
 using namespace Abk;
 using boost::asio::ip::tcp;
@@ -78,6 +79,18 @@ public:
 		}
 	  return nSessionId;
 	  }
+	  
+	bool Create (LPCTSTR pszServerAddress, int nPort, CAbkServerEvent *pEventRxBuffer, LPCTSTR pszClientClass, LPCTSTR pszClientType, LPCTSTR pszClientSerial=NULL)
+	{
+		std::stringstream sstream;
+		
+		sstream << nPort;
+		std::string szPort(sstream.str());
+		
+		std::cout << "Printing port: " << szPort << std::endl;
+		return true;
+	}
+
 };
 
 int main(int argc, char* argv[])
@@ -86,6 +99,9 @@ int main(int argc, char* argv[])
 	CJsonFormatter formatter;
 	testClient.NavigatePost("/abk/events/server_event", 1, &formatter);
 	int sessionId = testClient.ObtainSessionId("Display", "EMBU-Sys_EMBU-Boost", "12-34-45-67-89-0a");
+	
+	CAbkServerEvent seAbk;
+	testClient.Create(_T("localhost"), 8080, &seAbk, _T("Display"), _T("EMBU-Sys_EMBU-Boost"), _T("01-23-45-67-89-ab"));
 	
 	std::cout << "Got session id: " << sessionId << std::endl;
 	
