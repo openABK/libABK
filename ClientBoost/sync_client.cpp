@@ -37,6 +37,17 @@ public:
 		};
 	
 public:
+	boost::asio::io_context io_context;
+	tcp::resolver resolver/*(io_context)*/;
+	tcp::socket socket/*(io_context)*/;
+
+public:
+	CAbkClient() : resolver(io_context), socket(io_context)
+	{
+		
+	}
+
+public:
 	CJsonFormatter formatter;
 	const char *NavigatePost (LPCTSTR pszPath, int nSessionId, CJsonFormatter *pPostData)
 	{
@@ -86,54 +97,14 @@ public:
 		
 		sstream << nPort;
 		std::string szPort(sstream.str());
+		std::string hostname(pszServerAddress);
 		
 		std::cout << "Printing port: " << szPort << std::endl;
-		return true;
-	}
-
-};
-
-int main(int argc, char* argv[])
-{
-	CAbkClient testClient;
-	CJsonFormatter formatter;
-	testClient.NavigatePost("/abk/events/server_event", 1, &formatter);
-	int sessionId = testClient.ObtainSessionId("Display", "EMBU-Sys_EMBU-Boost", "12-34-45-67-89-0a");
-	
-	CAbkServerEvent seAbk;
-	testClient.Create(_T("localhost"), 8080, &seAbk, _T("Display"), _T("EMBU-Sys_EMBU-Boost"), _T("01-23-45-67-89-ab"));
-	
-	std::cout << "Got session id: " << sessionId << std::endl;
-	
-	
-	bool bPrivate = true;
-	formatter.WriteValue("private",bPrivate);
-	formatter.Close();
-	
-	std::cout << "Formatter output: " << formatter.GetStream()->str() << std::endl;
-  try
-  {
-/*     if (argc != 3)
-    {
-      std::cout << "Usage: sync_client <server> <path>\n";
-      std::cout << "Example:\n";
-      std::cout << "  sync_client www.boost.org /LICENSE_1_0.txt\n";
-      return 1;
-    } */
-
-    boost::asio::io_context io_context;
-
-	const std::string hostname = "localhost";
-
-    // Get a list of endpoints corresponding to the server name.
-    tcp::resolver resolver(io_context);
-    tcp::resolver::results_type endpoints = resolver.resolve(hostname, "8080");
-
-    // Try each endpoint until we successfully establish a connection.
-    tcp::socket socket(io_context);
-    boost::asio::connect(socket, endpoints);
-	
-	const std::string storage_info = "/abk/system_information/storage_info?SessionId=4";
+		
+		tcp::resolver::results_type endpoints = resolver.resolve(hostname, szPort);
+		boost::asio::connect(socket, endpoints);
+		
+			const std::string storage_info = "/abk/system_information/storage_info?SessionId=4";
 	const std::string server_event = "/abk/events/server_event?SessionId=4";
 
     // Form the request. We specify the "Connection: close" header so that the
@@ -208,6 +179,55 @@ int main(int argc, char* argv[])
       std::cout << &response;
     if (error != boost::asio::error::eof)
       throw boost::system::system_error(error);
+		
+		return true;
+	}
+
+};
+
+int main(int argc, char* argv[])
+{
+	CAbkClient testClient;
+	CJsonFormatter formatter;
+	testClient.NavigatePost("/abk/events/server_event", 1, &formatter);
+	int sessionId = testClient.ObtainSessionId("Display", "EMBU-Sys_EMBU-Boost", "12-34-45-67-89-0a");
+	
+
+	
+	std::cout << "Got session id: " << sessionId << std::endl;
+	
+	
+	bool bPrivate = true;
+	formatter.WriteValue("private",bPrivate);
+	formatter.Close();
+	
+	std::cout << "Formatter output: " << formatter.GetStream()->str() << std::endl;
+  try
+  {
+/*     if (argc != 3)
+    {
+      std::cout << "Usage: sync_client <server> <path>\n";
+      std::cout << "Example:\n";
+      std::cout << "  sync_client www.boost.org /LICENSE_1_0.txt\n";
+      return 1;
+    } */
+
+    //boost::asio::io_context io_context;
+
+	//const std::string hostname = "localhost";
+	
+	CAbkServerEvent seAbk;
+	testClient.Create(_T("localhost"), 8080, &seAbk, _T("Display"), _T("EMBU-Sys_EMBU-Boost"), _T("01-23-45-67-89-ab"));
+
+    // Get a list of endpoints corresponding to the server name.
+    //tcp::resolver resolver(io_context);
+    //tcp::resolver::results_type endpoints = resolver.resolve(hostname, "8080");
+
+    // Try each endpoint until we successfully establish a connection.
+    //tcp::socket socket(io_context);
+    //boost::asio::connect(socket, endpoints);
+	
+
   }
   catch (std::exception& e)
   {
