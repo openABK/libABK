@@ -57,6 +57,10 @@
 
 #include <sstream>
 #include <boost/asio.hpp>
+#include <boost/unordered_map.hpp>
+#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/case_conv.hpp>
+#include <boost/lexical_cast.hpp>
 
 #include "afxwrapper.h"
 //

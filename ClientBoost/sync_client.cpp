@@ -24,6 +24,8 @@
 using namespace Abk;
 using boost::asio::ip::tcp;
 
+typedef boost::exception AbkException;
+
 class CAbkClient
 {
 public:
@@ -57,6 +59,31 @@ private:
 		E_HTTP_GET,
 		E_HTTP_POST,
 		E_HTTP_PUT
+	};
+
+
+	enum eHttpHeaders {
+		E_HEADER_INVALID,
+		E_HEADER_CONTENT_LENGTH,
+		E_HEADER_CONNECTION
+	};
+
+/** Converts a string to lower case before comparing */
+	struct insensitive_hash {
+		std::size_t operator ()(const std::string &value) const
+		{
+			std::string copy(value);
+			boost::to_lower(copy);
+			return boost::hash<std::string>()(copy);
+		}
+	};
+
+
+	typedef boost::unordered_map<std::string, eHttpHeaders, insensitive_hash> HashMap;
+	// Maps a string to enum values
+	const HashMap m_HashMap = {
+		{"Content-Length", E_HEADER_CONTENT_LENGTH},
+		{"Connection", E_HEADER_CONNECTION}
 	};
 
 	size_t WriteToSocket(tcp::socket & a_Socket, const std::string & a_Path, const std::string & a_Message, eHttpRequestType a_Type)
@@ -93,6 +120,17 @@ private:
 		return boost::asio::write(socket, request);
 	}
 
+	eHttpHeaders GetEnumFromString(const std::string &str) const
+	{
+		eHttpHeaders returnValue = E_HEADER_INVALID;
+		HashMap::const_iterator search = m_HashMap.find(str);
+		if(search != m_HashMap.end())
+		{
+			returnValue = search->second;
+		}
+		return returnValue;
+	}
+
 	size_t ReadFromSocket(tcp::socket & a_Socket, std::string & a_Message)
 	{
 		// Read the response status line. The response streambuf will automatically
@@ -123,16 +161,31 @@ private:
 		// Read the response headers, which are terminated by a blank line.
 		boost::asio::read_until(socket, response, "\r\n\r\n");
 
+		size_t responseBytesExpected;
+
 		// Process the response headers.
 		std::string header;
 		while (std::getline(response_stream, header) && header != "\r")
-			std::cout << header << "\n";
+		{
+				std::cout << header << "\n";
+
+				std::vector<std::string> header_tokens;
+				// TODO: if a value potentially has a space, this breaks
+				// Consider transforming this to std::find
+				boost::split(header_tokens, header, boost::is_any_of(": \r"), boost::token_compress_on);
+				eHttpHeaders headerType = GetEnumFromString(header_tokens[0]);
+				if(headerType == E_HEADER_CONTENT_LENGTH)
+				{
+					if(!boost::conversion::try_lexical_convert<size_t, std::string>(header_tokens[1], responseBytesExpected))
+						responseBytesExpected = -1;
+				}
+		}
 		std::cout << "\n";
 
-		size_t responseBytesRead;
 		std::stringstream sstream;
-		// Write whatever content we already have to output.
-		if (response.size() > 0)
+
+		size_t responseBytesRead = response.size();
+		if (responseBytesRead > 0)
 			sstream << &response;
 
 		// Read until EOF, writing data to output as we go.
@@ -144,6 +197,7 @@ private:
 			throw boost::system::system_error(error);
 
 		a_Message = sstream.str();
+		return responseBytesExpected;
 	}
 
 public:
