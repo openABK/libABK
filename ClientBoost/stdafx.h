@@ -55,6 +55,7 @@
 #endif
 #endif
 
+#include <sstream>
 #include <boost/asio.hpp>
 
 #include "afxwrapper.h"
