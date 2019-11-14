@@ -24,7 +24,13 @@
 using namespace Abk;
 using boost::asio::ip::tcp;
 
-typedef boost::exception AbkException;
+typedef boost::exception BaseException;
+
+struct AbkException : virtual BaseException {};
+struct AbkNetworkException : virtual AbkException {};
+
+// tag is used to differentiate to avoid unintentional casts
+typedef boost::error_info<struct tag_network_info, int> AbkNetworkExceptionInfo;
 
 class CAbkClient
 {
@@ -88,36 +94,43 @@ private:
 
 	size_t WriteToSocket(tcp::socket & a_Socket, const std::string & a_Path, const std::string & a_Message, eHttpRequestType a_Type)
 	{
-		boost::asio::streambuf request;
-		std::ostream request_stream(&request);
-
-		switch(a_Type)
+		try
 		{
-			case E_HTTP_GET:
-				request_stream << "GET ";
-				break;
-			case E_HTTP_POST:
-				request_stream << "POST ";
-				break;
-			case E_HTTP_PUT:
-				request_stream << "PUT ";
-				break;
-			default:
-				request_stream << "GET ";
-				break;
+			boost::asio::streambuf request;
+			std::ostream request_stream(&request);
+
+			switch(a_Type)
+			{
+				case E_HTTP_GET:
+					request_stream << "GET ";
+					break;
+				case E_HTTP_POST:
+					request_stream << "POST ";
+					break;
+				case E_HTTP_PUT:
+					request_stream << "PUT ";
+					break;
+				default:
+					request_stream << "GET ";
+					break;
+			}
+			
+			request_stream << "/abk/system_information/session_id";
+			request_stream << " HTTP/1.0\r\n";
+
+			request_stream << "Host: " << m_pszServerAddress << "\r\n";
+			request_stream << "Content-Length: " << a_Message.size() << "\r\n";
+			request_stream << "Content-Type: application/json\r\n";
+			request_stream << "User-Agent: AbkClientBoost\r\n";
+			request_stream << "Connection: keep-alive\r\n\r\n";
+			request_stream << a_Message;
+
+			return boost::asio::write(socket, request);
 		}
-		
-		request_stream << "/abk/system_information/session_id";
-		request_stream << " HTTP/1.0\r\n";
-
-		request_stream << "Host: " << m_pszServerAddress << "\r\n";
-		request_stream << "Content-Length: " << a_Message.size() << "\r\n";
-		request_stream << "Content-Type: application/json\r\n";
-		request_stream << "User-Agent: AbkClientBoost\r\n";
-		request_stream << "Connection: keep-alive\r\n\r\n";
-		request_stream << a_Message;
-
-		return boost::asio::write(socket, request);
+		catch (std::exception & e)
+		{
+			throw AbkNetworkException();
+		}
 	}
 
 	eHttpHeaders GetEnumFromString(const std::string &str) const
@@ -150,12 +163,12 @@ private:
 		if (!response_stream || http_version.substr(0, 5) != "HTTP/")
 		{
 			std::cout << "Invalid response\n";
-			return 1;
+			return -1;
 		}
 		if (status_code != 200)
 		{
 			std::cout << "Response returned with status code " << status_code << "\n";
-			return 1;
+			return -1;
 		}
 
 		// Read the response headers, which are terminated by a blank line.
@@ -222,11 +235,19 @@ public:
 			boost::asio::connect(socket, endpoints);
 		}
 
-		WriteToSocket(socket, pszPath, strPostData, E_HTTP_POST);
 		std::string response;
-		ReadFromSocket(socket, response);
-		
-		std::cout << "Response was: " << response << std::endl;
+		try
+		{
+			WriteToSocket(socket, pszPath, strPostData, E_HTTP_POST);
+			ReadFromSocket(socket, response);
+
+			std::cout << "Response was: " << response << std::endl;
+		}
+		catch(AbkNetworkException &e)
+		{
+			std::cerr << "Failed to navigate post due to Network exception" << std::endl;
+			response.clear();
+		}
 		return response;
 	}
 
