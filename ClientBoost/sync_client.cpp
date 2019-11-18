@@ -92,6 +92,31 @@ private:
 		{"Connection", E_HEADER_CONNECTION}
 	};
 
+	size_t WriteToSocket(tcp::socket & a_Socket, const std::string & a_Path, eHttpRequestType a_Type)
+	{
+		try
+		{
+			boost::asio::streambuf request;
+			std::ostream request_stream(&request);
+
+			assert(a_Type == E_HTTP_GET);
+
+			request_stream << "GET ";
+			request_stream << a_Path;
+			request_stream << " HTTP/1.1\r\n";
+
+			request_stream << "Host: " << m_pszServerAddress << "\r\n";
+			request_stream << "User-Agent: AbkClientBoost\r\n";
+			request_stream << "Connection: keep-alive\r\n\r\n";
+
+			return boost::asio::write(socket, request);
+		}
+		catch (std::exception & e)
+		{
+			throw AbkNetworkException();
+		}
+	}
+
 	size_t WriteToSocket(tcp::socket & a_Socket, const std::string & a_Path, const std::string & a_Message, eHttpRequestType a_Type)
 	{
 		try
@@ -103,6 +128,8 @@ private:
 			{
 				case E_HTTP_GET:
 					request_stream << "GET ";
+					// There's no reason why you would like to use GET with a message
+					assert(false);
 					break;
 				case E_HTTP_POST:
 					request_stream << "POST ";
@@ -111,18 +138,20 @@ private:
 					request_stream << "PUT ";
 					break;
 				default:
-					request_stream << "GET ";
+					request_stream << "POST ";
 					break;
 			}
 			
-			request_stream << "/abk/system_information/session_id";
+			request_stream << a_Path;
 			request_stream << " HTTP/1.1\r\n";
 
 			request_stream << "Host: " << m_pszServerAddress << "\r\n";
+			request_stream << "User-Agent: AbkClientBoost\r\n";
+			request_stream << "Connection: keep-alive\r\n";
+
 			request_stream << "Content-Length: " << a_Message.size() << "\r\n";
 			request_stream << "Content-Type: application/json\r\n";
-			request_stream << "User-Agent: AbkClientBoost\r\n";
-			request_stream << "Connection: keep-alive\r\n\r\n";
+			request_stream << "\r\n";
 			request_stream << a_Message;
 
 			return boost::asio::write(socket, request);
@@ -263,6 +292,7 @@ public:
 	std::string NavigatePost(LPCTSTR pszPath, int nSessionId, CJsonFormatter *pPostData)
 	{
 		assert(pPostData);
+		assert(pszPath);
 		assert(!m_pszServerAddress.empty());
 		//assert(pPostData->GetStream());
 		//assert(pPostData->GetStream()->rdbuf()->in_avail > 0);
@@ -281,9 +311,40 @@ public:
 		}
 		catch(AbkNetworkException &e)
 		{
-			std::cerr << "Failed to navigate post due to Network exception" << std::endl;
+			std::cerr << "Failed to navigate POST due to Network exception" << std::endl;
 			response.clear();
 		}
+		return response;
+	}
+
+	std::string NavigateGet(LPCTSTR pszPath, int nSessionId)
+	{
+		assert(pszPath);
+		std::string response;
+
+		if(!EnsureConnection())
+			return response;
+
+		try
+		{
+			if (nSessionId >= 0)
+			{
+				CString strPathAndQuery;
+				strPathAndQuery.Format(_T("%s?") _T(ABK_QRY_SESSIONID) _T("=%d"), pszPath, nSessionId);
+				WriteToSocket(socket, std::string(strPathAndQuery), E_HTTP_GET);
+			}
+			else
+			{
+				WriteToSocket(socket, std::string(pszPath), E_HTTP_GET);
+			}
+			ReadFromSocket(socket, response);
+		}
+		catch(AbkNetworkException &e)
+		{
+			std::cerr << "Failed to navigate GET due to Network exception" << std::endl;
+			response.clear();
+		}
+
 		return response;
 	}
 
@@ -361,48 +422,27 @@ public:
 
 		return true;
 	}
+
+	std::string GetServerInfo(void)
+	{
+		if(!IsConnected())
+			return nullptr;
+
+		return NavigateGet(_T(ABK_REQUESTURL_SERVERINFO), -1);
+	}
 };
 
 int main(int argc, char *argv[])
 {
 	CAbkClient testClient;
-	//CJsonFormatter formatter;
-	//testClient.NavigatePost("/abk/events/server_event", 1, &formatter);
+	CAbkServerEvent seAbk;
+	testClient.Create(_T("localhost"), 8080, &seAbk, _T("Display"), _T("EMBU-Sys_EMBU-Boost"), _T("01-23-45-67-89-ab"));
 
+	int sessionId = testClient.ObtainSessionId("Display", "EMBU-Sys_EMBU-Boost", "12-34-45-67-89-0a");
 
-	//std::cout << "Got session id: " << sessionId << std::endl;
+	std::cout << "Obtained session id: " << sessionId << std::endl;
+	std::cout << "Server info: " << testClient.GetServerInfo() << std::endl;
 
-	//bool bPrivate = true;
-	//formatter.WriteValue("private", bPrivate);
-	//formatter.Close();
-
-	//std::cout << "Formatter output: " << formatter.GetStream()->str() << std::endl;
-		/*     if (argc != 3)
-    {
-      std::cout << "Usage: sync_client <server> <path>\n";
-      std::cout << "Example:\n";
-      std::cout << "  sync_client www.boost.org /LICENSE_1_0.txt\n";
-      return 1;
-    } */
-
-		//boost::asio::io_context io_context;
-
-		//const std::string hostname = "localhost";
-
-		CAbkServerEvent seAbk;
-		testClient.Create(_T("localhost"), 8080, &seAbk, _T("Display"), _T("EMBU-Sys_EMBU-Boost"), _T("01-23-45-67-89-ab"));
-
-		int sessionId = testClient.ObtainSessionId("Display", "EMBU-Sys_EMBU-Boost", "12-34-45-67-89-0a");
-
-		std::cout << "Obtained session id: " << sessionId << std::endl;
-
-		// Get a list of endpoints corresponding to the server name.
-		//tcp::resolver resolver(io_context);
-		//tcp::resolver::results_type endpoints = resolver.resolve(hostname, "8080");
-
-		// Try each endpoint until we successfully establish a connection.
-		//tcp::socket socket(io_context);
-		//boost::asio::connect(socket, endpoints);
 
 	return 0;
 }
