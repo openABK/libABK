@@ -55,8 +55,16 @@
 #endif
 #endif
 
+#include <iostream>
+#include <istream>
+#include <ostream>
+#include <string>
+#include <fstream>
+
 #include <sstream>
 #include <boost/asio.hpp>
+#include <boost/iostreams/device/array.hpp>
+#include <boost/iostreams/stream.hpp>
 #include <boost/unordered_map.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/case_conv.hpp>

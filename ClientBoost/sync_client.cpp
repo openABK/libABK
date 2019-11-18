@@ -9,10 +9,6 @@
 //
 
 #include "stdafx.h"
-#include <iostream>
-#include <istream>
-#include <ostream>
-#include <string>
 
 #include "JsonFormatter.h"
 #include "JsonParser.h"
@@ -175,6 +171,14 @@ private:
 
 	size_t ReadFromSocket(tcp::socket & a_Socket, std::string & a_Message)
 	{
+		std::stringstream sstream;
+		size_t bytes = ReadFromSocket(a_Socket, sstream);
+		a_Message = sstream.str();
+		return bytes;
+	}
+
+	size_t ReadFromSocket(tcp::socket & a_Socket, std::ostream & sstream)
+	{
 		try
 		{
 			// Read the response status line. The response streambuf will automatically
@@ -226,8 +230,6 @@ private:
 			}
 			std::cout << "\n";
 
-			std::stringstream sstream;
-
 			// Inspect remaining size
 			size_t responseBytesRead = response.size();
 			if (responseBytesRead > 0)
@@ -248,15 +250,14 @@ private:
 			//if (error != boost::asio::error::eof)
 			//	throw boost::system::system_error(error);
 
-			a_Message = sstream.str();
 			return responseBytesExpected;
 		}
 		catch (std::exception &e)
 		{
-			std::cerr << "Failed to read from socket: " << e.what() << std::endl;
-			return 0;
+			//std::cerr << "Failed to read from socket: " << e.what() << std::endl;
+			throw AbkNetworkException();
 		}
-
+		return 0;
 	}
 
 public:
@@ -317,6 +318,14 @@ public:
 		return response;
 	}
 
+/** Used to retrieve a string at a certain path
+	@param pszPath
+		Path on the server
+	@param nSessionId
+		Session ID to use in query, set to -1 to query without
+	@return
+		Response string
+ */
 	std::string NavigateGet(LPCTSTR pszPath, int nSessionId)
 	{
 		assert(pszPath);
@@ -346,6 +355,36 @@ public:
 		}
 
 		return response;
+	}
+
+	bool NavigateGet(LPCTSTR pszPath, int nSessionId, std::ostream & out)
+	{
+		assert(pszPath);
+
+		if (!EnsureConnection())
+			return false;
+
+		try
+		{
+			if (nSessionId >= 0)
+			{
+				CString strPathAndQuery;
+				strPathAndQuery.Format(_T("%s?") _T(ABK_QRY_SESSIONID) _T("=%d"), pszPath, nSessionId);
+				WriteToSocket(socket, std::string(strPathAndQuery), E_HTTP_GET);
+			}
+			else
+			{
+				WriteToSocket(socket, std::string(pszPath), E_HTTP_GET);
+			}
+			ReadFromSocket(socket, out);
+			return true;
+		}
+		catch (AbkNetworkException &e)
+		{
+			std::cerr << "Failed to navigate GET due to Network exception" << std::endl;
+		}
+
+		return false;
 	}
 
 	void AddLog(LOGSEVERITY nSeverity, LPCTSTR pszMessage, ...)
@@ -430,6 +469,40 @@ public:
 
 		return NavigateGet(_T(ABK_REQUESTURL_SERVERINFO), -1);
 	}
+
+
+
+/** Called when server sent an event.
+ 
+	You can override this function to receive events.
+	This function is called in the long-polling-thread's context.
+
+ 	@param pEventData
+ 		Pointer to event with the params of the event
+ 	@return
+ 		Point to event object, receiving the next event.
+	@remark
+        You can either return the same event object when you have only
+        one buffer for event reception. Alternatively you can return a
+        pointer to another event object if you have a queue. In this case
+        pEventData must be deleted manually
+*/
+	virtual CAbkServerEvent *OnServerEvent(CAbkServerEvent *pEventData)
+	{
+		// default implementation: use the same event object for the next event
+		return pEventData;
+	}
+
+	bool DownloadFile (LPCTSTR pszUrl, std::ostream & out)
+	{
+		return NavigateGet(pszUrl, -1, out);
+	}
+
+	bool DownloadFile (LPCTSTR pszUrl, LPCTSTR pszStorePath)
+	{
+		std::ofstream file(CT2A(pszStorePath), std::ofstream::out);
+		return DownloadFile(pszUrl, file);
+	}
 };
 
 int main(int argc, char *argv[])
@@ -443,6 +516,11 @@ int main(int argc, char *argv[])
 	std::cout << "Obtained session id: " << sessionId << std::endl;
 	std::cout << "Server info: " << testClient.GetServerInfo() << std::endl;
 
+	testClient.DownloadFile(_T(ABK_REQUESTURL_VARLIST), "varlist.txt");
+
+	char bufDest[8192];
+	boost::iostreams::stream<boost::iostreams::array_sink> memoryStream(bufDest, sizeof(bufDest));
+	testClient.DownloadFile(_T("/abk/client_states/Display_AbkDemoOnBrowser_0.txt"), memoryStream);
 
 	return 0;
 }
