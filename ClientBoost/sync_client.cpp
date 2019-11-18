@@ -116,7 +116,7 @@ private:
 			}
 			
 			request_stream << "/abk/system_information/session_id";
-			request_stream << " HTTP/1.0\r\n";
+			request_stream << " HTTP/1.1\r\n";
 
 			request_stream << "Host: " << m_pszServerAddress << "\r\n";
 			request_stream << "Content-Length: " << a_Message.size() << "\r\n";
@@ -146,40 +146,42 @@ private:
 
 	size_t ReadFromSocket(tcp::socket & a_Socket, std::string & a_Message)
 	{
-		// Read the response status line. The response streambuf will automatically
-		// grow to accommodate the entire line. The growth may be limited by passing
-		// a maximum size to the streambuf constructor.
-		boost::asio::streambuf response;
-		boost::asio::read_until(socket, response, "\r\n");
-
-		// Check that response is OK.
-		std::istream response_stream(&response);
-		std::string http_version;
-		response_stream >> http_version;
-		unsigned int status_code;
-		response_stream >> status_code;
-		std::string status_message;
-		std::getline(response_stream, status_message);
-		if (!response_stream || http_version.substr(0, 5) != "HTTP/")
+		try
 		{
-			std::cout << "Invalid response\n";
-			return -1;
-		}
-		if (status_code != 200)
-		{
-			std::cout << "Response returned with status code " << status_code << "\n";
-			return -1;
-		}
+			// Read the response status line. The response streambuf will automatically
+			// grow to accommodate the entire line. The growth may be limited by passing
+			// a maximum size to the streambuf constructor.
+			boost::asio::streambuf response;
+			boost::asio::read_until(socket, response, "\r\n");
 
-		// Read the response headers, which are terminated by a blank line.
-		boost::asio::read_until(socket, response, "\r\n\r\n");
+			// Check that response is OK.
+			std::istream response_stream(&response);
+			std::string http_version;
+			response_stream >> http_version;
+			unsigned int status_code;
+			response_stream >> status_code;
+			std::string status_message;
+			std::getline(response_stream, status_message);
+			if (!response_stream || http_version.substr(0, 5) != "HTTP/")
+			{
+				std::cout << "Invalid response\n";
+				return -1;
+			}
+			if (status_code != 200)
+			{
+				std::cout << "Response returned with status code " << status_code << "\n";
+				return -1;
+			}
 
-		size_t responseBytesExpected;
+			// Read the response headers, which are terminated by a blank line.
+			boost::asio::read_until(socket, response, "\r\n\r\n");
 
-		// Process the response headers.
-		std::string header;
-		while (std::getline(response_stream, header) && header != "\r")
-		{
+			size_t responseBytesExpected;
+
+			// Process the response headers.
+			std::string header;
+			while (std::getline(response_stream, header) && header != "\r")
+			{
 				std::cout << header << "\n";
 
 				std::vector<std::string> header_tokens;
@@ -187,36 +189,73 @@ private:
 				// Consider transforming this to std::find
 				boost::split(header_tokens, header, boost::is_any_of(": \r"), boost::token_compress_on);
 				eHttpHeaders headerType = GetEnumFromString(header_tokens[0]);
-				if(headerType == E_HEADER_CONTENT_LENGTH)
+				if (headerType == E_HEADER_CONTENT_LENGTH)
 				{
-					if(!boost::conversion::try_lexical_convert<size_t, std::string>(header_tokens[1], responseBytesExpected))
+					if (!boost::conversion::try_lexical_convert<size_t, std::string>(header_tokens[1], responseBytesExpected))
 						responseBytesExpected = -1;
 				}
+			}
+			std::cout << "\n";
+
+			std::stringstream sstream;
+
+			// Inspect remaining size
+			size_t responseBytesRead = response.size();
+			if (responseBytesRead > 0)
+				sstream << &response;
+
+			// Not enough bytes available, read more lines
+			if (responseBytesRead < responseBytesExpected)
+			{
+				boost::system::error_code error;
+				while (responseBytesRead += boost::asio::read(socket, response,
+										 boost::asio::transfer_at_least(responseBytesExpected - responseBytesRead), error))
+					sstream << &response;
+			}
+
+			assert(responseBytesExpected == responseBytesRead);
+
+			// eof means end of transmission and is being emitted when the connection is closed
+			//if (error != boost::asio::error::eof)
+			//	throw boost::system::system_error(error);
+
+			a_Message = sstream.str();
+			return responseBytesExpected;
 		}
-		std::cout << "\n";
+		catch (std::exception &e)
+		{
+			std::cerr << "Failed to read from socket: " << e.what() << std::endl;
+			return 0;
+		}
 
-		std::stringstream sstream;
-
-		size_t responseBytesRead = response.size();
-		if (responseBytesRead > 0)
-			sstream << &response;
-
-		// Read until EOF, writing data to output as we go.
-		boost::system::error_code error;
-		while (boost::asio::read(socket, response,
-								 boost::asio::transfer_at_least(1), error))
-			sstream << &response;
-		if (error != boost::asio::error::eof)
-			throw boost::system::system_error(error);
-
-		a_Message = sstream.str();
-		return responseBytesExpected;
 	}
 
 public:
 	bool IsConnected()
 	{
 		return socket.is_open();
+	}
+
+private:
+
+	bool EnsureConnection()
+	{
+		try
+		{
+			if (!IsConnected())
+			{
+
+				tcp::resolver::results_type endpoints = resolver.resolve(m_pszServerAddress, m_pszPort);
+				boost::asio::connect(socket, endpoints);
+			}
+
+			return IsConnected();
+		}
+		catch (boost::exception &e)
+		{
+			std::cerr << "Failed to connect due to exception" << std::endl;
+			return false;
+		}
 	}
 
 public:
@@ -228,14 +267,11 @@ public:
 		//assert(pPostData->GetStream());
 		//assert(pPostData->GetStream()->rdbuf()->in_avail > 0);
 		std::string strPostData=pPostData->GetStream()->str();
-
-		if(!IsConnected())
-		{
-			tcp::resolver::results_type endpoints = resolver.resolve(m_pszServerAddress, m_pszPort);
-			boost::asio::connect(socket, endpoints);
-		}
-
 		std::string response;
+
+		if(!EnsureConnection())
+			return response;
+
 		try
 		{
 			WriteToSocket(socket, pszPath, strPostData, E_HTTP_POST);
@@ -298,7 +334,17 @@ public:
 		std::cout << "Printing port: " << m_pszPort << std::endl;
 
 		tcp::resolver::results_type endpoints = resolver.resolve(m_pszServerAddress, m_pszPort);
-		boost::asio::connect(socket, endpoints);
+
+		try
+		{
+			boost::asio::connect(socket, endpoints);
+		}
+		catch (const std::exception &e)
+		{
+			std::cerr << e.what() << '\n';
+		}
+
+		//boost::asio::connect(socket, endpoints);
 
 		const std::string storage_info = "/abk/system_information/storage_info?SessionId=4";
 		const std::string server_event = "/abk/events/server_event?SessionId=4";
@@ -331,8 +377,6 @@ int main(int argc, char *argv[])
 	//formatter.Close();
 
 	//std::cout << "Formatter output: " << formatter.GetStream()->str() << std::endl;
-	try
-	{
 		/*     if (argc != 3)
     {
       std::cout << "Usage: sync_client <server> <path>\n";
@@ -350,7 +394,7 @@ int main(int argc, char *argv[])
 
 		int sessionId = testClient.ObtainSessionId("Display", "EMBU-Sys_EMBU-Boost", "12-34-45-67-89-0a");
 
-		std::cout << "Obtained session id" << sessionId << std::endl;
+		std::cout << "Obtained session id: " << sessionId << std::endl;
 
 		// Get a list of endpoints corresponding to the server name.
 		//tcp::resolver resolver(io_context);
@@ -359,11 +403,6 @@ int main(int argc, char *argv[])
 		// Try each endpoint until we successfully establish a connection.
 		//tcp::socket socket(io_context);
 		//boost::asio::connect(socket, endpoints);
-	}
-	catch (std::exception &e)
-	{
-		std::cout << "Exception: " << e.what() << "\n";
-	}
 
 	return 0;
 }
