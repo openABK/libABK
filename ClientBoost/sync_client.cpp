@@ -200,7 +200,8 @@ private:
 				std::cout << "Invalid response\n";
 				return -1;
 			}
-			if (status_code != 200)
+			// We still want to receive error messages
+			if (!(status_code == 200 || (status_code >= 400 && status_code <= 499)))
 			{
 				std::cout << "Response returned with status code " << status_code << "\n";
 				return -1;
@@ -316,6 +317,35 @@ public:
 			response.clear();
 		}
 		return response;
+	}
+
+// TODO: MIME type
+	bool NavigatePut(LPCTSTR pszPath, int nSessionId, CJsonFormatter *pPutData)
+	{
+		assert(pPutData);
+		assert(pszPath);
+		assert(!m_pszServerAddress.empty());
+		//assert(pPostData->GetStream());
+		//assert(pPostData->GetStream()->rdbuf()->in_avail > 0);
+		std::string strPutData = pPutData->GetStream()->str();
+		std::string response;
+
+		if (!EnsureConnection())
+			return false;
+
+		try
+		{
+			WriteToSocket(socket, pszPath, strPutData, E_HTTP_PUT);
+			ReadFromSocket(socket, response);
+
+			std::cout << "Response was: " << response << std::endl;
+		}
+		catch (AbkNetworkException &e)
+		{
+			std::cerr << "Failed to navigate POST due to Network exception" << std::endl;
+			response.clear();
+		}
+		return !response.empty();
 	}
 
 /** Used to retrieve a string at a certain path
@@ -503,6 +533,27 @@ public:
 		std::ofstream file(CT2A(pszStorePath), std::ofstream::out);
 		return DownloadFile(pszUrl, file);
 	}
+
+	template <typename U>
+	bool SetVarOrMailboxValue (LPCTSTR pszPath, const char *pszName, const U *pSet)
+	{
+		CJsonFormatter jfRequest;
+		{
+			CJsonStreamArray jaGetList(&jfRequest, ABK_REQ_VARVALUE_PUTLIST);
+			{
+				CJsonStreamObject joVarPut(&jaGetList);
+				joVarPut.WriteValue(ABK_REQ_VARVALUE_NAME, pszName);
+				joVarPut.WriteValue(ABK_REQ_VARVALUE_VALUE, *pSet);
+			}
+		} // let array object fall out of scope
+		jfRequest.Close();
+		return NavigatePut(pszPath, -1, &jfRequest);
+	}
+
+	bool SetVarValue (LPCTSTR pszVarName, const double dSet)
+	{
+		return SetVarOrMailboxValue(_T(ABK_REQUESTURL_VARVALUE), CT2A(pszVarName), &dSet);
+	}
 };
 
 int main(int argc, char *argv[])
@@ -521,6 +572,8 @@ int main(int argc, char *argv[])
 	char bufDest[8192];
 	boost::iostreams::stream<boost::iostreams::array_sink> memoryStream(bufDest, sizeof(bufDest));
 	testClient.DownloadFile(_T("/abk/client_states/Display_AbkDemoOnBrowser_0.txt"), memoryStream);
+
+	testClient.SetVarValue(_T("Reifendruck"), 10.0);
 
 	return 0;
 }
