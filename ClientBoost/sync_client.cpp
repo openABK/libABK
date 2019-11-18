@@ -169,15 +169,15 @@ private:
 		return returnValue;
 	}
 
-	size_t ReadFromSocket(tcp::socket & a_Socket, std::string & a_Message)
+	size_t ReadFromSocket(tcp::socket & a_Socket, std::string & a_Message, unsigned int *pnStatusCode = nullptr)
 	{
 		std::stringstream sstream;
-		size_t bytes = ReadFromSocket(a_Socket, sstream);
+		size_t bytes = ReadFromSocket(a_Socket, sstream, pnStatusCode);
 		a_Message = sstream.str();
 		return bytes;
 	}
 
-	size_t ReadFromSocket(tcp::socket & a_Socket, std::ostream & sstream)
+	size_t ReadFromSocket(tcp::socket & a_Socket, std::ostream & sstream, unsigned int *pnStatusCode = nullptr)
 	{
 		try
 		{
@@ -193,6 +193,9 @@ private:
 			response_stream >> http_version;
 			unsigned int status_code;
 			response_stream >> status_code;
+			if(pnStatusCode)
+				*pnStatusCode = status_code;
+
 			std::string status_message;
 			std::getline(response_stream, status_message);
 			if (!response_stream || http_version.substr(0, 5) != "HTTP/")
@@ -329,6 +332,7 @@ public:
 		//assert(pPostData->GetStream()->rdbuf()->in_avail > 0);
 		std::string strPutData = pPutData->GetStream()->str();
 		std::string response;
+		unsigned int status_code = 400;
 
 		if (!EnsureConnection())
 			return false;
@@ -336,7 +340,7 @@ public:
 		try
 		{
 			WriteToSocket(socket, pszPath, strPutData, E_HTTP_PUT);
-			ReadFromSocket(socket, response);
+			ReadFromSocket(socket, response, &status_code);
 
 			std::cout << "Response was: " << response << std::endl;
 		}
@@ -345,7 +349,7 @@ public:
 			std::cerr << "Failed to navigate POST due to Network exception" << std::endl;
 			response.clear();
 		}
-		return !response.empty();
+		return (status_code == 200);
 	}
 
 /** Used to retrieve a string at a certain path
@@ -554,6 +558,36 @@ public:
 	{
 		return SetVarOrMailboxValue(_T(ABK_REQUESTURL_VARVALUE), CT2A(pszVarName), &dSet);
 	}
+
+	bool GetVarOrMailboxList(LPCTSTR pszPath, std::list<CString> *pGet)
+	{
+		bool bSuccess = false;
+		std::string response = NavigateGet(pszPath, -1);
+		if (!response.empty())
+		{
+			CJsonParser jpVars(response.c_str());
+			for (; !jpVars.IsDone(); ++jpVars)
+			{
+				if (jpVars.TestArray(ABK_RSP_VARLIST)) // is there "VarList": [
+				{
+					for (++jpVars; !jpVars.IsDone(); ++jpVars)
+					{
+						std::string strVarName;
+						jpVars.ExtractValue(&strVarName);
+						pGet->push_back(CString(CA2T(strVarName.c_str())));
+					}
+					bSuccess = true;
+				}
+				jpVars.SkipItem();
+			}
+		}
+		return bSuccess;
+	}
+
+	bool GetVarList (std::list<CString> *pGet)
+	{
+		return GetVarOrMailboxList(_T(ABK_REQUESTURL_VARLIST), pGet);
+	}
 };
 
 int main(int argc, char *argv[])
@@ -573,7 +607,14 @@ int main(int argc, char *argv[])
 	boost::iostreams::stream<boost::iostreams::array_sink> memoryStream(bufDest, sizeof(bufDest));
 	testClient.DownloadFile(_T("/abk/client_states/Display_AbkDemoOnBrowser_0.txt"), memoryStream);
 
-	testClient.SetVarValue(_T("Reifendruck"), 10.0);
+	bool bSuccess;
+	bSuccess = testClient.SetVarValue(_T("Reifendruck"), 10.0);
+	bSuccess = testClient.SetVarValue(_T("Vari3"), 10.0);
+	if(bSuccess)
+		std::cout << "Successfully set value" << std::endl;
+
+	std::list<CString> varlist;
+	testClient.GetVarList(&varlist);
 
 	return 0;
 }
