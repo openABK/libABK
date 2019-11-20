@@ -37,6 +37,7 @@
 
 #include <afxsock.h>            // MFC socket extensions
 
+#include <MyLock.h>
 #endif
 // Start including Windows header here
 
@@ -99,5 +100,4 @@
 //// TODO: reference additional headers your program requires here
 
 
-//#include <MyLock.h>
 #endif
