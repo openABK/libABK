@@ -1,7 +1,6 @@
 #include "stdafx.h"
 
 #include "AbkClientBoost.h"
-#include "AbkClientBoost.h"
 
 CAbkClient::CAbkClient() : resolver(io_context), socket(io_context), socket_long_poll(io_context)
 {
@@ -223,7 +222,7 @@ std::string CAbkClient::NavigatePost(LPCTSTR pszPath, int nSessionId, CJsonForma
 
     try
     {
-        WriteToSocket(socket, pszPath, strPostData, E_HTTP_POST);
+        WriteToSocket(socket, std::string(CT2A(pszPath)), strPostData, E_HTTP_POST);
         ReadFromSocket(socket, response);
 
         std::cout << "Response was: " << response << std::endl;
@@ -252,7 +251,7 @@ bool CAbkClient::NavigatePut(LPCTSTR pszPath, int nSessionId, CJsonFormatter *pP
 
     try
     {
-        WriteToSocket(socket, pszPath, strPutData, E_HTTP_PUT);
+        WriteToSocket(socket, std::string(CT2A(pszPath)), strPutData, E_HTTP_PUT);
         ReadFromSocket(socket, response, &status_code);
 
         std::cout << "Response was: " << response << std::endl;
@@ -279,11 +278,11 @@ std::string CAbkClient::NavigateGet(LPCTSTR pszPath, int nSessionId)
         {
             CString strPathAndQuery;
             strPathAndQuery.Format(_T("%s?") _T(ABK_QRY_SESSIONID) _T("=%d"), pszPath, nSessionId);
-            WriteToSocket(socket, std::string(strPathAndQuery), E_HTTP_GET);
+            WriteToSocket(socket, std::string(CT2A(strPathAndQuery)), E_HTTP_GET);
         }
         else
         {
-            WriteToSocket(socket, std::string(pszPath), E_HTTP_GET);
+            WriteToSocket(socket, std::string(CT2A(pszPath)), E_HTTP_GET);
         }
         ReadFromSocket(socket, response);
     }
@@ -309,11 +308,11 @@ bool CAbkClient::NavigateGet(LPCTSTR pszPath, int nSessionId, std::ostream &out)
         {
             CString strPathAndQuery;
             strPathAndQuery.Format(_T("%s?") _T(ABK_QRY_SESSIONID) _T("=%d"), pszPath, nSessionId);
-            WriteToSocket(socket, std::string(strPathAndQuery), E_HTTP_GET);
+            WriteToSocket(socket, std::string(CT2A(strPathAndQuery)), E_HTTP_GET);
         }
         else
         {
-            WriteToSocket(socket, std::string(pszPath), E_HTTP_GET);
+            WriteToSocket(socket, std::string(CT2A(pszPath)), E_HTTP_GET);
         }
         ReadFromSocket(socket, out);
         return true;
@@ -331,7 +330,7 @@ void CAbkClient::AddLog(CAbkClient::LOGSEVERITY nSeverity, LPCTSTR pszMessage, .
     va_list args;
     va_start(args, pszMessage);
     //AddLogV(nSeverity,pszMessage,args);
-    vprintf(pszMessage, args);
+    vprintf(CT2A(pszMessage), args);
     va_end(args);
 }
 
@@ -368,7 +367,7 @@ bool CAbkClient::Create(LPCTSTR pszServerAddress, int nPort, CAbkServerEvent *pE
 
     sstream << nPort;
     m_pszPort = std::string(sstream.str());
-    m_pszServerAddress = std::string(pszServerAddress);
+    m_pszServerAddress = std::string(CT2A(pszServerAddress));
 
     std::cout << "Printing port: " << m_pszPort << std::endl;
 
