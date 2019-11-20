@@ -59,14 +59,14 @@
 #include <sstream>
 
 #include <boost/asio.hpp>
-#include <boost/iostreams/device/array.hpp>
-#include <boost/iostreams/stream.hpp>
-#include <boost/unordered_map.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
+#include <boost/core/ignore_unused.hpp>
+#include <boost/iostreams/device/array.hpp>
+#include <boost/iostreams/stream.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/test/unit_test.hpp>
-#include <boost/core/ignore_unused.hpp>
+#include <boost/unordered_map.hpp>
 
 
 #ifdef NO_ATL
