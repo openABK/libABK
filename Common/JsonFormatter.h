@@ -9,7 +9,7 @@
 //------------------------------------------------------------------------------------------------
 //  _____  __   __  _____  _    _        ____              
 // |  ___||  \ /  ||  _  \| |  | |      / ___|  _   _  ___ 
-// |  __| |   ´   ||  -  /| |  | |  __  \___ \ | | | |/ __|
+// |  __| |   V   ||  -  /| |  | |  __  \___ \ | | | |/ __|
 // | |___ | |\_/| ||  _  \| \__/ | |__|  ___) || |_| |\__ \
 // |_____||_|   |_||_____/ \___ /       |____/  \__  ||___/
 //                                              |___/      
@@ -48,9 +48,9 @@ class CJsonStreamBase
 
   // data members
   protected:
+    CJsonStreamBase *m_pParent; // parent object or array
     int m_nMemberCount; // counter of members
     std::stringstream *m_pDump; // string stream to dump the formatted json to
-    CJsonStreamBase *m_pParent; // parent object or array
     CJsonStreamBase *m_pChild; // pointer to a formatter formatting the actual member
     const char *m_strCloseTag; // close tag string
     bool m_bClosed; // true if closing object tag is already written

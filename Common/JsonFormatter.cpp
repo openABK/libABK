@@ -9,7 +9,7 @@
 //------------------------------------------------------------------------------------------------
 //  _____  __   __  _____  _    _        ____              
 // |  ___||  \ /  ||  _  \| |  | |      / ___|  _   _  ___ 
-// |  __| |   ´   ||  -  /| |  | |  __  \___ \ | | | |/ __|
+// |  __| |   V   ||  -  /| |  | |  __  \___ \ | | | |/ __|
 // | |___ | |\_/| ||  _  \| \__/ | |__|  ___) || |_| |\__ \
 // |_____||_|   |_||_____/ \___ /       |____/  \__  ||___/
 //                                              |___/      
@@ -151,9 +151,9 @@ CJsonStreamBase &operator << (CJsonStreamBase &rDump, bool bValue)
 
 CJsonStreamBase::CJsonStreamBase (CJsonStreamBase *pParent)
   : m_pParent(pParent)
+  , m_nMemberCount(0)
   , m_pDump(NULL)
   , m_pChild(NULL) // currently have no child formatting an object or array into me
-  , m_nMemberCount(0)
   , m_strCloseTag(NULL)
   , m_bClosed(false)
   {
