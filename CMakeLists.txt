@@ -1,24 +1,20 @@
 # mfc-tools is needed because of MyLock.h in stdafx.h
-set(INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/Common ${CMAKE_CURRENT_SOURCE_DIR}/ClientLib ${Boost_INCLUDE_DIRS} ${MFC_TOOLS_INCLUDE_DIRS})
+set(INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/Common ${CMAKE_CURRENT_SOURCE_DIR}/ClientLib ${Boost_INCLUDE_DIRS} ${MFC_TOOLS_INCLUDE_DIRS} ${ATL_SERVER_INCLUDE_DIRS})
 
 set(USE_BOOST_ABK ON CACHE BOOL "Prefer Boost version of ABKClient")
 
 if(NOT USE_BOOST)
 	set(USE_BOOST_ABK OFF)
-else()
-# Prefer our stdafx when possible (source files in ClientLib will still use theirs)
-	set(INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/ClientBoost ${INCLUDE_DIRS})
 endif()
 
-set(ABK_INCLUDE_DIRS ${INCLUDE_DIRS} PARENT_SCOPE)
-message(STATUS "ABK dirs: ${INCLUDE_DIRS}")
-include_directories(${INCLUDE_DIRS})
+if(MINGW_COMPATIBLE AND NOT USE_BOOST_ABK)
+	message(SEND_ERROR "No AbkClient implementation possible")
+endif()
 
 get_native_precompiled_header(LibAbkClient)
 if(NOT MINGW_COMPATIBLE)
 	message(STATUS "Adding LibAbkClient")
 	file(GLOB LIB_ABK_SRC_COMMON ${CMAKE_CURRENT_SOURCE_DIR}/Common/*.cpp)
-	include_directories(${MFC_TOOLS_INCLUDE_DIRS} ${ATL_SERVER_INCLUDE_DIRS})
 
 	# When we use boost, we provide another AbkClient
 	if(NOT USE_BOOST_ABK)
@@ -38,7 +34,14 @@ if(USE_BOOST_ABK)
 
 	${CMAKE_CURRENT_SOURCE_DIR}/ClientBoost/AbkClient.cpp
 	)
+
+	# Prefer our stdafx when possible (source files in ClientLib will still use theirs)
+	set(INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/ClientBoost ${INCLUDE_DIRS})
 endif()
+
+set(ABK_INCLUDE_DIRS ${INCLUDE_DIRS} PARENT_SCOPE)
+message(STATUS "ABK dirs: ${INCLUDE_DIRS}")
+include_directories(${INCLUDE_DIRS})
 
 set(LIB_ABK_SRC ${LIB_ABK_SRC_COMMON} ${LIB_ABK_SRC_LIB} ${LIB_ABK_BOOST_SRC})
 add_library(LibAbkClient ${LIB_ABK_SRC})
@@ -59,7 +62,7 @@ if(Boost_FOUND)
 	add_executable(TestAbk EXCLUDE_FROM_ALL Tests/main.cpp Tests/test_client.cpp)
 	set(ABK_LIBS ws2_32 ole32 oleaut32)
 
-	# MingW doesn't need/have this
+	# MinGW doesn't need/have this
 	if(MSVC)
 		set(ABK_LIBS ${ABK_LIBS} comsuppw)
 	endif()
