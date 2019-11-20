@@ -2102,7 +2102,7 @@ bool CAbkClient::CBaseAbstraction::NavigateX (LPCTSTR pszServer, LPCTSTR pszPath
   for(int nRetry=0;nRetry<2 && !bSuccess;++nRetry)
     {
     bSuccess=Navigate(pszServer,pszPath,pNavData);
-    if(!bSuccess && m_nStatus>=0) // a failure contained in the response (means that request was performed). A status of -1 was expirienced when server closed the connection due to keep-alive timeout
+    if(!bSuccess && m_nStatus==200) // a failure contained in the response (means that request was performed). A status of -1 was expirienced when server closed the connection due to keep-alive timeout
       bSuccess=true;
     }
   return bSuccess;
