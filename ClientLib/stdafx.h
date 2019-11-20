@@ -18,6 +18,7 @@
 	#include <afx.h>
 	#include <afxwin.h>         // MFC core and standard components
 #else
+	#include <Windows.h>
 	#include "afxwrapper.h"
 #endif
 

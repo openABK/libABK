@@ -69,6 +69,7 @@
 
 
 #ifdef NO_ATL
+// Windows.h is included implicitly by boost libraries
 #include "afxwrapper.h"
 #endif
 //
