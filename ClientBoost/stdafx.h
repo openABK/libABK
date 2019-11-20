@@ -3,7 +3,8 @@
 // or project specific include files that are used frequently,
 // but are changed infrequently
 
-#pragma once
+#ifndef _STDAFX_H
+#define _STDAFX_H
 
 #ifndef _SECURE_ATL
 #define _SECURE_ATL 1
@@ -15,7 +16,7 @@
 
 //#include "targetver.h"
 
-#ifdef USE_ATL
+#ifndef NO_ATL
 #define _ATL_CSTRING_EXPLICIT_CONSTRUCTORS      // some CString constructors will be explicit
 
 // turns off MFC's hiding of some common and often safely ignored warning messages
@@ -25,12 +26,10 @@
 #include <afxext.h>         // MFC extensions
 
 
-
-
-
 #ifndef _AFX_NO_OLE_SUPPORT
 #include <afxdtctl.h>           // MFC support for Internet Explorer 4 Common Controls
 #endif
+
 #ifndef _AFX_NO_AFXCMN_SUPPORT
 #include <afxcmn.h>             // MFC support for Windows Common Controls
 #endif // _AFX_NO_AFXCMN_SUPPORT
@@ -39,11 +38,7 @@
 #include <afxsock.h>            // MFC socket extensions
 
 #endif
-
-
-
-
-
+// Start including Windows header here
 
 #ifdef _UNICODE
 #if defined _M_IX86
@@ -62,6 +57,7 @@
 #include <fstream>
 
 #include <sstream>
+
 #include <boost/asio.hpp>
 #include <boost/iostreams/device/array.hpp>
 #include <boost/iostreams/stream.hpp>
@@ -69,8 +65,12 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/test/unit_test.hpp>
 
+
+#ifdef NO_ATL
 #include "afxwrapper.h"
+#endif
 //
 //
 //
@@ -98,3 +98,4 @@
 
 
 //#include <MyLock.h>
+#endif

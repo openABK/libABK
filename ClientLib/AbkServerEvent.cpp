@@ -19,7 +19,7 @@
 // Description: Object to store an event coming from server
 //------------------------------------------------------------------------------------------------
 
-#include "StdAfx.h"
+#include "stdafx.h"
 #include "AbkServerEvent.h"
 #include "JsonParserAtl.h"
 #include "ValuesFromSpec.h"
