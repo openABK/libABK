@@ -1,6 +1,5 @@
 # mfc-tools is needed because of MyLock.h in stdafx.h
 set(INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/Common ${CMAKE_CURRENT_SOURCE_DIR}/ClientLib ${Boost_INCLUDE_DIRS} ${MFC_TOOLS_INCLUDE_DIRS})
-set(ABK_INCLUDE_DIRS ${INCLUDE_DIRS} PARENT_SCOPE)
 
 set(USE_BOOST_ABK ON CACHE BOOL "Prefer Boost version of ABKClient")
 
@@ -11,11 +10,15 @@ else()
 	set(INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/ClientBoost ${INCLUDE_DIRS})
 endif()
 
+set(ABK_INCLUDE_DIRS ${INCLUDE_DIRS} PARENT_SCOPE)
+message(STATUS "ABK dirs: ${INCLUDE_DIRS}")
+include_directories(${INCLUDE_DIRS})
+
 get_native_precompiled_header(LibAbkClient)
 if(NOT MINGW_COMPATIBLE)
 	message(STATUS "Adding LibAbkClient")
 	file(GLOB LIB_ABK_SRC_COMMON ${CMAKE_CURRENT_SOURCE_DIR}/Common/*.cpp)
-	include_directories(${INCLUDE_DIRS} ${MFC_TOOLS_INCLUDE_DIRS} ${ATL_SERVER_INCLUDE_DIRS})
+	include_directories(${MFC_TOOLS_INCLUDE_DIRS} ${ATL_SERVER_INCLUDE_DIRS})
 
 	# When we use boost, we provide another AbkClient
 	if(NOT USE_BOOST_ABK)
@@ -33,7 +36,7 @@ if(USE_BOOST_ABK)
 	${CMAKE_CURRENT_SOURCE_DIR}/ClientLib/AbkServerEvent.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/Common/JsonParserAtl.cpp
 
-	${CMAKE_CURRENT_SOURCE_DIR}/ClientBoost/AbkClientBoost.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/ClientBoost/AbkClient.cpp
 	)
 endif()
 

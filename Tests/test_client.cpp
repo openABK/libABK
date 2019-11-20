@@ -1,11 +1,7 @@
 #include "stdafx.h"
 #include <boost/test/unit_test.hpp>
-#ifdef BOOST_ABK
-#include "AbkClientBoost.h"
-#else
 #include "AbkClient.h"
 #include "AbkServerEvent.h"
-#endif
 
 BOOST_AUTO_TEST_SUITE(Client)
 

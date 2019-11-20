@@ -7,6 +7,10 @@
 #include "LogQueue.h"
 #include "AbkServerEvent.h"
 
+#ifndef BOOST_ABK
+#error "Boost Abk included, but not specified, probably a mistake"
+#endif
+
 using boost::asio::ip::tcp;
 
 namespace Abk {
