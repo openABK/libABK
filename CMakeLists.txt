@@ -46,6 +46,11 @@ if(Boost_FOUND)
 	if(MSVC)
 		set(ABK_LIBS ${ABK_LIBS} comsuppw)
 	endif()
+
+	if(NOT MINGW_COMPATIBLE)
+		set(ABK_LIBS ${ABK_LIBS} MfcTools)
+	endif()
+
 	target_link_libraries(TestAbk LibAbkClient LibAbkClientBoost ${Boost_LIBRARIES} ${ABK_LIBS})
 else()
 	message(WARNING "Boost not found")
