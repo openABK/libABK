@@ -1,19 +1,21 @@
-get_native_precompiled_header(LibAbkClient)
-
-
 # mfc-tools is needed because of MyLock.h in stdafx.h
 set(INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/ClientBoost ${CMAKE_CURRENT_SOURCE_DIR}/Common ${CMAKE_CURRENT_SOURCE_DIR}/ClientLib ${Boost_INCLUDE_DIRS} ${MFC_TOOLS_INCLUDE_DIRS})
 set(ABK_INCLUDE_DIRS ${INCLUDE_DIRS} PARENT_SCOPE)
 
-if(NOT USE_BOOST)
+if(NOT MINGW_COMPATIBLE)
+	message(STATUS "Adding LibAbkClient")
+	get_native_precompiled_header(LibAbkClient)
 	file(GLOB LIB_ABK_SRC ${CMAKE_CURRENT_SOURCE_DIR}/Common/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/ClientLib/*.cpp)
 	include_directories(${INCLUDE_DIRS} ${MFC_TOOLS_INCLUDE_DIRS} ${ATL_SERVER_INCLUDE_DIRS})
 	add_library(LibAbkClient ${LIB_ABK_SRC})
 
 	add_native_precompiled_header(LibAbkClient "${CMAKE_CURRENT_SOURCE_DIR}/ClientLib/stdafx.h")
-else()
-	message(WARNING "Building only AbkBoostClientLib. Everything else will be broken.")
-	file(GLOB LIB_ABK_SRC
+endif()
+
+if(USE_BOOST)
+	message(STATUS "Adding LibAbkClientBoost")
+	get_native_precompiled_header(LibAbkClientBoost)
+	file(GLOB LIB_ABK_BOOST_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/Common/JsonFormatter.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/Common/JsonParser.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/Common/CrossPlatform.cpp
@@ -22,14 +24,14 @@ else()
 
 	${CMAKE_CURRENT_SOURCE_DIR}/ClientBoost/AbkClientBoost.cpp
 	)
-	add_library(LibAbkClient ${LIB_ABK_SRC})
+	add_library(LibAbkClientBoost ${LIB_ABK_BOOST_SRC})
 	# # Directly force use of ASCII version afxwrapper
 	#target_compile_definitions(LibAbkClient PUBLIC ASCII_CHAR)
 	#remove_definitions(-DUNICODE -D_UNICODE)
-	include_directories(LibAbkClient PUBLIC ${INCLUDE_DIRS})
-	message(WARNING "LIBABKCLIENT: ${Boost_INCLUDE_DIRS}")
+	include_directories(${INCLUDE_DIRS})
+	#message(STATUS "LIBABKCLIENT: ${Boost_INCLUDE_DIRS}")
 
-	add_native_precompiled_header(LibAbkClient "${CMAKE_CURRENT_SOURCE_DIR}/ClientBoost/stdafx.h")
+	add_native_precompiled_header(LibAbkClientBoost "${CMAKE_CURRENT_SOURCE_DIR}/ClientBoost/stdafx.h")
 endif()
 
 
@@ -44,7 +46,7 @@ if(Boost_FOUND)
 	if(MSVC)
 		set(ABK_LIBS ${ABK_LIBS} comsuppw)
 	endif()
-	target_link_libraries(TestAbk LibAbkClient ${Boost_LIBRARIES} ${ABK_LIBS})
+	target_link_libraries(TestAbk LibAbkClient LibAbkClientBoost ${Boost_LIBRARIES} ${ABK_LIBS})
 else()
 	message(WARNING "Boost not found")
 endif(Boost_FOUND)
