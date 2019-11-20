@@ -2,6 +2,8 @@
 
 #include "AbkClientBoost.h"
 
+using namespace Abk;
+
 CAbkClient::CAbkClient() : resolver(io_context), socket(io_context), socket_long_poll(io_context)
 {
 }
@@ -473,4 +475,15 @@ std::size_t CAbkClient::insensitive_hash::operator()(const std::string &value) c
 	std::string copy(value);
 	boost::to_lower(copy);
 	return boost::hash<std::string>()(copy);
+}
+
+int CAbkClient::GetSessionId()
+{
+	return m_nSessionId;
+}
+
+/** Overload to consume messages on queue */
+/*virtual*/ void CAbkClient::OnLogAdded(void)
+{
+
 }

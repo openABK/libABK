@@ -1,20 +1,31 @@
 # mfc-tools is needed because of MyLock.h in stdafx.h
-set(INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/ClientBoost ${CMAKE_CURRENT_SOURCE_DIR}/Common ${CMAKE_CURRENT_SOURCE_DIR}/ClientLib ${Boost_INCLUDE_DIRS} ${MFC_TOOLS_INCLUDE_DIRS})
+set(INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/Common ${CMAKE_CURRENT_SOURCE_DIR}/ClientLib ${Boost_INCLUDE_DIRS} ${MFC_TOOLS_INCLUDE_DIRS})
 set(ABK_INCLUDE_DIRS ${INCLUDE_DIRS} PARENT_SCOPE)
 
-if(NOT MINGW_COMPATIBLE)
-	message(STATUS "Adding LibAbkClient")
-	get_native_precompiled_header(LibAbkClient)
-	file(GLOB LIB_ABK_SRC ${CMAKE_CURRENT_SOURCE_DIR}/Common/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/ClientLib/*.cpp)
-	include_directories(${INCLUDE_DIRS} ${MFC_TOOLS_INCLUDE_DIRS} ${ATL_SERVER_INCLUDE_DIRS})
-	add_library(LibAbkClient ${LIB_ABK_SRC})
+set(USE_BOOST_ABK ON CACHE BOOL "Prefer Boost version of ABKClient")
 
-	add_native_precompiled_header(LibAbkClient "${CMAKE_CURRENT_SOURCE_DIR}/ClientLib/stdafx.h")
+if(NOT USE_BOOST)
+	set(USE_BOOST_ABK OFF)
+else()
+# Prefer our stdafx when possible (source files in ClientLib will still use theirs)
+	set(INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/ClientBoost ${INCLUDE_DIRS})
 endif()
 
-if(USE_BOOST)
+get_native_precompiled_header(LibAbkClient)
+if(NOT MINGW_COMPATIBLE)
+	message(STATUS "Adding LibAbkClient")
+	file(GLOB LIB_ABK_SRC_COMMON ${CMAKE_CURRENT_SOURCE_DIR}/Common/*.cpp)
+	include_directories(${INCLUDE_DIRS} ${MFC_TOOLS_INCLUDE_DIRS} ${ATL_SERVER_INCLUDE_DIRS})
+
+	# When we use boost, we provide another AbkClient
+	if(NOT USE_BOOST_ABK)
+		file(GLOB LIB_ABK_SRC_LIB ${CMAKE_CURRENT_SOURCE_DIR}/ClientLib/*.cpp)
+	endif()
+
+endif()
+
+if(USE_BOOST_ABK)
 	message(STATUS "Adding LibAbkClientBoost")
-	get_native_precompiled_header(LibAbkClientBoost)
 	file(GLOB LIB_ABK_BOOST_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/Common/JsonFormatter.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/Common/JsonParser.cpp
@@ -24,15 +35,18 @@ if(USE_BOOST)
 
 	${CMAKE_CURRENT_SOURCE_DIR}/ClientBoost/AbkClientBoost.cpp
 	)
-	add_library(LibAbkClientBoost ${LIB_ABK_BOOST_SRC})
-	# # Directly force use of ASCII version afxwrapper
-	#target_compile_definitions(LibAbkClient PUBLIC ASCII_CHAR)
-	#remove_definitions(-DUNICODE -D_UNICODE)
-	include_directories(${INCLUDE_DIRS})
-	#message(STATUS "LIBABKCLIENT: ${Boost_INCLUDE_DIRS}")
-
-	add_native_precompiled_header(LibAbkClientBoost "${CMAKE_CURRENT_SOURCE_DIR}/ClientBoost/stdafx.h")
 endif()
+
+set(LIB_ABK_SRC ${LIB_ABK_SRC_COMMON} ${LIB_ABK_SRC_LIB} ${LIB_ABK_BOOST_SRC})
+add_library(LibAbkClient ${LIB_ABK_SRC})
+
+if(USE_BOOST_ABK)
+	target_compile_definitions(LibAbkClient PUBLIC -DBOOST_ABK)
+	add_native_precompiled_header(LibAbkClient "${CMAKE_CURRENT_SOURCE_DIR}/ClientBoost/stdafx.h")
+else()
+	add_native_precompiled_header(LibAbkClient "${CMAKE_CURRENT_SOURCE_DIR}/ClientLib/stdafx.h")
+endif()
+
 
 
 if(BUILD_TESTS)
@@ -51,7 +65,7 @@ if(Boost_FOUND)
 		set(ABK_LIBS ${ABK_LIBS} MfcTools)
 	endif()
 
-	target_link_libraries(TestAbk LibAbkClient LibAbkClientBoost ${Boost_LIBRARIES} ${ABK_LIBS})
+	target_link_libraries(TestAbk LibAbkClient ${Boost_LIBRARIES} ${ABK_LIBS})
 else()
 	message(WARNING "Boost not found")
 endif(Boost_FOUND)
