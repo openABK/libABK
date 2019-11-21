@@ -1,7 +1,9 @@
 #include "stdafx.h"
 #include <boost/test/unit_test.hpp>
+#include <boost/filesystem.hpp>
 #include "AbkClient.h"
 #include "AbkServerEvent.h"
+#include "ValuesFromSpec.h"
 
 BOOST_AUTO_TEST_SUITE(Client)
 
@@ -51,6 +53,14 @@ BOOST_AUTO_TEST_CASE(Connection)
 	testClient.GetVarList(&varlist);
 
 	BOOST_TEST(!varlist.empty());
+
+	bSuccess = testClient.IsConnected();
+	BOOST_TEST(bSuccess);
+
+	bSuccess = testClient.DownloadFile(_T(ABK_REQUESTURL_VARLIST), _T("varlist.txt"));
+	BOOST_TEST(bSuccess);
+	bSuccess = boost::filesystem::exists("varlist.txt");
+	BOOST_TEST(bSuccess);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
