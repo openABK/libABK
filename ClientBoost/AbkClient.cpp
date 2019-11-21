@@ -1,6 +1,7 @@
 #include "stdafx.h"
 
 #include "AbkClient.h"
+#include "JsonParserAtl.h"
 
 //#define LOG_BOOST_ABK
 // LOG_BOOST_ABK is defined in case you want logging
@@ -560,4 +561,13 @@ int CAbkClient::GetSessionId()
 /*virtual*/ void CAbkClient::OnLogAdded(void)
 {
 
+}
+
+DWORD Abk::CAbkClient::OnLongPollErrorResponse(int nHttpStatusCode, int nSessionId)
+{
+	// in derived classes, handle the error. No need to call the base class implementation.
+	DWORD dwWaitBeforeResume = 0;
+	if (nHttpStatusCode >= 400 && nHttpStatusCode <= 499)
+		dwWaitBeforeResume = INFINITE; // default: no further requests
+	return dwWaitBeforeResume;
 }

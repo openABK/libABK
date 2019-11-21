@@ -22,7 +22,10 @@
 	#include "afxwrapper.h"
 #endif
 
-
+#if USE_BOOST
+#include <boost/atomic.hpp>
+#include <boost/thread.hpp>
+#endif
 
 // TODO: reference additional headers your program requires here
 #include <MyLock.h>

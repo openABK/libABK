@@ -9,7 +9,7 @@
 //------------------------------------------------------------------------------------------------
 //  _____  __   __  _____  _    _        ____              
 // |  ___||  \ /  ||  _  \| |  | |      / ___|  _   _  ___ 
-// |  __| |   ´   ||  -  /| |  | |  __  \___ \ | | | |/ __|
+// |  __| |   v   ||  -  /| |  | |  __  \___ \ | | | |/ __|
 // | |___ | |\_/| ||  _  \| \__/ | |__|  ___) || |_| |\__ \
 // |_____||_|   |_||_____/ \___ /       |____/  \__  ||___/
 //                                              |___/      
@@ -35,6 +35,9 @@
 #endif
 #include <comutil.h>
 
+#ifdef USE_BOOST
+#define USE_BOOST_REF_COUNT
+#endif
 
 #define ABK_AUX_MAXRESPONSE_MS 2000 // response timeout for aux requests (30th June 2021: 500 ms turned out to be too short to query meta data)
 
@@ -65,8 +68,8 @@ namespace Abk
   class CAbkClient
     {
     friend class CAbkClientDaq;
-    private:
 
+    public:
     // HTTP client class
     class CBaseAbstraction : private CAtlHttpClient
       {
@@ -81,7 +84,7 @@ namespace Abk
         // CAtlNavigateData m_nav; // navigation information
         CMyCriticalSection m_csNavigate; // prevent Navigate() from beeing called in different contexts
       // construction/destruction/setup
-      private:
+      public:
         CBaseAbstraction (CAbkClient *pOwner);
         virtual ~CBaseAbstraction ();
       // methods
@@ -150,11 +153,19 @@ namespace Abk
         //friend class CClientPtrRef;
         CBaseAbstraction *m_pClient;
         public:
-        int m_nUsage; // usage counter
+#ifdef USE_BOOST_REF_COUNT
+        boost::atomic<int> m_nUsage; // usage counter
+#else
+		int m_nUsage;
         CMyCriticalSection m_csUsage; // protecting the counter
+#endif
 
         public:
+#ifdef USE_BOOST_REF_COUNT
+		CClientPtr () {m_pClient=NULL; m_nUsage=0;}
+#else
         CClientPtr () :m_csUsage(LOCK_HIER_ABK_CLIENTPTR,_T("Abk::CAbkClient::CClientPtr")) {m_pClient=NULL; m_nUsage=0;}
+#endif
         ~CClientPtr () {}
         CBaseAbstraction *GetPtr (void) {return m_pClient;}
         //BOOL IsValid (void) const {return m_pClient!=NULL;}
@@ -168,8 +179,13 @@ namespace Abk
         CBaseAbstraction *m_pClient;
 
         public:
+#ifdef USE_BOOST_REF_COUNT
+        CClientPtrRef (CClientPtr &rClient) :m_rRef(rClient) {m_pClient=rClient.GetPtr(); m_rRef.m_nUsage.fetch_add(1, boost::memory_order_relaxed);}
+        ~CClientPtrRef () {m_rRef.m_nUsage.fetch_sub(1, boost::memory_order_release);}
+#else
         CClientPtrRef (CClientPtr &rClient) :m_rRef(rClient) {m_pClient=rClient.GetPtr(); CLockMyCriticalSection guard(m_rRef.m_csUsage,_T("CClientPtrRef()")); m_rRef.m_nUsage++;}
         ~CClientPtrRef () {CLockMyCriticalSection guard(m_rRef.m_csUsage,_T("~CClientPtrRef()")); m_rRef.m_nUsage--;}
+#endif
         BOOL IsValid (void) const {return m_pClient!=NULL;}
         const CBaseAbstraction *operator -> () const {return m_pClient;}
               CBaseAbstraction *operator -> ()       {return m_pClient;}
@@ -181,8 +197,13 @@ namespace Abk
         const CBaseAbstraction *m_pClient;
 
         public:
+#ifdef USE_BOOST_REF_COUNT
+        CClientPtrRefConst (const CClientPtr &rClient) :m_rRef(const_cast<CClientPtr &>(rClient)) {m_pClient=m_rRef.GetPtr(); m_rRef.m_nUsage.fetch_add(1, boost::memory_order_relaxed);}
+        ~CClientPtrRefConst () {m_rRef.m_nUsage.fetch_sub(1, boost::memory_order_release);}
+#else
         CClientPtrRefConst (const CClientPtr &rClient) :m_rRef(const_cast<CClientPtr &>(rClient)) {m_pClient=m_rRef.GetPtr(); CLockMyCriticalSection guard(m_rRef.m_csUsage,_T("~CClientPtrRefConst()")); m_rRef.m_nUsage++;}
         ~CClientPtrRefConst () {CLockMyCriticalSection guard(m_rRef.m_csUsage,_T("~CClientPtrRef()")); m_rRef.m_nUsage--;}
+#endif
         BOOL IsValid (void) const {return m_pClient!=NULL;}
         const CBaseAbstraction *operator -> () const {return m_pClient;}
         };

@@ -132,10 +132,10 @@ namespace Abk {
 			@return
 				Point to event object, receiving the next event.
 			@remark
-						You can either return the same event object when you have only
-						one buffer for event reception. Alternatively you can return a
-						pointer to another event object if you have a queue. In this case
-						pEventData must be deleted manually
+				You can either return the same event object when you have only
+				one buffer for event reception. Alternatively you can return a
+				pointer to another event object if you have a queue. In this case
+				pEventData must be deleted manually
 		*/
 		virtual CAbkServerEvent *OnServerEvent(CAbkServerEvent *pEventData);
 
@@ -168,6 +168,8 @@ namespace Abk {
 		int GetSessionId(void);
 
 		virtual void OnLogAdded(void);
+
+		virtual DWORD OnLongPollErrorResponse(int nHttpStatusCode, int nSessionId);
 	};
 
 } // namespace Abk

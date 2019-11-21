@@ -9,7 +9,7 @@
 //------------------------------------------------------------------------------------------------
 //  _____  __   __  _____  _    _        ____              
 // |  ___||  \ /  ||  _  \| |  | |      / ___|  _   _  ___ 
-// |  __| |   ´   ||  -  /| |  | |  __  \___ \ | | | |/ __|
+// |  __| |   v   ||  -  /| |  | |  __  \___ \ | | | |/ __|
 // | |___ | |\_/| ||  _  \| \__/ | |__|  ___) || |_| |\__ \
 // |_____||_|   |_||_____/ \___ /       |____/  \__  ||___/
 //                                              |___/      
@@ -92,8 +92,12 @@ BOOL CAbkClient::CClientPtr::Delete (void)
   BOOL bSuccess=FALSE;
   for(int nRetry=0;nRetry<100;nRetry++)
     {
+#ifndef USE_BOOST_REF_COUNT
     CLockMyCriticalSection lock(m_csUsage,_T("Abk::CAbkClient::CClientPtr::Delete()"));
     if(m_nUsage==0)
+#else
+	if(m_nUsage.load(boost::memory_order_acquire) == 0)
+#endif
       {
       delete m_pClient;
       m_pClient=NULL;
@@ -1950,7 +1954,7 @@ void CAbkClient::AddLogV (LOGSEVERITY nSeverity, LPCTSTR pszMessage, va_list arg
 
 
 //--------------------------------------------------------------------------
-// AddLogHttp()            writes one line to error log containing HTTP ínfo
+// AddLogHttp()            writes one line to error log containing HTTP info
 // ------------
 // Input: nSeverity = 
 //        nHttpStatusCode = 
