@@ -2,6 +2,55 @@
 
 #include "AbkClient.h"
 
+//#define LOG_BOOST_ABK
+// LOG_BOOST_ABK is defined in case you want logging
+#ifndef LOG_BOOST_ABK
+
+struct CustomLog
+{
+	template<typename T>
+	CustomLog& operator << (T &stream)
+	{
+		return *this;
+	}
+};
+
+// define std::endl for CustomLog
+namespace std
+{
+	inline CustomLog& endl(CustomLog& stream)
+	{
+		return stream;
+	}
+}
+
+CustomLog nullStream;
+
+static inline CustomLog& Log()
+{
+	return nullStream;
+}
+
+static inline CustomLog& LogErr()
+{
+	return nullStream;
+}
+
+#else
+
+static inline std::ostream& Log()
+{
+	return std::cout;
+}
+
+static inline std::ostream& LogErr()
+{
+	return std::cerr;
+}
+
+#endif
+
+
 using namespace Abk;
 
 CAbkClient::CAbkClient() : resolver(io_context), socket(io_context), socket_long_poll(io_context)
@@ -122,13 +171,17 @@ size_t CAbkClient::ReadFromSocket(tcp::socket &a_Socket, std::ostream &sstream, 
 		std::getline(response_stream, status_message);
 		if (!response_stream || http_version.substr(0, 5) != "HTTP/")
 		{
-			std::cout << "Invalid response\n";
+#ifdef LOG_BOOST_ABK
+			Log() << "Invalid response\n";
+#endif
 			return -1;
 		}
 		// We still want to receive error messages
 		if (!(status_code == 200 || (status_code >= 400 && status_code <= 499)))
 		{
-			std::cout << "Response returned with status code " << status_code << "\n";
+#ifdef LOG_BOOST_ABK
+			Log() << "Response returned with status code " << status_code << "\n";
+#endif
 			return -1;
 		}
 
@@ -141,7 +194,9 @@ size_t CAbkClient::ReadFromSocket(tcp::socket &a_Socket, std::ostream &sstream, 
 		std::string header;
 		while (std::getline(response_stream, header) && header != "\r")
 		{
-			std::cout << header << "\n";
+#ifdef LOG_BOOST_ABK
+			Log() << header << "\n";
+#endif
 
 			std::vector<std::string> header_tokens;
 			// TODO: if a value potentially has a space, this breaks
@@ -154,7 +209,10 @@ size_t CAbkClient::ReadFromSocket(tcp::socket &a_Socket, std::ostream &sstream, 
 					responseBytesExpected = -1;
 			}
 		}
-		std::cout << "\n";
+
+#ifdef LOG_BOOST_ABK
+		Log() << "\n";
+#endif
 
 		// Inspect remaining size
 		size_t responseBytesRead = response.size();
@@ -208,7 +266,9 @@ bool CAbkClient::EnsureConnection()
 	catch (boost::exception &e)
 	{
 		boost::ignore_unused(e);
-		std::cerr << "Failed to connect due to exception" << std::endl;
+#ifdef LOG_BOOST_ABK
+		LogErr() << "Failed to connect due to exception" << std::endl;
+#endif
 		return false;
 	}
 }
@@ -231,12 +291,16 @@ std::string CAbkClient::NavigatePost(LPCTSTR pszPath, int nSessionId, CJsonForma
 		WriteToSocket(socket, std::string(CT2A(pszPath)), strPostData, E_HTTP_POST);
 		ReadFromSocket(socket, response);
 
-		std::cout << "Response was: " << response << std::endl;
+#ifdef LOG_BOOST_ABK
+		LogErr() << "Response was: " << response << std::endl;
+#endif
 	}
 	catch (AbkNetworkException &e)
 	{
 		boost::ignore_unused(e);
-		std::cerr << "Failed to navigate POST due to Network exception" << std::endl;
+#ifdef LOG_BOOST_ABK
+		LogErr() << "Failed to navigate POST due to Network exception" << std::endl;
+#endif
 		response.clear();
 	}
 	return response;
@@ -261,12 +325,16 @@ bool CAbkClient::NavigatePut(LPCTSTR pszPath, int nSessionId, CJsonFormatter *pP
 		WriteToSocket(socket, std::string(CT2A(pszPath)), strPutData, E_HTTP_PUT);
 		ReadFromSocket(socket, response, &status_code);
 
-		std::cout << "Response was: " << response << std::endl;
+#ifdef LOG_BOOST_ABK
+		LogErr() << "Response was: " << response << std::endl;
+#endif
 	}
 	catch (AbkNetworkException &e)
 	{
 		boost::ignore_unused(e);
-		std::cerr << "Failed to navigate POST due to Network exception" << std::endl;
+#ifdef LOG_BOOST_ABK
+		LogErr() << "Failed to navigate POST due to Network exception" << std::endl;
+#endif
 		response.clear();
 	}
 	return (status_code == 200);
@@ -297,7 +365,9 @@ std::string CAbkClient::NavigateGet(LPCTSTR pszPath, int nSessionId)
 	catch (AbkNetworkException &e)
 	{
 		boost::ignore_unused(e);
-		std::cerr << "Failed to navigate GET due to Network exception" << std::endl;
+#ifdef LOG_BOOST_ABK
+		LogErr() << "Failed to navigate GET due to Network exception" << std::endl;
+#endif
 		response.clear();
 	}
 
@@ -329,7 +399,9 @@ bool CAbkClient::NavigateGet(LPCTSTR pszPath, int nSessionId, std::ostream &out)
 	catch (AbkNetworkException &e)
 	{
 		boost::ignore_unused(e);
-		std::cerr << "Failed to navigate GET due to Network exception" << std::endl;
+#ifdef LOG_BOOST_ABK
+		LogErr() << "Failed to navigate GET due to Network exception" << std::endl;
+#endif
 	}
 
 	return false;
@@ -379,7 +451,9 @@ bool CAbkClient::Create(LPCTSTR pszServerAddress, int nPort, CAbkServerEvent *pE
 	m_pszPort = std::string(sstream.str());
 	m_pszServerAddress = std::string(CT2A(pszServerAddress));
 
-	std::cout << "Printing port: " << m_pszPort << std::endl;
+#ifdef LOG_BOOST_ABK
+	Log() << "Printing port: " << m_pszPort << std::endl;
+#endif
 
 	tcp::resolver::results_type endpoints = resolver.resolve(m_pszServerAddress, m_pszPort);
 
