@@ -4,6 +4,9 @@
 #include "AbkClientDaq.h"
 #include "JsonParserAtl.h"
 
+#define DAQ_TIMEOUT 10000 // mutex timeout in ms
+#define MIME_TYPE_TEXT "text/plain"
+
 //#define LOG_BOOST_ABK
 // LOG_BOOST_ABK is defined in case you want logging
 #ifndef LOG_BOOST_ABK
@@ -127,6 +130,9 @@ size_t CAbkClient::CBaseAbstraction::WriteToSocket(tcp::socket &a_Socket, const 
 		case E_HTTP_PUT:
 			request_stream << "PUT ";
 			break;
+		case E_HTTP_DELETE:
+			request_stream << "DELETE ";
+			break;
 		default:
 			request_stream << "POST ";
 			break;
@@ -164,15 +170,15 @@ CAbkClient::CBaseAbstraction::eHttpHeaders CAbkClient::CBaseAbstraction::GetEnum
 	return returnValue;
 }
 
-size_t CAbkClient::CBaseAbstraction::ReadFromSocket(tcp::socket &a_Socket, std::string &a_Message, unsigned int *pnStatusCode)
+size_t CAbkClient::CBaseAbstraction::ReadFromSocket(tcp::socket &a_Socket, std::string &a_Message)
 {
 	std::stringstream sstream;
-	size_t bytes = ReadFromSocket(a_Socket, sstream, pnStatusCode);
+	size_t bytes = ReadFromSocket(a_Socket, sstream);
 	a_Message = sstream.str();
 	return bytes;
 }
 
-size_t CAbkClient::CBaseAbstraction::ReadFromSocket(tcp::socket &a_Socket, std::ostream &sstream, unsigned int *pnStatusCode)
+size_t CAbkClient::CBaseAbstraction::ReadFromSocket(tcp::socket &a_Socket, std::ostream &sstream)
 {
 	try
 	{
@@ -186,10 +192,7 @@ size_t CAbkClient::CBaseAbstraction::ReadFromSocket(tcp::socket &a_Socket, std::
 		std::istream response_stream(&response);
 		std::string http_version;
 		response_stream >> http_version;
-		unsigned int status_code;
-		response_stream >> status_code;
-		if (pnStatusCode)
-			*pnStatusCode = status_code;
+		response_stream >> m_uStatus;
 
 		std::string status_message;
 		std::getline(response_stream, status_message);
@@ -201,7 +204,7 @@ size_t CAbkClient::CBaseAbstraction::ReadFromSocket(tcp::socket &a_Socket, std::
 			return -1;
 		}
 		// We still want to receive error messages
-		if (!(status_code == 200 || (status_code >= 400 && status_code <= 499)))
+		if (!(m_uStatus == 200 || (m_uStatus >= 400 && m_uStatus <= 499)))
 		{
 #ifdef LOG_BOOST_ABK
 			Log() << "Response returned with status code " << status_code << "\n";
@@ -344,6 +347,40 @@ std::string CAbkClient::CBaseAbstraction::NavigatePost(LPCTSTR pszPath, int nSes
 	return response;
 }
 
+bool CAbkClient::CBaseAbstraction::NavigateDelete(LPCTSTR pszPath, int nSessionId, CJsonFormatter * pPostData)
+{
+	assert(pPostData);
+	assert(pszPath);
+	assert(!m_strServerAddress.empty());
+	//assert(pPostData->GetStream());
+	//assert(pPostData->GetStream()->rdbuf()->in_avail > 0);
+	std::string strPostData = pPostData->GetStream()->str();
+	std::string response;
+
+	if (!EnsureConnection())
+		return false;
+
+	try
+	{
+		WriteToSocket(socket, std::string(CT2A(pszPath)), strPostData, E_HTTP_DELETE);
+		ReadFromSocket(socket, response);
+
+#ifdef LOG_BOOST_ABK
+		LogErr() << "Response was: " << response << std::endl;
+#endif
+		return true;
+	}
+	catch (AbkNetworkException &e)
+	{
+		boost::ignore_unused(e);
+#ifdef LOG_BOOST_ABK
+		LogErr() << "Failed to navigate POST due to Network exception" << std::endl;
+#endif
+		response.clear();
+	}
+	return false;
+}
+
 bool CAbkClient::CBaseAbstraction::DeleteSession(int nSessionId)
 {
 	CJsonFormatter jfSend;
@@ -352,24 +389,21 @@ bool CAbkClient::CBaseAbstraction::DeleteSession(int nSessionId)
 	return true;
 }
 
-bool CAbkClient::CBaseAbstraction::NavigatePut(LPCTSTR pszPath, int nSessionId, CJsonFormatter *pPutData)
+std::string CAbkClient::CBaseAbstraction::NavigatePut(LPCTSTR pszPath, int nSessionId, const std::string &strData)
 {
-	assert(pPutData);
 	assert(pszPath);
 	assert(!m_strServerAddress.empty());
 	//assert(pPostData->GetStream());
 	//assert(pPostData->GetStream()->rdbuf()->in_avail > 0);
-	std::string strPutData = pPutData->GetStream()->str();
 	std::string response;
-	unsigned int status_code = 400;
 
 	if (!EnsureConnection())
 		return false;
 
 	try
 	{
-		WriteToSocket(socket, std::string(CT2A(pszPath)), strPutData, E_HTTP_PUT);
-		ReadFromSocket(socket, response, &status_code);
+		WriteToSocket(socket, std::string(CT2A(pszPath)), strData, E_HTTP_PUT);
+		ReadFromSocket(socket, response);
 
 #ifdef LOG_BOOST_ABK
 		LogErr() << "Response was: " << response << std::endl;
@@ -383,7 +417,40 @@ bool CAbkClient::CBaseAbstraction::NavigatePut(LPCTSTR pszPath, int nSessionId, 
 #endif
 		response.clear();
 	}
-	return (status_code == 200);
+	return response;
+}
+
+bool CAbkClient::CBaseAbstraction::NavigatePut(LPCTSTR pszPath, int nSessionId, CJsonFormatter *pPutData)
+{
+	assert(pPutData);
+	assert(pszPath);
+	assert(!m_strServerAddress.empty());
+	//assert(pPostData->GetStream());
+	//assert(pPostData->GetStream()->rdbuf()->in_avail > 0);
+	std::string strPutData = pPutData->GetStream()->str();
+	std::string response;
+
+	if (!EnsureConnection())
+		return false;
+
+	try
+	{
+		WriteToSocket(socket, std::string(CT2A(pszPath)), strPutData, E_HTTP_PUT);
+		ReadFromSocket(socket, response);
+
+#ifdef LOG_BOOST_ABK
+		LogErr() << "Response was: " << response << std::endl;
+#endif
+	}
+	catch (AbkNetworkException &e)
+	{
+		boost::ignore_unused(e);
+#ifdef LOG_BOOST_ABK
+		LogErr() << "Failed to navigate POST due to Network exception" << std::endl;
+#endif
+		response.clear();
+	}
+	return (m_uStatus == 200);
 }
 
 std::string CAbkClient::CBaseAbstraction::NavigateGet(LPCTSTR pszPath, int nSessionId)
@@ -505,6 +572,11 @@ bool CAbkClient::Create(LPCTSTR pszServerAddress, int nPort, CAbkServerEvent *pE
 	bool bSuccess = false;
 	std::stringstream sstream;
 
+	m_strClientClass = CT2A(pszClientClass);
+	m_strClientType = CT2A(pszClientType); // regular client type, except when querying firmware info
+	if (pszClientSerial)
+		m_strClientSerial = CT2A(pszClientSerial);
+
 	sstream << nPort;
 	m_strPort = std::string(sstream.str());
 
@@ -554,13 +626,53 @@ std::string CAbkClient::GetServerInfo()
 	return pClientAux->NavigateGet(_T(ABK_REQUESTURL_SERVERINFO), -1);
 }
 
+bool CAbkClient::GetServerInfo(CString & strProtocolVersion, CString & strInterfaceVersion, CString & strFwVersion, CString & strHwVersion, CString & strServerName, CString & strServerType, CString & strDescUrl)
+{
+	CClientPtrRef pClientAux(m_pClientAux);
+	assert(pClientAux.IsValid()); // no connection with the aux http client established
+	if (!pClientAux.IsValid())
+		return NULL;
+	if (!IsConnected())
+		return NULL;
+	return !(pClientAux->NavigateGet(_T(ABK_REQUESTURL_SERVERINFO), -1)).empty();
+}
+
+std::string CAbkClient::GetInterfaceStatistics(void)
+{
+	CClientPtrRef pClientAux(m_pClientAux);
+	assert(pClientAux.IsValid()); // no connection with the aux http client established
+	if (!pClientAux.IsValid())
+		return NULL;
+	if (!IsConnected())
+		return NULL;
+	return pClientAux->NavigateGet(_T(ABK_REQUESTURL_INTERFACESTATS), -1);
+}
+
+bool CAbkClient::SendAlertConfirmEvent(LPCTSTR pszAlertClassName, int nSeverity, int nMerged, bool bPermanent, bool bSuppressed, bool bTimeout)
+{
+	assert(this);
+	assert((!bSuppressed) || (bSuppressed && !bTimeout)); // if suppressed, timeout must not be set! Please check how you call the function
+	CJsonFormatter jfSend;
+	std::string strClassA = CT2A(pszAlertClassName, CP_UTF8);
+	jfSend.WriteValue(ABK_ALERTCONFIRM_CLASS, strClassA.c_str()); // "Class": "KickDown"
+	jfSend.WriteValue(ABK_ALERTCONFIRM_SEVERITY, nSeverity); // "Severity": 3
+	jfSend.WriteValue(ABK_ALERTCONFIRM_COUNT, nMerged); // "Merged": 5
+	jfSend.WriteValue(ABK_ALERTCONFIRM_SUPPRESSED, bSuppressed); // "Suppressed": false
+	jfSend.WriteValue(ABK_ALERTCONFIRM_TIMEOUT, bTimeout); // "Timeout": false
+	jfSend.WriteValue(ABK_ALERTCONFIRM_PERMASUPPRBYUSER, bPermanent); // "PermanentSuppressedByUser": false
+	jfSend.Close();
+	// TODO:
+	//return SendEvent(ABK_CLIENTEVENT_ALERT_CONFIRM, jfSend, 0, 0, false);
+	return true;
+}
+
 CAbkServerEvent *CAbkClient::OnServerEvent(CAbkServerEvent *pEventData)
 {
 	// default implementation: use the same event object for the next event
 	return pEventData;
 }
 
-bool CAbkClient::DownloadFile(LPCTSTR pszUrl, std::ostream &out)
+bool CAbkClient::DownloadFile(LPCTSTR pszUrl, std::ostream &out, PFNSTATUSCALLBACK pfnReadCallback, DWORD_PTR dwCookie)
 {
 	CClientPtrRef pClientAux(m_pClientAux);
 	if (!pClientAux.IsValid())
@@ -570,7 +682,7 @@ bool CAbkClient::DownloadFile(LPCTSTR pszUrl, std::ostream &out)
 	return bSuccess;
 }
 
-bool CAbkClient::DownloadFile(LPCTSTR pszUrl, LPCTSTR pszStorePath)
+bool CAbkClient::DownloadFile(LPCTSTR pszUrl, LPCTSTR pszStorePath, PFNSTATUSCALLBACK pfnReadCallback, DWORD_PTR dwCookie)
 {
 	std::ofstream file(CT2A(pszStorePath), std::ofstream::out);
 	return DownloadFile(pszUrl, file);
@@ -639,6 +751,477 @@ bool CAbkClient::SetVarValue(LPCTSTR pszVarName, const bool bSet)
 	return pClientAux->SetVarOrMailboxValue(_T(ABK_REQUESTURL_VARVALUE), CT2A(pszVarName, CP_UTF8), &bSet);
 }
 
+/** Sets a mailbox value */
+bool CAbkClient::SetMailboxValue(LPCTSTR pszMailboxName, const CString &strSet)
+{
+	CClientPtrRef pClientAux(m_pClientAux);
+	assert(pClientAux.IsValid());
+	if (!pClientAux.IsValid())
+		return false;
+	std::string strValue = CT2A(strSet);
+	return pClientAux->SetVarOrMailboxValue(_T(ABK_REQUESTURL_MAILBOXVALUE), CT2A(pszMailboxName, CP_UTF8), &strValue);
+}
+
+bool CAbkClient::SetMailboxValue(LPCTSTR pszMailboxName, const std::string &strSet)
+{
+	CClientPtrRef pClientAux(m_pClientAux);
+	assert(pClientAux.IsValid());
+	if (!pClientAux.IsValid())
+		return false;
+	return pClientAux->SetVarOrMailboxValue(_T(ABK_REQUESTURL_MAILBOXVALUE), CT2A(pszMailboxName, CP_UTF8), &strSet);
+}
+
+bool CAbkClient::SetMailboxValue(LPCTSTR pszMailboxName, const double dSet)
+{
+	CClientPtrRef pClientAux(m_pClientAux);
+	assert(pClientAux.IsValid());
+	if (!pClientAux.IsValid())
+		return false;
+	return pClientAux->SetVarOrMailboxValue(_T(ABK_REQUESTURL_MAILBOXVALUE), CT2A(pszMailboxName, CP_UTF8), &dSet);
+}
+
+bool CAbkClient::SetMailboxValue(LPCTSTR pszMailboxName, const int nSet)
+{
+	CClientPtrRef pClientAux(m_pClientAux);
+	assert(pClientAux.IsValid());
+	if (!pClientAux.IsValid())
+		return false;
+	return pClientAux->SetVarOrMailboxValue(_T(ABK_REQUESTURL_MAILBOXVALUE), CT2A(pszMailboxName, CP_UTF8), &nSet);
+}
+
+bool CAbkClient::SetMailboxValue(LPCTSTR pszMailboxName, const bool bSet)
+{
+	CClientPtrRef pClientAux(m_pClientAux);
+	assert(pClientAux.IsValid());
+	if (!pClientAux.IsValid())
+		return false;
+	return pClientAux->SetVarOrMailboxValue(_T(ABK_REQUESTURL_MAILBOXVALUE), CT2A(pszMailboxName, CP_UTF8), &bSet);
+}
+
+/** Retrieves the current time of the server as local time
+	@param pGet
+		Pointer to return the server time, returned in client local time
+	@return
+		true on success, false on error
+*/
+bool CAbkClient::GetCurrentServerTime(time_t *pGet)
+{
+	bool bSuccess = FALSE;
+	CClientPtrRef pClientAux(m_pClientAux);
+	assert(pClientAux.IsValid());
+	if (pClientAux.IsValid())
+	{
+		std::string strReturn = pClientAux->NavigateGet(_T(ABK_REQUESTURL_CURRENTTIME), -1);
+		if (!strReturn.empty())
+		{
+			CJsonParser parsResponse(strReturn.c_str());
+			for (; !parsResponse.IsDone(); ++parsResponse)
+			{
+				bSuccess = parsResponse.ExtractValue(ABK_RSP_CURRENTTIME_TIME, pGet);
+				if (bSuccess)
+					break;
+			}
+			if (!bSuccess)
+			{
+				AddLog(LOGSEVERITY_ERROR, _T("Error: No date included in the answer of %s"), _T(ABK_REQUESTURL_CURRENTTIME));
+			}
+		}
+	}
+	return bSuccess;
+}
+
+bool CAbkClient::GetMailboxList(std::list<CString> *pGet)
+{
+	CClientPtrRef pClientAux(m_pClientAux);
+	assert(pClientAux.IsValid());
+	if (!pClientAux.IsValid())
+		return false;
+	return pClientAux->GetVarOrMailboxList(_T(ABK_REQUESTURL_MAILBOXLIST), pGet);
+}
+
+bool CAbkClient::GetMailboxMeta(const std::list<LPCTSTR>& lstMailboxNames, std::list<CAbkClientMeta>* pGet)
+{
+	CClientPtrRef pClientAux(m_pClientAux);
+	assert(pClientAux.IsValid());
+	if (!pClientAux.IsValid())
+		return false;
+	return pClientAux->GetVarOrMailboxMeta(lstMailboxNames, pGet, true);
+}
+
+bool CAbkClient::GetMailboxMeta(LPCTSTR pszMailboxName, CAbkClientMeta *pGet)
+{
+	std::list<LPCTSTR> lstVarNames;
+	std::list<CAbkClientMeta> lstMeta;
+	lstVarNames.push_back(pszMailboxName); // compose a list with one entity
+	bool bSuccess = GetMailboxMeta(lstVarNames, &lstMeta); // request the meta data
+	assert(lstMeta.size() == 1);
+	if (bSuccess)
+		*pGet = *lstMeta.begin();
+	return bSuccess;
+}
+
+//--------------------------------------------------------------------------
+// GetVarMeta()            requests meta data of a variable
+// ------------
+// Input: lstVarNames = list with variable names
+//        pGet = pointer to return the meta data
+// Return: true on success, false on error
+
+bool CAbkClient::GetVarMeta(const std::list<LPCTSTR> &lstVarNames, std::list<CAbkClientMeta> *pGet)
+{
+	bool bSuccess = false;
+	CClientPtrRef pClientAux(m_pClientAux);
+	assert(pClientAux.IsValid());
+	if (pClientAux.IsValid())
+		bSuccess = pClientAux->GetVarOrMailboxMeta(lstVarNames, pGet, false);
+	return bSuccess;
+}
+
+
+//--------------------------------------------------------------------------
+// GetVarMeta()            requests meta data of a variable
+// ------------
+// Input: pszVarName = name of variable to be queried
+//        pGet = pointer to return the meta data
+// Return: true on success, false on error
+
+bool CAbkClient::GetVarMeta(LPCTSTR pszVarName, CAbkClientMeta *pGet)
+{
+	std::list<LPCTSTR> lstVarNames;
+	std::list<CAbkClientMeta> lstMeta;
+	lstVarNames.push_back(pszVarName); // compose a list with one entity
+	bool bSuccess = GetVarMeta(lstVarNames, &lstMeta); // request the meta data
+	assert(lstMeta.size() == 1);
+	if (bSuccess)
+		*pGet = *lstMeta.begin();
+	return bSuccess;
+}
+
+bool CAbkClient::SendForm(LPCTSTR pszFormName, const std::list<CFormElement>& lstSend)
+{
+	ASSERT(pszFormName);
+	// assert(m_pClientAux);
+
+	CClientPtrRef pClientAux(m_pClientAux);
+	if (!pClientAux.IsValid())
+	{
+		AddLog(LOGSEVERITY_ERROR, _T("Tried to send the filled form \"%s\" but connection to server was lost in the meanwhile."), pszFormName);
+		return false;
+	}
+	bool bSuccess = true;
+	CJsonFormatter jfForm;  // {
+	std::list<CFormElement>::const_iterator iterElement;
+	for (iterElement = lstSend.begin(); iterElement != lstSend.end(); ++iterElement)
+	{
+		const CFormElement *pElement = &*iterElement;
+		switch (pElement->m_varValue.vt)
+		{
+		case VT_I2:
+			jfForm.WriteValue(CT2A(pElement->m_strName, CP_UTF8), (int)pElement->m_varValue.iVal); // "Elementname":123
+			break;
+		case VT_I4:
+			jfForm.WriteValue(CT2A(pElement->m_strName, CP_UTF8), (int)pElement->m_varValue.lVal); // "Elementname":123
+			break;
+		case VT_INT:
+			jfForm.WriteValue(CT2A(pElement->m_strName, CP_UTF8), (int)pElement->m_varValue.intVal); // "Elementname":123
+			break;
+		case VT_R8:
+			jfForm.WriteValue(CT2A(pElement->m_strName, CP_UTF8), pElement->m_varValue.dblVal); // "Elementname":1.23
+			break;
+		case VT_BSTR:
+			jfForm.WriteValue(CT2A(pElement->m_strName, CP_UTF8), (char *)(CW2A(pElement->m_varValue.bstrVal, CP_UTF8))); // "Elementname":"string"
+			break;
+		case VT_BOOL:
+			jfForm.WriteValue(CT2A(pElement->m_strName, CP_UTF8), (bool)(pElement->m_varValue.boolVal != 0)); // "Elementname":true
+			break;
+		case VT_EMPTY:
+			jfForm.WriteValue(CT2A(pElement->m_strName, CP_UTF8), std::numeric_limits<double>::quiet_NaN()); // null
+			break;
+		default:
+			assert(false); // encountered an unimplemented variant type
+			bSuccess = false;
+		}
+	}
+	jfForm.Close(); // }
+	if (!bSuccess)
+		return false;
+
+	// send form
+	CString strUrl;
+	strUrl.Format(_T("%s/%s"), _T(ABK_SERVICE_FORMS), pszFormName);
+	if (!pClientAux->NavigatePut(strUrl, -1, &jfForm))
+		return false;
+	return true;
+}
+
+//--------------------------------------------------------------------------
+// SendAudioRecHeader()    sends an audio header
+// --------------------
+// Input: nId = general purpose id the server wants to be reflected when the server initiated the recording operation
+//        nSampleRateHz = sample rate in Hz
+//        nBitsPerSample = bits per sample, 8 and 16 allowed
+//        nChannels = number of channels. Allowed is 1 (mono) and 2 (stereo)
+// Return: true on success, false on error
+
+bool CAbkClient::SendAudioRecHeader(int nId, int nSampleRateHz, int nBitsPerSample, int nChannels)
+{
+	bool bSuccess = false;
+	assert(nBitsPerSample == 8 || nBitsPerSample == 16); // invalid bits per sample??
+	assert(nChannels == 1 || nChannels == 2); // invalid number of channels??
+	CClientPtrRef pClientAux(m_pClientAux);
+	assert(pClientAux.IsValid());
+	if (pClientAux.IsValid() && IsConnected())
+	{
+		CJsonFormatter jfHeader; // header data formatted in json
+		jfHeader.WriteValue(ABK_AUDIOREC_ID, nId);
+		jfHeader.WriteValue(ABK_AUDIOREC_SAMPLERATE_HZ, nSampleRateHz);
+		jfHeader.WriteValue(ABK_AUDIOREC_CHANNELS, nChannels);
+		jfHeader.WriteValue(ABK_AUDIOREC_BITSPERSAMPLE, nBitsPerSample);
+		jfHeader.Close();
+		bSuccess = NULL != pClientAux->NavigatePut(_T(ABK_REQUESTURL_AUDIOREC_HEADER), -1, &jfHeader);
+	}
+	return bSuccess;
+}
+
+
+//--------------------------------------------------------------------------
+// SendAudioRecData()      sends audio data
+// ------------------
+// Input: nId = general purpose id the server wants to be reflected when the server initiated the recording operation
+//        pData = data.
+//                if bits per sample == 8: BYTES
+//                if bits per sample == 16: WORDs in  little endian format.
+//                value seauence for stereo: left, right, left, right ...
+//        nBitsPerSample = bits per sample, 8 and 16 allowed
+//        nChannels = number of channels. Allowed is 1 (mono) and 2 (stereo)
+//        nSamplesPerChannel = number of samples of each channel in pData
+// Return: true on success, false on error
+
+bool CAbkClient::SendAudioRecData(int nId, const void *pData, int nBitsPerSample, int nChannels, int nSamplesPerChannel)
+{
+	bool bSuccess = false;
+	assert(nBitsPerSample == 8 || nBitsPerSample == 16); // invalid bits per sample??
+	assert(nChannels == 1 || nChannels == 2); // invalid number of channels??
+	CClientPtrRef pClientAux(m_pClientAux);
+	assert(pClientAux.IsValid());
+	if (pClientAux.IsValid() && IsConnected())
+	{
+		CJsonFormatter jfData; // header data formatted in json
+		jfData.WriteValue(ABK_AUDIOREC_ID, nId);
+
+		CJsonStreamArray jaData(&jfData, ABK_AUDIOREC_DATA);
+		if (nBitsPerSample == 8)
+		{
+			const BYTE *pData8 = (const BYTE *)pData;
+			for (int nSample = 0; nSample < nSamplesPerChannel; ++nSample)
+			{
+				for (int nChannel = 0; nChannel < nChannels; ++nChannel)
+				{
+					jaData.WriteValue((int)(*pData8));
+					++pData8;
+				}
+			}
+		}
+		else if (nBitsPerSample == 16)
+		{
+			const WORD *pData16 = (const WORD *)pData;
+			for (int nSample = 0; nSample < nSamplesPerChannel; ++nSample)
+			{
+				for (int nChannel = 0; nChannel < nChannels; ++nChannel)
+				{
+					jaData.WriteValue((int)(*pData16));
+					++pData16;
+				}
+			}
+		}
+		else
+		{
+			assert(false);
+		}
+		jaData.Close();
+
+		jfData.Close();
+		bSuccess = NULL != pClientAux->NavigatePut(_T(ABK_REQUESTURL_AUDIOREC_DATA), -1, &jfData);
+	}
+	return bSuccess;
+}
+
+
+//--------------------------------------------------------------------------
+// SendAudioRecFooter()    sends audio footer
+// --------------------
+// Input: nId = general purpose id the server wants to be reflected when the server initiated the recording operation
+// Return: true on success, false on error
+
+bool CAbkClient::SendAudioRecFooter(int nId)
+{
+	bool bSuccess = false;
+	CClientPtrRef pClientAux(m_pClientAux);
+	assert(pClientAux.IsValid());
+	if (pClientAux.IsValid() && IsConnected())
+	{
+		CJsonFormatter jfFooter; // header data formatted in json
+		jfFooter.WriteValue(ABK_AUDIOREC_ID, nId);
+		jfFooter.Close();
+		bSuccess = NULL != pClientAux->NavigatePut(_T(ABK_REQUESTURL_AUDIOREC_FOOTER), -1, &jfFooter);
+	}
+	return bSuccess;
+}
+
+
+
+//--------------------------------------------------------------------------
+// SendAudioRecRejectEvent() sends event that user rejected audio recording
+// -------------------------
+// Input: nId = general purpose ID the sender wants to be reflected
+// Return: 
+
+bool CAbkClient::SendAudioRecRejectEvent(int nId)
+{
+	return true;
+	// TODO:
+	//return SendEvent(ABK_CLIENTEVENT_AUDIOREC_REJECT, _T(""), (double)nId, 0, false);
+}
+
+//--------------------------------------------------------------------------
+// SuspendLongPolling()      pauses the long-poll thread
+// ------------------
+// Input: -
+// Return: 
+
+bool CAbkClient::SuspendLongPolling(void)
+{
+	//if (!m_hLongPollThread)
+	//	return false;
+	//m_evLongPollEnable.ResetEvent(); // stall the long polling thread
+	// TODO:
+	return true;
+}
+
+//--------------------------------------------------------------------------
+// ResumeLongPolling()     resumes long poll thread
+// -------------------
+// Input: -
+// Return: 
+
+bool CAbkClient::ResumeLongPolling(void)
+{
+	//if (!m_hLongPollThread)
+	//	return false;
+	//m_evLongPollEnable.SetEvent(); // no longer stall the long polling thread
+	return true;
+}
+
+bool CAbkClient::AddDaq(CAbkClientDaq *pAdd)
+{
+	bool bSuccess = false;
+
+	if (m_nSessionId >= 0)
+	{
+		CAbkSingleLock lockDaq(&m_mutexDaq, true, DAQ_TIMEOUT);
+		assert(m_mutexDaq.IsLocked());
+		std::string strDaqNameA = CT2A(pAdd->m_strName, CP_UTF8);
+		if (!FindDaq(strDaqNameA))
+		{
+			std::pair<std::map<std::string, CAbkClientDaq *>::iterator, bool> iterInsert; // result of the insert operation
+			iterInsert = m_mapDaq.insert(std::pair<std::string, CAbkClientDaq *>(strDaqNameA, pAdd));
+			assert(iterInsert.second); // error inserting the daq?
+			pAdd->m_pOwner = this;
+			bSuccess = pAdd->Update(); // send it to server
+		}
+		else
+			AddLog(LOGSEVERITY_ERROR, _T("Tried to add a DAQ while another DAQ with same name exists: \"%s\""), (LPCTSTR)pAdd->m_strName);
+	}
+	else
+		AddLog(LOGSEVERITY_ERROR, _T("Tried to add a DAQ without having a valid session ID"));
+	return bSuccess;
+}
+
+//--------------------------------------------------------------------------
+// FindDaq()               searches for a DAQ
+// ---------
+// Input: strDaqName = name of daq to search for
+// Return: pointer to DAQ list, NULL if not found
+
+CAbkClientDaq *CAbkClient::FindDaq(const std::string &strDaqName)
+{
+	CAbkSingleLock lockDaq(&m_mutexDaq, true, DAQ_TIMEOUT);
+	assert(m_mutexDaq.IsLocked());
+	std::map<std::string, CAbkClientDaq *>::iterator iterDaq;
+	iterDaq = m_mapDaq.find(strDaqName);
+	if (iterDaq == m_mapDaq.end())
+		return NULL; // not found
+	return (*iterDaq).second;
+}
+
+BOOL CAbkClient::PopLog(LOGSEVERITY & nSeverityGet, CString & strMessageGet)
+{
+	// TODO:
+	return TRUE;
+}
+
+//--------------------------------------------------------------------------
+// SendButtonEvent()           sends a button press/release event to the server
+// -----------------
+// Input: strButtonName = name of the button
+//        bPressedState = TRUE if button is pressed, FALSE if released
+//        nTime = time value of key event.
+//                positive values indicate the time since key was pressed in ms
+//                negative values indicate the time since key was released in ms
+//        bPrivate: if true, client intends to process the reflected event
+//                  by itself and the server shall not reflect the event
+//                  to other clients
+// Return: true on success, false on error
+
+bool CAbkClient::SendButtonEvent(LPCTSTR pszButtonName, bool bPressedState, int nTime, bool bPrivate)
+{
+	// TODO:
+	return true;
+	//return SendEvent(ABK_CLIENTEVENT_BUTTON, pszButtonName, (double)(bPressedState != 0), (double)nTime, bPrivate);
+}
+
+std::string CAbkClient::GetClientState(LPCTSTR pszFileExtension)
+{
+	CClientPtrRef pClientAux(m_pClientAux);
+	//assert(pClientAux.IsValid());
+	if (!pClientAux.IsValid())
+		return NULL;
+	CString strUrl;
+	assert(pszFileExtension);
+	assert(pszFileExtension[0] != '\0'); // please no empty extension
+	assert(pszFileExtension[0] == '.'); // extension must start with delimiter dot
+	strUrl.Format(_T("%s/%s_%s_%s%s"), _T(ABK_SERVICE_CLIENTSTATES), m_strClientClass, m_strClientType, m_strClientSerial, pszFileExtension);
+	std::string strResponse = pClientAux->NavigateGet(strUrl, -1); // read data
+	int nStatus = pClientAux->GetStatus();
+	if (nStatus != 200) // if not responded with OK (200)..
+		strResponse.clear(); // .. devalidate the result
+	return strResponse;
+}
+
+bool CAbkClient::SetClientState(const char * pConfigString, LPCTSTR pszFileExtension)
+{
+	bool bSuccess = false;
+	CClientPtrRef pClientAux(m_pClientAux);
+	if (pClientAux.IsValid() && IsConnected())
+	{
+		CString strUrl;
+		assert(pszFileExtension);
+		assert(pszFileExtension[0] != '\0'); // please no empty extension
+		assert(pszFileExtension[0] == '.'); // extension must start with delimiter dot
+		strUrl.Format(_T("%s/%s_%s_%s%s"), _T(ABK_SERVICE_CLIENTSTATES), m_strClientClass, m_strClientType, m_strClientSerial, pszFileExtension);
+		std::string response = pClientAux->NavigatePut(strUrl, -1, std::string(pConfigString) /*, _T(MIME_TYPE_TEXT)*/);
+		bool bSuccess = !response.empty();
+		if (bSuccess)
+		{
+			int nStatus = pClientAux->GetStatus();
+			if ((nStatus < 200) || (nStatus >= 300)) // if not responded with an OK-code (2xx)..
+				bSuccess = false; // .. error in writing at the server
+		}
+	}
+	return bSuccess;
+}
+
+
 bool CAbkClient::CBaseAbstraction::GetVarOrMailboxList(LPCTSTR pszPath, std::list<CString> *pGet)
 {
 	bool bSuccess = false;
@@ -664,6 +1247,53 @@ bool CAbkClient::CBaseAbstraction::GetVarOrMailboxList(LPCTSTR pszPath, std::lis
 	return bSuccess;
 }
 
+bool CAbkClient::CBaseAbstraction::GetVarOrMailboxMeta(const std::list<LPCTSTR>& lstVarNames, std::list<CAbkClientMeta>* pGet, bool bMailboxFlag)
+{
+	bool bSuccess = false;
+	LPCTSTR pszPath;
+	if (bMailboxFlag)
+		pszPath = _T(ABK_REQUESTURL_MAILBOXMETA);
+	else
+		pszPath = _T(ABK_REQUESTURL_VARMETA);
+	CJsonFormatter jfRequest;
+	{
+		CJsonStreamArray jaVarList(&jfRequest, ABK_REQ_VARMETA_VARLIST); // "VarList": [
+		std::list<LPCTSTR>::const_iterator iterVarNames;
+		for (iterVarNames = lstVarNames.begin(); iterVarNames != lstVarNames.end(); ++iterVarNames)
+		{
+			LPCTSTR pszVarName = *iterVarNames;
+			jaVarList.WriteValue(CT2A(pszVarName, CP_UTF8)); // "Var1",
+		}
+	} // jaVarList falls out of scope => "]"
+	jfRequest.Close(); // "}"
+
+	std::string strResponse = NavigatePost(pszPath, -1, &jfRequest);
+	if (!strResponse.empty())
+	{
+		CJsonParser jpMeta(strResponse.c_str());
+		for (; !jpMeta.IsDone(); ++jpMeta)
+		{
+			if (jpMeta.TestArray(ABK_RSP_VARMETA_METADATA)) // is there an array named "MetaData":
+			{
+				for (++jpMeta; !jpMeta.IsDone(); ++jpMeta)
+				{
+					CAbkClientMeta metaVar;
+					bSuccess = metaVar.ExtractFromJson(jpMeta);
+					metaVar.m_bIsMailbox = bMailboxFlag;
+					pGet->push_back(metaVar); // append meta data to result list
+				}
+			}
+			jpMeta.SkipItem(); // skip any other members
+		}
+		bSuccess = true;
+	}
+	else
+	{
+		m_pOwner->AddLogHttp(LOGSEVERITY_WARNING, GetStatus(), pszPath, _T("POST"), strResponse.c_str());
+	}
+	return bSuccess;
+}
+
 bool CAbkClient::GetVarList(std::list<CString> *pGet)
 {
 	CClientPtrRef pClientAux(m_pClientAux);
@@ -673,11 +1303,89 @@ bool CAbkClient::GetVarList(std::list<CString> *pGet)
 	return pClientAux->GetVarOrMailboxList(_T(ABK_REQUESTURL_VARLIST), pGet);
 }
 
+bool CAbkClient::GetClientFirmwareInfo(std::list<CFirmwareInfo>& lstGet, LPCTSTR pszClientType)
+{
+	CClientPtrRef pClientAux(m_pClientAux);
+	if (!pClientAux.IsValid())
+		return false;
+	bool bSuccess = true;
+	lstGet.clear();
+
+	// compose and send request
+	if (!pszClientType) // if no client type name specified, use the stored one
+		pszClientType = CA2T(m_strClientType.c_str());
+	CJsonFormatter jfReq;
+	jfReq.WriteValue(ABK_REQ_FIRMWARE_CLASS, m_strClientClass);
+	jfReq.WriteValue(ABK_REQ_FIRMWARE_TYPE, CT2A(pszClientType, CP_UTF8));
+	jfReq.WriteValue("Serial", m_strClientSerial); // send serial unsolicitedly
+	std::string strResponse = pClientAux->NavigatePost(_T(ABK_REQUESTURL_FIRMWARE), -1, &jfReq); // send own info and get list of firmware files file info
+	if (strResponse.empty())
+		return false;
+
+	// decode response
+	CJsonParserAtl jpResp(strResponse.c_str());
+	bool bAnyVersionOmitted = false; // if we found at least one entity without version info
+	for (; !jpResp.IsDone(); ++jpResp)
+	{
+		if (jpResp.TestArray(ABK_RSP_FIRMWARE_IMAGELIST)) // is there "Images":[
+		{
+			CFirmwareInfo fwi;
+			bool bUrlDecoded = false;
+			bool bMd5Decoded = false;
+			bool bVersionDecoded = false;
+			for (; !jpResp.IsDone(); ++jpResp)
+			{
+				bUrlDecoded |= jpResp.ExtractValueAtl(ABK_RSP_FIRMWARE_URL, fwi.m_strUrl); // get URL
+				bMd5Decoded |= jpResp.ExtractValueAtl(ABK_RSP_FIRMWARE_MD5, fwi.m_strMd5); // get MD5 hash
+				bVersionDecoded |= jpResp.ExtractValueAtl(ABK_RSP_FIRMWARE_VERSION, fwi.m_strVersion); // get version info
+			}
+			if (!bVersionDecoded)
+				bAnyVersionOmitted = true;
+			if (bUrlDecoded && bMd5Decoded) // at least the server has to fill in these fields
+			{
+				lstGet.push_back(fwi);
+			}
+			else
+			{
+				if (!bUrlDecoded)
+					AddLog(LOGSEVERITY_ERROR, _T("GetClientFwInfo: Firmware info response: URL field is missing"));
+				if (!bMd5Decoded)
+					AddLog(LOGSEVERITY_ERROR, _T("GetClientFwInfo: Firmware info response: MD5 field is missing"));
+				bSuccess = FALSE;
+			}
+			jpResp.SkipItem();
+		}
+	}
+	if (bAnyVersionOmitted && lstGet.size() > 1) // if more than one entity returned and a version field was omitted
+	{
+		AddLog(LOGSEVERITY_ERROR, _T("GetClientFwInfo: Firmware info response: Version field is missing while returning multiple entities"));
+		bSuccess = FALSE;
+	}
+	if (!bSuccess)
+		lstGet.clear(); // discard decoded content if an error occured
+	return bSuccess;
+}
+
 std::size_t CAbkClient::CBaseAbstraction::insensitive_hash::operator()(const std::string &value) const
 {
 	std::string copy(value);
 	boost::to_lower(copy);
 	return boost::hash<std::string>()(copy);
+}
+
+void CAbkClient::AddLogHttp(LOGSEVERITY nSeverity, int nHttpStatusCode, LPCTSTR pszUrl, LPCTSTR pszMethod, const char *pcszResponse, const char *pcszoPostPutData/*=NULL*/)
+{
+	//ASSERT(nHttpStatusCode>=0);
+	if (pcszoPostPutData)
+		AddLog(LOGSEVERITY_ERROR, _T("HTTP status code %d. Url: \"%s\", Method: %s, Request: \"%s\", Response: \"%s\""), nHttpStatusCode, pszUrl, pszMethod, (LPCTSTR)CA2T(pcszoPostPutData, CP_UTF8), (LPCTSTR)CA2T(pcszResponse, CP_UTF8));
+	else
+		AddLog(LOGSEVERITY_ERROR, _T("HTTP status code %d. Url: \"%s\", Method: %s, Response: \"%s\""), nHttpStatusCode, pszUrl, pszMethod, (LPCTSTR)CA2T(pcszResponse, CP_UTF8));
+	if (nHttpStatusCode < 0)
+	{
+		// 23.10.18: Desktop-PC, Fehler in c:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\atlmfc\include\atlspriv.inl Zeile 218, inline bool ZEvtSyncSocket::Read()=> WSARecv()-Fehler. WSAGetLastError(): 10053
+		DWORD dwError = GetLastError();
+		AddLog(LOGSEVERITY_ERROR, _T("HTTP status code %d => Error-Code %d"), nHttpStatusCode, (int)dwError);
+	}
 }
 
 /** Cleans Object
@@ -745,9 +1453,114 @@ void CAbkClient::TidyUp(bool bLostConnection)
 	m_nSessionId = -1;
 }
 
+void CAbkClient::SetServerAddr(LPCTSTR pszServerAddress, int nPort)
+{
+	if ((m_nPort != nPort) || (boost::equals(pszServerAddress, m_strServerAddress))) // if changes in address or port
+	{
+		// TODO:
+		Create(pszServerAddress, nPort, NULL, CA2T(m_strClientClass.c_str()), CA2T(m_strClientType.c_str()), CA2T(m_strClientSerial.c_str()));
+	}
+}
+
+int CAbkClient::GetPort(void) const
+{
+	return m_nPort;
+}
+
 int CAbkClient::GetSessionId()
 {
 	return m_nSessionId;
+}
+
+//--------------------------------------------------------------------------
+// GetClientConfigInfo()      queries the client configuration/app information
+// ---------------------
+// Input: strUrl = [out] URL where to download the configuration file. if no file
+//                 is provided, this string will get empty
+//        strMd5 = [out] MD5 of the file, only valid if strUrl is not empty
+//        pszClientType=NULL = [in, optional] client type name when querying
+//                             the info. If NULL, the standard client type which
+//                             was specified in Create() will be used
+// Return: true on success, even if no config file is available and the strUrl was
+//              emptied
+//         false on error or if server does not support client config hosting
+
+bool CAbkClient::GetClientConfigInfo(CString &strUrl, CString &strMd5, LPCTSTR pszClientType/*=NULL*/)
+{
+	CClientPtrRef pClientAux(m_pClientAux);
+	//assert(pClientAux.IsValid());
+	if (!pClientAux.IsValid())
+		return false;
+
+	// compose and send request
+	if (!pszClientType) // if no client type name specified, use the stored one
+		pszClientType = (LPCTSTR)m_strClientType.c_str();
+	CJsonFormatter jfReq;
+	jfReq.WriteValue(ABK_REQ_CLIENTCONFIG_CLASS, m_strClientClass);
+	jfReq.WriteValue(ABK_REQ_CLIENTCONFIG_TYPE, CT2A(pszClientType));
+	jfReq.WriteValue(ABK_REQ_CLIENTCONFIG_SERIAL, m_strClientSerial);
+	std::string strResponse = pClientAux->NavigatePost(_T(ABK_REQUESTURL_CLIENTCONFIG_INFO), -1, &jfReq); // send own info and get config file info
+	if (strResponse.empty())
+		return false;
+
+	// decode response
+	CJsonParserAtl jpResp(strResponse.c_str());
+	bool bUrlDecoded = false;
+	bool bMd5Decoded = false;
+	for (; !jpResp.IsDone(); ++jpResp)
+	{
+		bUrlDecoded |= jpResp.ExtractValueAtl(ABK_RSP_CLIENTCONFIG_URL, strUrl); // get URL
+		bMd5Decoded |= jpResp.ExtractValueAtl(ABK_RSP_CLIENTCONFIG_MD5, strMd5); // get MD5 hash
+	}
+	if (!bUrlDecoded)
+	{
+		AddLog(LOGSEVERITY_ERROR, _T("ClientConfig info response: URL field is missing"));
+		return false;
+	}
+	if (!strUrl.IsEmpty() && (!bMd5Decoded || strMd5.IsEmpty())) // if there was an URL returned, a valid MD5 must be there too
+	{
+		AddLog(LOGSEVERITY_ERROR, _T("ClientConfig info response: MD5 field is missing"));
+		return false;
+	}
+	return true;
+}
+
+bool CAbkClient::GetForm(LPCTSTR pszFormName, std::list<CFormElement>& lstGet, CString & strCaptionGet, int & nPersitenceMs)
+{
+	CClientPtrRef pClientAux(m_pClientAux);
+	assert(pClientAux.IsValid());
+	if (!pClientAux.IsValid())
+		return false;
+	CString strUrl;
+	strUrl.Format(_T("%s/%s"), _T(ABK_SERVICE_FORMS), pszFormName);
+	std::string strResponse = pClientAux->NavigateGet(strUrl, -1);
+	if (strResponse.empty())
+		return false;
+	CJsonParserAtl jpForm(strResponse.c_str());
+	bool bCaptionDecoded = false;
+	nPersitenceMs = 0; // default: infinite display time
+	for (; !jpForm.IsDone(); ++jpForm)
+	{
+		bCaptionDecoded |= jpForm.ExtractValueAtl(ABK_RSP_FORMS_CAPTION, strCaptionGet); // get caption of the form
+		jpForm.ExtractValue(ABK_RSP_FORMS_PERSISTENCE, &nPersitenceMs); // get persistence time
+		if (jpForm.TestArray(ABK_RSP_FORMS_CONTROLS)) // is there "Controls":[
+		{
+			for (++jpForm; !jpForm.IsDone(); ++jpForm) // each element
+			{
+				CFormElement elGet;
+				if (!elGet.DecodeJson(jpForm)) // decode the element
+					return false; // error in element
+				lstGet.push_back(elGet);
+			}
+		}
+		jpForm.SkipItem();
+	}
+	if (!bCaptionDecoded)
+	{
+		AddLog(LOGSEVERITY_ERROR, _T("Caption is missing in form \"%s\""), pszFormName);
+		return false;
+	}
+	return true;
 }
 
 /** Overload to consume messages on queue */

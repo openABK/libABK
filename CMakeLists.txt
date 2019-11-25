@@ -30,6 +30,9 @@ if(USE_BOOST_ABK)
 	${CMAKE_CURRENT_SOURCE_DIR}/Common/JsonParser.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/Common/CrossPlatform.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/ClientLib/AbkServerEvent.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/ClientLib/AbkClientDaq.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/ClientLib/AbkClientVar.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/ClientLib/AbkServerFinder.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/Common/JsonParserAtl.cpp
 
 	${CMAKE_CURRENT_SOURCE_DIR}/ClientBoost/AbkClient.cpp

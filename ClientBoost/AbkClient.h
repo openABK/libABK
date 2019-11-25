@@ -29,8 +29,13 @@ namespace Abk {
 	// tag is used to differentiate to avoid unintentional casts
 	typedef boost::error_info<struct tag_network_info, int> AbkNetworkExceptionInfo;
 
+	typedef bool (WINAPI *PFNSTATUSCALLBACK) (DWORD, DWORD_PTR);
+
 	class CAbkClient
 	{
+		friend class CAbkClientDaq;
+		friend class CAbkClient;
+// CBaseAbstraction begin -----------------------------------------------------------
 	public:
 // HTTP client class
 		class CBaseAbstraction
@@ -43,7 +48,8 @@ namespace Abk {
 			enum eHttpRequestType {
 				E_HTTP_GET,
 				E_HTTP_POST,
-				E_HTTP_PUT
+				E_HTTP_PUT,
+				E_HTTP_DELETE
 			};
 
 
@@ -78,6 +84,8 @@ namespace Abk {
 			CAbkMutex m_mutex;
 		// construction/destruction/setup
 			CJsonFormatter formatter;
+
+			unsigned int m_uStatus;
 		public:
 			CBaseAbstraction(CAbkClient *pOwner);
 			virtual ~CBaseAbstraction();
@@ -88,7 +96,10 @@ namespace Abk {
 		protected:
 			void SetServerAddr(const std::string &pszServerAddress, int nPort); // re-assigns the server address and port
 			int GetPort(void) const { return m_nPort; } // returns port
+			bool DeleteSession(int nSessionId); // deletes the actual session
+
 			// TODO: MIME type
+			std::string NavigatePut(LPCTSTR pszPath, int nSessionId, const std::string &strData);
 			bool NavigatePut(LPCTSTR pszPath, int nSessionId, CJsonFormatter *pPutData);
 			/** Used to retrieve a string at a certain path
 				@param pszPath
@@ -101,7 +112,8 @@ namespace Abk {
 			std::string NavigateGet(LPCTSTR pszPath, int nSessionId);
 			bool        NavigateGet(LPCTSTR pszPath, int nSessionId, std::ostream & out);
 			std::string NavigatePost(LPCTSTR pszPath, int nSessionId, CJsonFormatter *pPostData);
-			bool DeleteSession(int nSessionId); // deletes the actual session
+
+			bool        NavigateDelete(LPCTSTR pszPath, int nSessionId, CJsonFormatter *pPostData);
 
 			template <typename U>
 			bool SetVarOrMailboxValue(LPCTSTR pszPath, const char *pszName, const U *pSet)
@@ -120,6 +132,7 @@ namespace Abk {
 			}
 
 			bool GetVarOrMailboxList(LPCTSTR pszPath, std::list<CString> *pGet);
+			bool GetVarOrMailboxMeta(const std::list<LPCTSTR> &lstVarNames, std::list<CAbkClientMeta> *pGet, bool bMailboxFlag);
 			int ObtainSessionId(LPCTSTR pszClientClass, LPCTSTR pszClientType, LPCTSTR pszClientSerial /*=NULL*/);
 
 
@@ -136,16 +149,19 @@ namespace Abk {
 			size_t WriteToSocket(tcp::socket & a_Socket, const std::string & a_Path, eHttpRequestType a_Type);
 			size_t WriteToSocket(tcp::socket & a_Socket, const std::string & a_Path, const std::string & a_Message, eHttpRequestType a_Type);
 
-			size_t ReadFromSocket(tcp::socket & a_Socket, std::string & a_Message, unsigned int *pnStatusCode = nullptr);
-			size_t ReadFromSocket(tcp::socket & a_Socket, std::ostream & sstream, unsigned int *pnStatusCode = nullptr);
+			size_t ReadFromSocket(tcp::socket & a_Socket, std::string & a_Message);
+			size_t ReadFromSocket(tcp::socket & a_Socket, std::ostream & sstream);
 
 			bool IsSocketOpen() const;
+			unsigned int GetStatus() { return m_uStatus; }
 
 		public:
 			boost::asio::io_context io_context;
 			tcp::resolver resolver /*(io_context)*/;
 			tcp::socket socket /*(io_context)*/;
 		};
+
+// End of CBaseAbstraction--------------------------------------------------------------------------------------
 
 	public:
 		class CFormElement // one element of a form
@@ -234,11 +250,22 @@ namespace Abk {
 
 
 
+	// data members
 	private:
+		bool m_bTerminateLongPoll; // true if long-polling thread shall terminate
+		CClientPtr m_pClientAux; // auxiliary client for blocking non-long-polling actions
+		CClientPtr m_pClientEvent; // auxiliary client for long-polling data and event transfer actions
+		std::map<std::string, CAbkClientDaq *> m_mapDaq; // DAQ lists currently used to transfer data
 		std::string m_strServerAddress;
 		std::string m_strPort;
+		std::string m_strClientClass; // class string of client
+		std::string m_strClientType; // type string of client
+		std::string m_strClientSerial; // serial number string of client
 		int m_nPort;
 		int m_nSessionId;
+
+		CAbkMutex m_mutexDaq; // mutex to protect the daq items
+		CAbkServerEvent *m_pNextEventData; // when event is received, it will be stored to this location. Will not be deleted on destruction!
 
 		void AddLog(LOGSEVERITY nSeverity, LPCTSTR pszMessage, ...);
 
@@ -247,11 +274,6 @@ namespace Abk {
 		CAbkClient();
 		virtual ~CAbkClient();
 		bool Create(LPCTSTR pszServerAddress, int nPort, CAbkServerEvent *pEventRxBuffer, LPCTSTR pszClientClass, LPCTSTR pszClientType, LPCTSTR pszClientSerial = NULL); // creates the client and initializes
-
-
-		std::string GetServerInfo(void);
-
-
 
 		/** Called when server sent an event.
 
@@ -270,21 +292,23 @@ namespace Abk {
 		*/
 		virtual CAbkServerEvent *OnServerEvent(CAbkServerEvent *pEventData);
 
-		// data members
-		private:
-			bool m_bTerminateLongPoll; // true if long-polling thread shall terminate
-			CClientPtr m_pClientAux; // auxiliary client for blocking non-long-polling actions
-			CClientPtr m_pClientEvent; // auxiliary client for long-polling data and event transfer actions
-			std::map<std::string, CAbkClientDaq *> m_mapDaq; // DAQ lists currently used to transfer data
+
+
+		protected:
+			void AddLogHttp(LOGSEVERITY nSeverity, int nHttpStatusCode, LPCTSTR pszUrl, LPCTSTR pszMethod, const char *pcszResponse, const char *pcszoPostPutData = NULL);
 
 		// blocking ABK methods
 		public:
 
 		void TidyUp(bool bLostConnection); // cleans object
 		void SetServerAddr(LPCTSTR pszServerAddress, int nPort); // re-assigns the server address and port
-		const CString &GetServerAddr(void) const { return (CString)m_strServerAddress.c_str(); } // returns server address string
+		const CString GetServerAddr(void) const { return (CString)m_strServerAddress.c_str(); } // returns server address string
 		int GetPort(void) const; // returns port of server connection
 		int GetSessionId(void);
+
+
+		bool GetClientConfigInfo(CString &strUrl, CString &strMd5, LPCTSTR pszClientType/*=NULL*/);
+		bool GetForm(LPCTSTR pszFormName, std::list<CFormElement> &lstGet, CString &strCaptionGet, int &nPersitenceMs);
 
 
 
@@ -294,6 +318,40 @@ namespace Abk {
 		bool SetVarValue(LPCTSTR pszVarName, int nSet); // sets a variable value
 		bool SetVarValue(LPCTSTR pszVarName, bool bSet); // sets a variable value
 
+		bool SetMailboxValue(LPCTSTR pszMailboxName, const CString &strSet); // sets a mailbox value
+		bool SetMailboxValue(LPCTSTR pszMailboxName, const std::string &strSet); // sets a mailbox value
+		bool SetMailboxValue(LPCTSTR pszMailboxName, double dSet); // sets a mailbox value
+		bool SetMailboxValue(LPCTSTR pszMailboxName, int nSet); // sets a mailbox value
+		bool SetMailboxValue(LPCTSTR pszMailboxName, bool bSet); // sets a mailbox value
+
+		bool GetCurrentServerTime(time_t *pGet);
+		bool GetMailboxList(std::list<CString> *pGet);
+		bool GetMailboxMeta(const std::list<LPCTSTR> &lstMailboxNames, std::list<CAbkClientMeta> *pGet);
+		bool GetMailboxMeta(LPCTSTR pszMailboxName, CAbkClientMeta *pGet);
+
+		bool GetVarMeta(const std::list<LPCTSTR> &lstVarNames, std::list<CAbkClientMeta> *pGet);
+		bool GetVarMeta(LPCTSTR pszVarName, CAbkClientMeta *pGet);
+
+
+		bool SendForm(LPCTSTR pszFormName, const std::list<CFormElement> &lstSend);
+		bool SendAudioRecHeader(int nId, int nSampleRateHz, int nBitsPerSample, int nChannels);
+		bool SendAudioRecData(int nId, const void *pData, int nBitsPerSample, int nChannels, int nSamplesPerChannel);
+		bool SendAudioRecFooter(int nId);
+		bool SendAudioRecRejectEvent(int nId);
+
+		bool SuspendLongPolling(void);
+		bool ResumeLongPolling(void);
+
+		bool AddDaq(CAbkClientDaq *pAdd); // adds a daq list
+		CAbkClientDaq *FindDaq(const std::string &strDaqName); // searches for a DAQ
+
+		BOOL PopLog(LOGSEVERITY &nSeverityGet, CString &strMessageGet); // pops one entity from the error log
+
+		bool SendButtonEvent(LPCTSTR pszButtonName, bool bPressedState, int nTime, bool bPrivate); // sends a button press/release event to the server
+
+		std::string GetClientState(LPCTSTR pszFileExtension); // reads client configuration from server
+		bool SetClientState(const char *pConfigString, LPCTSTR pszFileExtension); // writes client configuration to server
+
 
 		virtual void OnLogAdded(void);
 
@@ -301,8 +359,17 @@ namespace Abk {
 
 		bool GetVarList(std::list<CString> *pGet);
 
-		bool DownloadFile(LPCTSTR pszUrl, std::ostream & out);
-		bool DownloadFile(LPCTSTR pszUrl, LPCTSTR pszStorePath);
+		bool GetClientFirmwareInfo(std::list<CFirmwareInfo> &lstGet, LPCTSTR pszClientType = NULL); // queries the available client firmware information
+
+		bool DownloadFile(LPCTSTR pszUrl, std::ostream & out, PFNSTATUSCALLBACK pfnReadCallback = NULL, DWORD_PTR dwCookie = 0);
+		bool DownloadFile(LPCTSTR pszUrl, LPCTSTR pszStorePath, PFNSTATUSCALLBACK pfnReadCallback = NULL, DWORD_PTR dwCookie = 0);
+
+		std::string GetServerInfo(void);
+		bool GetServerInfo(CString &strProtocolVersion, CString &strInterfaceVersion, CString &strFwVersion, CString &strHwVersion, CString &strServerName, CString &strServerType, CString &strDescUrl); // retrieves information from server
+		std::string GetInterfaceStatistics(void); // returns interface statistics of server as json formatted string
+
+		bool SendAlertConfirmEvent(LPCTSTR pszAlertClassName, int nSeverity, int nMerged, bool bPermanent, bool bSuppressed, bool bTimeout); // sends confirmation event to server: user has confirmed an event
+
 
 		bool ReceiveEvent();
 
