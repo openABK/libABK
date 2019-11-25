@@ -69,6 +69,11 @@ BOOST_AUTO_TEST_CASE(Connection)
 
 	BOOST_TEST(!varlist.empty());
 
+	// Receive one event using the socket for long-polling
+	// To ensure a connection has been established.
+	bSuccess = testClient.ReceiveEvent();
+	BOOST_TEST(bSuccess);
+
 	bSuccess = testClient.IsConnected();
 	BOOST_TEST(bSuccess);
 

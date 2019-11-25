@@ -60,6 +60,7 @@
 #include <sstream>
 
 #include <boost/asio.hpp>
+#include <boost/atomic.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/core/ignore_unused.hpp>
