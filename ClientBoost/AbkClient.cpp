@@ -670,19 +670,25 @@ std::string CAbkClient::GetInterfaceStatistics(void)
 	return pClientAux->NavigateGet(_T(ABK_REQUESTURL_INTERFACESTATS), -1);
 }
 
-//--------------------------------------------------------------------------
-// SendEvent()             sends a client event to the server
-// -----------
-// Input: strEventType = envent type string
-//        strStringParam = string parameter
-//        jfString = formatted object to be sent as string parameter
-//        dParam1 = numeric parameter 1
-//        dParam2 = numeric parameter 2
-//        bPrivate: if true, client intends to process the reflected event
-//                  by itself and the server shall not reflect the event
-//                  to other clients
-// Return: true on success, false on error
+/** Sends a client event to the server
 
+	@param pszEventType
+		Event type string
+	@param pszStringParam
+		String parameter
+	@param jfString
+		formatted objected to be sent as string paramter
+	@param dParam1
+		numeric parameter 1
+	@param dParam2
+		numeric parameter 2
+	@param bPrivate
+		If true, client intends to process the reflected event
+		by itself and the server shall not reflect the event
+		to other clients
+	@return
+		true on success, false on error
+*/
 bool CAbkClient::SendEvent(const char *pszEventType, LPCTSTR pszStringParam, double dParam1, double dParam2, bool bPrivate)
 {
 	CClientPtrRef pClientAux(m_pClientAux);
@@ -712,6 +718,8 @@ bool CAbkClient::SendEvent(const char *pszEventType, LPCTSTR pszStringParam, dou
 	return bSuccess;
 }
 
+/** @copydoc CAbkClient::SendEvent
+*/
 bool CAbkClient::SendEvent(const char *pszEventType, CJsonFormatter &jfString, double dParam1, double dParam2, bool bPrivate)
 {
 	CClientPtrRef pClientAux(m_pClientAux);
@@ -754,12 +762,41 @@ bool CAbkClient::SendAlertConfirmEvent(LPCTSTR pszAlertClassName, int nSeverity,
 	//return true;
 }
 
+/** Called when server sent an event
+
+	@details
+		You can override this function to receive events.
+		This function is called in the long polling
+		threads context
+
+	@param pEventData
+		Pointer to event with the params of thevent
+	@return
+		Pointer to event object receiving the next event.
+		You can either return the same event object when you have only
+		one buffer for event reception.
+		Alternatively you can return a pointer to another event object if you have a queue.
+		In this case pEventData must be deleted manually
+*/
 CAbkServerEvent *CAbkClient::OnServerEvent(CAbkServerEvent *pEventData)
 {
 	// default implementation: use the same event object for the next event
 	return pEventData;
 }
 
+/** Download a file to a stream
+
+	@param pszUrl
+		URL on the server where do load from
+	@param out
+		Output stream where the file should be written to
+	@param pfnReadCallback
+		Callback called for status updates during download (optional)
+	@param dwCookie
+		Callback data
+	@return
+		true on success, false if error occured
+*/
 bool CAbkClient::DownloadFile(LPCTSTR pszUrl, std::ostream &out, PFNSTATUSCALLBACK pfnReadCallback, DWORD_PTR dwCookie)
 {
 	CClientPtrRef pClientAux(m_pClientAux);
@@ -770,12 +807,26 @@ bool CAbkClient::DownloadFile(LPCTSTR pszUrl, std::ostream &out, PFNSTATUSCALLBA
 	return bSuccess;
 }
 
+/** Download a file to a certain location
+
+	@param pszUrl
+		URL on the server where do load from
+	@param pszStorePath
+		Absolute local file path where to store to
+	@param pfnReadCallback
+		Callback called for status updates during download (optional)
+	@param dwCookie
+		Callback data
+	@return
+		true on success, false if error occured
+*/
 bool CAbkClient::DownloadFile(LPCTSTR pszUrl, LPCTSTR pszStorePath, PFNSTATUSCALLBACK pfnReadCallback, DWORD_PTR dwCookie)
 {
 	std::ofstream file(CT2A(pszStorePath), std::ofstream::out);
 	return DownloadFile(pszUrl, file);
 }
 
+/** Manually receive an event */
 bool CAbkClient::ReceiveEvent()
 {
 	CClientPtrRef pClientEvent(m_pClientEvent);
@@ -786,13 +837,13 @@ bool CAbkClient::ReceiveEvent()
 	return !strResponse.empty();
 }
 
-//--------------------------------------------------------------------------
-// SetVarValue()           sets a variable value
-// -------------
-// Input: pszVarName = name of variable to be set
-//        pSet = pointer to new value
-// Return: 
+/** Sets a variable value
 
+	@param pszVarName
+		Name of variable to be set
+	@param pSet
+		Pointer to new value
+*/
 bool CAbkClient::SetVarValue(LPCTSTR pszVarName, const CString &strSet)
 {
 	CClientPtrRef pClientAux(m_pClientAux);
@@ -839,7 +890,13 @@ bool CAbkClient::SetVarValue(LPCTSTR pszVarName, const bool bSet)
 	return pClientAux->SetVarOrMailboxValue(_T(ABK_REQUESTURL_VARVALUE), CT2A(pszVarName, CP_UTF8), &bSet);
 }
 
-/** Sets a mailbox value */
+/** Sets a mailbox value
+
+	@param pszMailboxName
+		Name of the mailbox to be set
+	@param pSet
+		Pointer to new value
+*/
 bool CAbkClient::SetMailboxValue(LPCTSTR pszMailboxName, const CString &strSet)
 {
 	CClientPtrRef pClientAux(m_pClientAux);
@@ -918,6 +975,12 @@ bool CAbkClient::GetCurrentServerTime(time_t *pGet)
 	return bSuccess;
 }
 
+
+/** Requests list of mailboxes
+
+	@param pGet
+		List receiving the available mailbox names
+*/
 bool CAbkClient::GetMailboxList(std::list<CString> *pGet)
 {
 	CClientPtrRef pClientAux(m_pClientAux);
@@ -927,6 +990,15 @@ bool CAbkClient::GetMailboxList(std::list<CString> *pGet)
 	return pClientAux->GetVarOrMailboxList(_T(ABK_REQUESTURL_MAILBOXLIST), pGet);
 }
 
+/** Requests metadata of a variable
+
+	@param lstVarNames
+		List with mailbox names to retrieve metadata for
+	@param pGet
+		Pointer to list to store metadata in
+	@return
+		true on success, false on error
+*/
 bool CAbkClient::GetMailboxMeta(const std::list<LPCTSTR>& lstMailboxNames, std::list<CAbkClientMeta>* pGet)
 {
 	CClientPtrRef pClientAux(m_pClientAux);
@@ -936,6 +1008,15 @@ bool CAbkClient::GetMailboxMeta(const std::list<LPCTSTR>& lstMailboxNames, std::
 	return pClientAux->GetVarOrMailboxMeta(lstMailboxNames, pGet, true);
 }
 
+/** Requests metadata of a mailbox
+
+	@param lstVarNames
+		List with mailbox names to retrieve metadata for
+	@param pGet
+		Pointer to element to store metadata in
+	@return
+		true on success, false on error
+*/
 bool CAbkClient::GetMailboxMeta(LPCTSTR pszMailboxName, CAbkClientMeta *pGet)
 {
 	std::list<LPCTSTR> lstVarNames;
@@ -948,13 +1029,16 @@ bool CAbkClient::GetMailboxMeta(LPCTSTR pszMailboxName, CAbkClientMeta *pGet)
 	return bSuccess;
 }
 
-//--------------------------------------------------------------------------
-// GetVarMeta()            requests meta data of a variable
-// ------------
-// Input: lstVarNames = list with variable names
-//        pGet = pointer to return the meta data
-// Return: true on success, false on error
 
+/** Requests metadata of a variable
+
+	@param lstVarNames
+		List with variable names
+	@param pGet
+		Pointer to return the meta
+	@return
+		true on success, false on error
+*/
 bool CAbkClient::GetVarMeta(const std::list<LPCTSTR> &lstVarNames, std::list<CAbkClientMeta> *pGet)
 {
 	bool bSuccess = false;
@@ -966,13 +1050,15 @@ bool CAbkClient::GetVarMeta(const std::list<LPCTSTR> &lstVarNames, std::list<CAb
 }
 
 
-//--------------------------------------------------------------------------
-// GetVarMeta()            requests meta data of a variable
-// ------------
-// Input: pszVarName = name of variable to be queried
-//        pGet = pointer to return the meta data
-// Return: true on success, false on error
+/** Requests metadata of a variable
 
+	@param pszVarName
+		Name of variable to be queried
+	@param pGet
+		Pointer to return the metadata
+	@return
+		true on success, false on error
+*/
 bool CAbkClient::GetVarMeta(LPCTSTR pszVarName, CAbkClientMeta *pGet)
 {
 	std::list<LPCTSTR> lstVarNames;
@@ -985,6 +1071,15 @@ bool CAbkClient::GetVarMeta(LPCTSTR pszVarName, CAbkClientMeta *pGet)
 	return bSuccess;
 }
 
+
+/** Sends a form
+
+	@param pszFormName
+		Name of form to be sent
+	@param lstSend
+		List of elements to be sent.
+		Only the m_varValue with the corresponding names are set
+*/
 bool CAbkClient::SendForm(LPCTSTR pszFormName, const std::list<CFormElement>& lstSend)
 {
 	ASSERT(pszFormName);
@@ -1042,15 +1137,20 @@ bool CAbkClient::SendForm(LPCTSTR pszFormName, const std::list<CFormElement>& ls
 	return true;
 }
 
-//--------------------------------------------------------------------------
-// SendAudioRecHeader()    sends an audio header
-// --------------------
-// Input: nId = general purpose id the server wants to be reflected when the server initiated the recording operation
-//        nSampleRateHz = sample rate in Hz
-//        nBitsPerSample = bits per sample, 8 and 16 allowed
-//        nChannels = number of channels. Allowed is 1 (mono) and 2 (stereo)
-// Return: true on success, false on error
 
+/** Sends an audio header
+
+	@param nId
+		General purpose id the server wants to be reflected when the server initiated the recording operation
+	@param nSampleRateHz
+		Sample rate in Hz
+	@param nBitsPerSample
+		Bits per sample, 8 and 16 allowed
+	@param nChannels
+		Number of Channels. Allowed is 1 (mono) and 2 (stereo)
+	@return
+		true on success, false on error
+*/
 bool CAbkClient::SendAudioRecHeader(int nId, int nSampleRateHz, int nBitsPerSample, int nChannels)
 {
 	bool bSuccess = false;
@@ -1072,19 +1172,25 @@ bool CAbkClient::SendAudioRecHeader(int nId, int nSampleRateHz, int nBitsPerSamp
 }
 
 
-//--------------------------------------------------------------------------
-// SendAudioRecData()      sends audio data
-// ------------------
-// Input: nId = general purpose id the server wants to be reflected when the server initiated the recording operation
-//        pData = data.
-//                if bits per sample == 8: BYTES
-//                if bits per sample == 16: WORDs in  little endian format.
-//                value seauence for stereo: left, right, left, right ...
-//        nBitsPerSample = bits per sample, 8 and 16 allowed
-//        nChannels = number of channels. Allowed is 1 (mono) and 2 (stereo)
-//        nSamplesPerChannel = number of samples of each channel in pData
-// Return: true on success, false on error
+/** Sends audio data
 
+	@param nId
+		General purpose id the server wants to be reflected when the server initiated the recording operation
+	@param pData
+		Pointer to buffer containing audio samples
+
+		if bits per sample == 8: BYTES @n
+		if bits per sample == 16: WORDs in little endian format @n
+		value sequence for stereo: left, right, left, right
+	@param nBitsPerSample
+		Bits per sample, 8 and 16 allowed
+	@param nChannels
+		Number of Channels. Allowed is 1 (mono) and 2 (stereo)
+	@param nSamplesPerChannel
+		Number of samples of each channel in pData
+	@return
+		true on success, false on error
+*/
 bool CAbkClient::SendAudioRecData(int nId, const void *pData, int nBitsPerSample, int nChannels, int nSamplesPerChannel)
 {
 	bool bSuccess = false;
@@ -1135,12 +1241,13 @@ bool CAbkClient::SendAudioRecData(int nId, const void *pData, int nBitsPerSample
 }
 
 
-//--------------------------------------------------------------------------
-// SendAudioRecFooter()    sends audio footer
-// --------------------
-// Input: nId = general purpose id the server wants to be reflected when the server initiated the recording operation
-// Return: true on success, false on error
+/** Sends audio footer
 
+	@param nId
+		General purpose id the server wants to be reflected when the server initiated the recording operation
+	@return
+		true on success, false on error
+*/
 bool CAbkClient::SendAudioRecFooter(int nId)
 {
 	bool bSuccess = false;
@@ -1157,24 +1264,18 @@ bool CAbkClient::SendAudioRecFooter(int nId)
 }
 
 
+/** Sends event that use rejected audio recording
 
-//--------------------------------------------------------------------------
-// SendAudioRecRejectEvent() sends event that user rejected audio recording
-// -------------------------
-// Input: nId = general purpose ID the sender wants to be reflected
-// Return: 
-
+	@param nId
+		general purpose ID the sender wants to be reflected
+*/
 bool CAbkClient::SendAudioRecRejectEvent(int nId)
 {
 	return SendEvent(ABK_CLIENTEVENT_AUDIOREC_REJECT, _T(""), (double)nId, 0, false);
 }
 
-//--------------------------------------------------------------------------
-// SuspendLongPolling()      pauses the long-poll thread
-// ------------------
-// Input: -
-// Return: 
 
+/** Pauses long polling thread*/
 bool CAbkClient::SuspendLongPolling(void)
 {
 	//if (!m_hLongPollThread)
@@ -1183,12 +1284,8 @@ bool CAbkClient::SuspendLongPolling(void)
 	return true;
 }
 
-//--------------------------------------------------------------------------
-// ResumeLongPolling()     resumes long poll thread
-// -------------------
-// Input: -
-// Return: 
 
+/** Resumes long polling thread */
 bool CAbkClient::ResumeLongPolling(void)
 {
 	//if (!m_hLongPollThread)
@@ -1197,24 +1294,20 @@ bool CAbkClient::ResumeLongPolling(void)
 	return true;
 }
 
-//--------------------------------------------------------------------------
-// LongPollThreadS()        long polling thread
-// ----------------
-// Input: vpThis = pointer to CAbkClient
-// Return: -
 
+/** Long polling thread entrypoint
+
+	@param vpThis
+		pointer to CAbkClient
+*/
 /*static*/ DWORD WINAPI CAbkClient::LongPollThreadS(void *vpThis)
 {
 	assert(vpThis);
 	return (reinterpret_cast<CAbkClient *>(vpThis))->LongPollThread();
 }
 
-//--------------------------------------------------------------------------
-// LongPollThread()        long polling thread
-// ----------------
-// Input: -
-// Return: -
 
+/** Long polling thread */
 int CAbkClient::LongPollThread(void)
 {
 	AddLog(LOGSEVERITY_TRACE, _T("LongPollThread() started"));

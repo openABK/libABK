@@ -32,6 +32,7 @@ namespace Abk {
 
 	typedef bool (WINAPI *PFNSTATUSCALLBACK) (DWORD, DWORD_PTR);
 
+	/** Client for communication via OpenABK */
 	class CAbkClient
 	{
 		friend class CAbkClientDaq;
