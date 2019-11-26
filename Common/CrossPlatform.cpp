@@ -29,6 +29,7 @@
 
 
 
+
 namespace Abk
   {
 
@@ -43,8 +44,8 @@ namespace Abk
 
 ABK_THREAD_HANDLE AbkStartThread (PFN_THREAD pfnThread, void *pArgs)
   {
-  #if defined(LINUX)
-  #error: todo
+  #if defined(PREFER_BOOST_PLATFORM)
+	return boost::thread(pfnThread, pArgs);
   #elif defined(_WIN32)
 #ifdef USE_BEGINTHREADEX
   uintptr_t hThread=_beginthreadex(NULL,0,pfnThread,pArgs,0,NULL);
@@ -68,9 +69,9 @@ ABK_THREAD_HANDLE AbkStartThread (PFN_THREAD pfnThread, void *pArgs)
 
 void AbkKillThread (ABK_THREAD_HANDLE hThread)
   {
-  #if defined(linux)
-	hThread->interrupt();
-    hThread->join();
+  #if defined(PREFER_BOOST_PLATFORM)
+		hThread.interrupt();
+		hThread.join();
   #elif defined(_WIN32)
     CloseHandle((HANDLE)hThread);
   #else
@@ -88,7 +89,7 @@ void AbkKillThread (ABK_THREAD_HANDLE hThread)
 
 void AbkSleepMs (int nDelayMs)
   {
-  #if defined(linux)
+  #if defined(PREFER_BOOST_PLATFORM)
 	boost::this_thread::sleep(boost::posix_time::milliseconds(nDelayMs));
   #elif defined(_WIN32)
     Sleep(nDelayMs);
@@ -148,11 +149,10 @@ const std::string &AbkGetOwnIpAddress (void)
 // Input: mutex = handle of mutex to be initialized
 // Return: true on success, false on error
 
-bool AbkMutexInit (ABK_MUTEX &mutex)
+bool AbkMutexInit (ABK_MUTEX_REF mutex)
   {
-  #if defined(linux)
-	mutex = new boost::recursive_mutex;
-	return (mutex!=0);
+  #if defined(PREFER_BOOST_PLATFORM)
+	return true;
   #elif defined(_WIN32)
     #ifdef SYNC_USE_CS
     mutex=new CRITICAL_SECTION; //  mutex = CreateMutex(0, FALSE, 0);
@@ -176,10 +176,10 @@ bool AbkMutexInit (ABK_MUTEX &mutex)
 //        nTimeout = timeout in ms
 // Return: true on success, false on timeout
 
-bool AbkMutexLock (ABK_MUTEX mutex, int nTimeout)
+bool AbkMutexLock (ABK_MUTEX_REF mutex, int nTimeout)
   {
-  #if defined(linux)
-	mutex->lock();
+  #if defined(PREFER_BOOST_PLATFORM)
+	mutex.lock();
 	return true;
   #elif defined(_WIN32)
     #ifdef SYNC_USE_CS
@@ -201,10 +201,10 @@ bool AbkMutexLock (ABK_MUTEX mutex, int nTimeout)
 // Input: mutex = handle of mutex to be unlocked
 // Return: true on success, false on error
 
-bool AbkMutexUnlock (ABK_MUTEX mutex)
+bool AbkMutexUnlock (ABK_MUTEX_REF mutex)
   {
-  #if defined(linux)
-	mutex->unlock();
+  #if defined(PREFER_BOOST_PLATFORM)
+	mutex.unlock();
 	return true;
   #elif defined(_WIN32)
     #ifdef SYNC_USE_CS
@@ -225,10 +225,9 @@ bool AbkMutexUnlock (ABK_MUTEX mutex)
 // Input: mutex = handle of mutex to be destroyed
 // Return: true on success, false on error
 
-bool AbkMutexDestroy (ABK_MUTEX mutex)
+bool AbkMutexDestroy (ABK_MUTEX_REF mutex)
   {
-  #if defined(linux)
-	delete mutex;
+  #if defined(PREFER_BOOST_PLATFORM)
 	return true;
   #elif defined(_WIN32)
     #ifdef SYNC_USE_CS
@@ -437,7 +436,7 @@ bool CAbkSingleLock::Unlock (void) const
 
 CAbkEvent::CAbkEvent ()
   {
-  #if defined(linux)
+  #if defined(PREFER_BOOST_PLATFORM)
 	//NOTHING TO DO HERE
   //  std::cout << "cabkevent constructor called\n";
   #elif defined(_WIN32)
@@ -456,7 +455,7 @@ CAbkEvent::CAbkEvent ()
 
 CAbkEvent::CAbkEvent (const CAbkEvent &rOther)
   {
-  #if defined(linux)
+  #if defined(PREFER_BOOST_PLATFORM)
     //NOTHING TO DO HERE
     //std::cout << "cabkevent copy-constructor called\n";
   #elif defined(_WIN32)
@@ -475,7 +474,7 @@ CAbkEvent::CAbkEvent (const CAbkEvent &rOther)
 
 CAbkEvent::~CAbkEvent ()
   {
-  #if defined(linux)
+  #if defined(PREFER_BOOST_PLATFORM)
     //NOTHING TO DO HERE
     //std::cout << "cabkevent destructor called\n";
   #elif defined(_WIN32)
@@ -494,7 +493,9 @@ CAbkEvent::~CAbkEvent ()
 
 bool CAbkEvent::Set (void)
   {
-  #if defined(linux)
+  #if defined(PREFER_BOOST_PLATFORM)
+	boost::lock_guard < boost::mutex > lock(m_eventMutex);
+	m_eventCond = true;
 	m_event.notify_all();
 	return true;
   #elif defined(_WIN32)
@@ -513,8 +514,9 @@ bool CAbkEvent::Set (void)
 
 bool CAbkEvent::Reset (void)
   {
-  #if defined(linux)
-	//NOTHING TO DO HERE
+  #if defined(PREFER_BOOST_PLATFORM)
+	boost::lock_guard< boost::mutex > lock(m_eventMutex);
+	m_eventCond = false;
 	return true;
   #elif defined(_WIN32)
     return ResetEvent(m_event)!=0;
@@ -530,11 +532,33 @@ bool CAbkEvent::Reset (void)
 // Input: nTimeoutMs = time-out in ms
 // Return: true if the event was fired, false if timed-out or error
 
-bool CAbkEvent::Wait (int nTimeoutMs) const
+bool CAbkEvent::Wait (int nTimeoutMs)
   {
-  #if defined(linux)
-    boost::unique_lock<boost::mutex> lock(m_event_mutex);
-	return m_event.timed_wait(lock, boost::posix_time::time_duration(boost::posix_time::milliseconds(nTimeoutMs)));
+  #if defined(PREFER_BOOST_PLATFORM)
+	boost::posix_time::milliseconds duration(nTimeoutMs);
+
+	{
+		boost::unique_lock<boost::mutex> lock(m_eventMutex);
+		bool bSuccess = false;
+		// Make sure last event was sleep event
+		while (!(m_eventCond))
+		{
+			// Waiting for signal (mutex is unlocked during wait, so m_lastEvent can update)
+			if (m_event.timed_wait<boost::posix_time::milliseconds>(lock, duration))
+			{
+				bSuccess = true;
+				m_eventCond = false;
+				break;
+			}
+			else
+			{
+				bSuccess = false;
+				break;
+			}
+		}
+
+		return bSuccess;
+	} // unlock mutex
   #elif defined(_WIN32)
     return WaitForSingleObject(m_event,nTimeoutMs)==WAIT_OBJECT_0;
   #else
@@ -549,10 +573,11 @@ bool CAbkEvent::Wait (int nTimeoutMs) const
 // Input: -
 // Return: 
 
-bool CAbkEvent::IsSet (void) const
+bool CAbkEvent::IsSet (void)
   {
-  #if defined(linux)
-	return false;
+  #if defined(PREFER_BOOST_PLATFORM)
+	boost::lock_guard < boost::mutex > lock(m_eventMutex);
+	return m_eventCond;
   #elif defined(_WIN32)
     return WaitForSingleObject(m_event,0)==WAIT_OBJECT_0; // returns true if event is set, tested with a zero time-out
   #else

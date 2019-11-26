@@ -24,19 +24,27 @@
 #if !defined(__CrossPlatform_h__)
 #define __CrossPlatform_h__
 
+#define PREFER_BOOST_PLATFORM
 
-#if defined(linux)
-#include <pthread.h>
+#ifdef LINUX
+#define PREFER_BOOST_PLATFORM
+#endif
+
+
+#if defined(PREFER_BOOST_PLATFORM)
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include <sys/types.h>
+#ifdef LINUX
+#include <pthread.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#endif
 #include <boost/functional.hpp>
 #include <boost/function.hpp>
 #include <boost/bind.hpp>
@@ -55,17 +63,22 @@
 #include <string>
 
 //data types
-#if defined(linux)
+#if defined(PREFER_BOOST_PLATFORM)
 #define socket_t int
 #define SOCKET int
-#define ABK_MUTEX boost::recursive_mutex*
-#define ABK_EVENT boost::timed_mutex*
+typedef boost::recursive_mutex ABK_MUTEX;
+
+typedef boost::condition_variable ABK_EVENT;
 #define ABKMUTEX_INFINITE 0
-#define ABK_THREAD_HANDLE boost::thread*
+#define ABK_THREAD_HANDLE boost::thread
 #define ABK_INVALID_THREAD_HANDLE NULL
+
+
+#ifdef LINUX
+#define _T(x) ## x // feeding-trouhg text as we do not have to convert it to UTF-16
 typedef char TCHAR;   // native character type
 typedef const char * LPCTSTR; // pointer to null-terminated const c-style string
-#define _T(x) ## x // feeding-trouhg text as we do not have to convert it to UTF-16
+#endif
 
 #elif defined(_WIN32)
 #define socket_t SOCKET
@@ -73,8 +86,6 @@ typedef const char * LPCTSTR; // pointer to null-terminated const c-style string
 #ifndef WINCE
 #define USE_BEGINTHREADEX
 #endif
-#define THREAD_CALLCONV __stdcall
-typedef unsigned int (THREAD_CALLCONV *PFN_THREAD)(void *);
 #ifdef SYNC_USE_CS
   typedef LPCRITICAL_SECTION ABK_MUTEX;
 #else
@@ -92,9 +103,14 @@ typedef uintptr_t ABK_THREAD_HANDLE;
 #error Please define your target system
 #endif
 
+typedef ABK_MUTEX& ABK_MUTEX_REF;
+
+#define THREAD_CALLCONV __stdcall
+typedef unsigned int (THREAD_CALLCONV *PFN_THREAD)(void *);
+
 
 // function aliases
-#if defined(linux)
+#if defined(LINUX)
   #define vsnprintf_tchar vsnprintf // vsnprintf on TCHAR type is same as vsnprintf
 #elif defined(_WIN32)
   #define vsnprintf _vsnprintf_s
@@ -118,7 +134,7 @@ namespace Abk
   class CAbkMutex
     {
     private:
-      ABK_MUTEX m_mutex;
+			mutable ABK_MUTEX m_mutex;
       int m_nCount;
     public:
       CAbkMutex();
@@ -134,7 +150,11 @@ namespace Abk
   class CAbkEvent
     {
     private:
-      ABK_EVENT m_event;
+      mutable ABK_EVENT m_event;
+#ifdef PREFER_BOOST_PLATFORM
+			mutable boost::mutex m_eventMutex;
+			mutable bool m_eventCond;
+#endif
     public:
       CAbkEvent ();
       CAbkEvent (const CAbkEvent &rOther); // copy constructor
@@ -142,15 +162,15 @@ namespace Abk
     public:
       bool Set (void); // sets the event to available
       bool Reset (void); // resets the event to non-available
-      bool Wait (int nTimeoutMs) const; // waits for the event to be fired
-      bool IsSet (void) const; // returns true if event is set
+      bool Wait (int nTimeoutMs); // waits for the event to be fired
+      bool IsSet (void); // returns true if event is set
     };
 
 
   class CAbkSingleLock
     {
     private:
-      const CAbkMutex *m_pMutex;
+      mutable const CAbkMutex *m_pMutex;
     public:
       CAbkSingleLock (const CAbkMutex *pMutex, bool bInitialLock=false, int nInitialLockTimeout=ABKMUTEX_INFINITE);
       virtual ~CAbkSingleLock ();
