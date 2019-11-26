@@ -3,6 +3,7 @@
 #include "AbkClient.h"
 #include "AbkClientDaq.h"
 #include "JsonParserAtl.h"
+#include "StopWatch.h"
 
 #define DAQ_TIMEOUT 10000 // mutex timeout in ms
 #define MIME_TYPE_TEXT "text/plain"
@@ -366,8 +367,6 @@ bool CAbkClient::CBaseAbstraction::NavigateDelete(LPCTSTR pszPath, int nSessionI
 	assert(pPostData);
 	assert(pszPath);
 	assert(!m_strServerAddress.empty());
-	//assert(pPostData->GetStream());
-	//assert(pPostData->GetStream()->rdbuf()->in_avail > 0);
 	std::string strPostData = pPostData->GetStream()->str();
 	std::string response;
 
@@ -388,7 +387,7 @@ bool CAbkClient::CBaseAbstraction::NavigateDelete(LPCTSTR pszPath, int nSessionI
 	{
 		boost::ignore_unused(e);
 #ifdef LOG_BOOST_ABK
-		LogErr() << "Failed to navigate POST due to Network exception" << std::endl;
+		LogErr() << "Failed to navigate DELETE due to Network exception" << std::endl;
 #endif
 		response.clear();
 	}
@@ -398,9 +397,7 @@ bool CAbkClient::CBaseAbstraction::NavigateDelete(LPCTSTR pszPath, int nSessionI
 bool CAbkClient::CBaseAbstraction::DeleteSession(int nSessionId)
 {
 	CJsonFormatter jfSend;
-	//return NavigateDelete(_T(ABK_REQUESTURL_SESSIONID), nSessionId, &jfSend);
-	// TODO:
-	return true;
+	return NavigateDelete(_T(ABK_REQUESTURL_SESSIONID), nSessionId, &jfSend);
 }
 
 std::string CAbkClient::CBaseAbstraction::NavigatePut(LPCTSTR pszPath, int nSessionId, const std::string &strData)
@@ -457,7 +454,7 @@ bool CAbkClient::CBaseAbstraction::NavigatePut(LPCTSTR pszPath, int nSessionId, 
 		}
 		else
 		{
-			WriteToSocket(socket, std::string(CT2A(pszPath)), E_HTTP_PUT);
+			WriteToSocket(socket, std::string(CT2A(pszPath)), strPutData, E_HTTP_PUT);
 		}
 		ReadFromSocket(socket, response);
 
@@ -582,6 +579,7 @@ int CAbkClient::CBaseAbstraction::ObtainSessionId(LPCTSTR pszClientClass, LPCTST
 CAbkClient::CAbkClient()
 {
 	m_bTerminateLongPoll = false;
+	m_pNextEventData = NULL;
 }
 
 
@@ -606,6 +604,7 @@ bool CAbkClient::Create(LPCTSTR pszServerAddress, int nPort, CAbkServerEvent *pE
 
 	m_nPort = nPort;
 	m_strServerAddress = std::string(CT2A(pszServerAddress));
+	m_pNextEventData = pEventRxBuffer;
 
 #ifdef LOG_BOOST_ABK
 	Log() << "Printing port: " << m_strPort << std::endl;
@@ -671,6 +670,72 @@ std::string CAbkClient::GetInterfaceStatistics(void)
 	return pClientAux->NavigateGet(_T(ABK_REQUESTURL_INTERFACESTATS), -1);
 }
 
+//--------------------------------------------------------------------------
+// SendEvent()             sends a client event to the server
+// -----------
+// Input: strEventType = envent type string
+//        strStringParam = string parameter
+//        jfString = formatted object to be sent as string parameter
+//        dParam1 = numeric parameter 1
+//        dParam2 = numeric parameter 2
+//        bPrivate: if true, client intends to process the reflected event
+//                  by itself and the server shall not reflect the event
+//                  to other clients
+// Return: true on success, false on error
+
+bool CAbkClient::SendEvent(const char *pszEventType, LPCTSTR pszStringParam, double dParam1, double dParam2, bool bPrivate)
+{
+	CClientPtrRef pClientAux(m_pClientAux);
+	assert(pClientAux.IsValid());
+	if (!pClientAux.IsValid())
+		return false;
+	CJsonFormatter jfEvent; // whole event formatted in json
+	jfEvent.WriteValue(ABK_RSP_CLIENTEVENT_SENDER, m_nSessionId);
+#ifdef WINCE
+	time_t tmNow = time(NULL); // get actual time
+#else
+	time_t tmNow;
+	time(&tmNow); // get actual time
+#endif
+	jfEvent.WriteValue(ABK_RSP_CLIENTEVENT_TIME, tmNow);
+	jfEvent.WriteValue(ABK_RSP_CLIENTEVENT_TYPE, pszEventType);
+	jfEvent.WriteValue(ABK_RSP_SERVEREVENT_STRPARAM, CT2A(pszStringParam, CP_UTF8));
+	jfEvent.WriteValue(ABK_RSP_SERVEREVENT_PARAM1, dParam1);
+	jfEvent.WriteValue(ABK_RSP_SERVEREVENT_PARAM2, dParam2);
+	jfEvent.WriteValue(ABK_RSP_CLIENTEVENT_PRIVATE, bPrivate);
+	jfEvent.Close();
+	CStopwatch watch;
+	watch.Start();
+	bool bSuccess = NULL != pClientAux->NavigatePut(_T(ABK_REQUESTURL_CLIENTEVENT), -1, &jfEvent);
+	watch.Stop();
+	watch.OutputDebugTimeMs(_T("SendEvent"));
+	return bSuccess;
+}
+
+bool CAbkClient::SendEvent(const char *pszEventType, CJsonFormatter &jfString, double dParam1, double dParam2, bool bPrivate)
+{
+	CClientPtrRef pClientAux(m_pClientAux);
+	assert(pClientAux.IsValid());
+	if (!pClientAux.IsValid())
+		return false;
+	CJsonFormatter jfEvent; // whole event formatted in json
+	jfEvent.WriteValue(ABK_RSP_CLIENTEVENT_SENDER, m_nSessionId);
+#ifdef WINCE
+	time_t tmNow = time(NULL); // get actual time
+#else
+	time_t tmNow;
+	time(&tmNow); // get actual time
+#endif
+	jfEvent.WriteValue(ABK_RSP_CLIENTEVENT_TIME, tmNow);
+	jfEvent.WriteValue(ABK_RSP_CLIENTEVENT_TYPE, pszEventType);
+	jfEvent.WriteValue(ABK_RSP_SERVEREVENT_STRPARAM, jfString.GetStream()->str().c_str());
+	jfEvent.WriteValue(ABK_RSP_SERVEREVENT_PARAM1, dParam1);
+	jfEvent.WriteValue(ABK_RSP_SERVEREVENT_PARAM2, dParam2);
+	jfEvent.WriteValue(ABK_RSP_CLIENTEVENT_PRIVATE, bPrivate);
+	jfEvent.Close();
+	return NULL != pClientAux->NavigatePut(_T(ABK_REQUESTURL_CLIENTEVENT), -1, &jfEvent);
+}
+
 bool CAbkClient::SendAlertConfirmEvent(LPCTSTR pszAlertClassName, int nSeverity, int nMerged, bool bPermanent, bool bSuppressed, bool bTimeout)
 {
 	assert(this);
@@ -685,8 +750,8 @@ bool CAbkClient::SendAlertConfirmEvent(LPCTSTR pszAlertClassName, int nSeverity,
 	jfSend.WriteValue(ABK_ALERTCONFIRM_PERMASUPPRBYUSER, bPermanent); // "PermanentSuppressedByUser": false
 	jfSend.Close();
 	// TODO:
-	//return SendEvent(ABK_CLIENTEVENT_ALERT_CONFIRM, jfSend, 0, 0, false);
-	return true;
+	return SendEvent(ABK_CLIENTEVENT_ALERT_CONFIRM, jfSend, 0, 0, false);
+	//return true;
 }
 
 CAbkServerEvent *CAbkClient::OnServerEvent(CAbkServerEvent *pEventData)
@@ -1101,9 +1166,7 @@ bool CAbkClient::SendAudioRecFooter(int nId)
 
 bool CAbkClient::SendAudioRecRejectEvent(int nId)
 {
-	return true;
-	// TODO:
-	//return SendEvent(ABK_CLIENTEVENT_AUDIOREC_REJECT, _T(""), (double)nId, 0, false);
+	return SendEvent(ABK_CLIENTEVENT_AUDIOREC_REJECT, _T(""), (double)nId, 0, false);
 }
 
 //--------------------------------------------------------------------------
@@ -1117,7 +1180,6 @@ bool CAbkClient::SuspendLongPolling(void)
 	//if (!m_hLongPollThread)
 	//	return false;
 	m_evLongPollEnable.Reset(); // stall the long polling thread
-	// TODO:
 	return true;
 }
 
@@ -1357,9 +1419,7 @@ BOOL CAbkClient::PopLog(LOGSEVERITY & nSeverityGet, CString & strMessageGet)
 
 bool CAbkClient::SendButtonEvent(LPCTSTR pszButtonName, bool bPressedState, int nTime, bool bPrivate)
 {
-	// TODO:
-	return true;
-	//return SendEvent(ABK_CLIENTEVENT_BUTTON, pszButtonName, (double)(bPressedState != 0), (double)nTime, bPrivate);
+	return SendEvent(ABK_CLIENTEVENT_BUTTON, pszButtonName, (double)(bPressedState != 0), (double)nTime, bPrivate);
 }
 
 std::string CAbkClient::GetClientState(LPCTSTR pszFileExtension)
@@ -1641,7 +1701,7 @@ void CAbkClient::SetServerAddr(LPCTSTR pszServerAddress, int nPort)
 	if ((m_nPort != nPort) || (boost::equals(pszServerAddress, m_strServerAddress))) // if changes in address or port
 	{
 		// TODO:
-		Create(pszServerAddress, nPort, NULL, CA2T(m_strClientClass.c_str()), CA2T(m_strClientType.c_str()), CA2T(m_strClientSerial.c_str()));
+		Create(pszServerAddress, nPort, m_pNextEventData, CA2T(m_strClientClass.c_str()), CA2T(m_strClientType.c_str()), CA2T(m_strClientSerial.c_str()));
 	}
 }
 

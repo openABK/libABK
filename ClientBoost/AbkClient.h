@@ -310,6 +310,10 @@ namespace Abk {
 		int GetPort(void) const; // returns port of server connection
 		int GetSessionId(void);
 
+		// sends a client event to the server
+		bool SendEvent(const char * pszEventType, LPCTSTR pszStringParam, double dParam1, double dParam2, bool bPrivate);
+		// sends a client event to the server
+		bool SendEvent(const char * pszEventType, CJsonFormatter & jfString, double dParam1, double dParam2, bool bPrivate);
 
 		bool GetClientConfigInfo(CString &strUrl, CString &strMd5, LPCTSTR pszClientType/*=NULL*/);
 		bool GetForm(LPCTSTR pszFormName, std::list<CFormElement> &lstGet, CString &strCaptionGet, int &nPersitenceMs);
