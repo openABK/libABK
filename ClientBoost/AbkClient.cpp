@@ -7,6 +7,9 @@
 #define DAQ_TIMEOUT 10000 // mutex timeout in ms
 #define MIME_TYPE_TEXT "text/plain"
 
+#define LONGPOLL_FAILURE_TOLERANCE_MS 2000 // maximum time span in ms where errors are tolerated
+#define LONGPOLL_FAILURE_RECOVERY_MS 100 // 500 // time the longpoll thread is stalled after an http error occured. Used to reduce error log entry rate
+
 //#define LOG_BOOST_ABK
 // LOG_BOOST_ABK is defined in case you want logging
 #ifndef LOG_BOOST_ABK
@@ -66,6 +69,7 @@ CAbkClient::CBaseAbstraction::CBaseAbstraction(CAbkClient *pOwner):
 {
 	m_pOwner = pOwner;
 	m_nPort = 0;
+	m_bConnected = false;
 }
 
 CAbkClient::CBaseAbstraction::~CBaseAbstraction()
@@ -106,6 +110,7 @@ size_t CAbkClient::CBaseAbstraction::WriteToSocket(tcp::socket &a_Socket, const 
 	catch (std::exception &e)
 	{
 		boost::ignore_unused(e);
+		m_bConnected = false;
 		throw AbkNetworkException();
 	}
 }
@@ -155,6 +160,7 @@ size_t CAbkClient::CBaseAbstraction::WriteToSocket(tcp::socket &a_Socket, const 
 	catch (std::exception &e)
 	{
 		boost::ignore_unused(e);
+		m_bConnected = false;
 		throw AbkNetworkException();
 	}
 }
@@ -207,7 +213,7 @@ size_t CAbkClient::CBaseAbstraction::ReadFromSocket(tcp::socket &a_Socket, std::
 		if (!(m_uStatus == 200 || (m_uStatus >= 400 && m_uStatus <= 499)))
 		{
 #ifdef LOG_BOOST_ABK
-			Log() << "Response returned with status code " << status_code << "\n";
+			Log() << "Response returned with status code " << m_uStatus << "\n";
 #endif
 			return -1;
 		}
@@ -247,13 +253,16 @@ size_t CAbkClient::CBaseAbstraction::ReadFromSocket(tcp::socket &a_Socket, std::
 			sstream << &response;
 
 		// Not enough bytes available, read more lines
-		if (responseBytesRead < responseBytesExpected)
-		{
-			boost::system::error_code error;
-			while (responseBytesRead += boost::asio::read(socket, response,
-														  boost::asio::transfer_at_least(responseBytesExpected - responseBytesRead), error))
-				sstream << &response;
+		size_t bytesLeftToRead = responseBytesExpected - responseBytesRead;
+
+		while ((responseBytesRead < responseBytesExpected) && bytesLeftToRead)
+		{ 
+			responseBytesRead += boost::asio::read(socket, response,
+				boost::asio::transfer_at_least(bytesLeftToRead));
+			sstream << &response;
 		}
+
+	
 
 		assert(responseBytesExpected == responseBytesRead);
 
@@ -267,6 +276,7 @@ size_t CAbkClient::CBaseAbstraction::ReadFromSocket(tcp::socket &a_Socket, std::
 	{
 		boost::ignore_unused(e);
 		//std::cerr << "Failed to read from socket: " << e.what() << std::endl;
+		m_bConnected = false;
 		throw AbkNetworkException();
 	}
 	return 0;
@@ -274,7 +284,7 @@ size_t CAbkClient::CBaseAbstraction::ReadFromSocket(tcp::socket &a_Socket, std::
 
 bool CAbkClient::CBaseAbstraction::IsSocketOpen() const
 {
-	return socket.is_open();
+	return m_bConnected && socket.is_open();
 }
 
 bool CAbkClient::IsConnected() const
@@ -297,9 +307,13 @@ bool CAbkClient::CBaseAbstraction::EnsureConnection()
 	{
 		if (!IsSocketOpen())
 		{
-
-			tcp::resolver::results_type endpoints = resolver.resolve(m_strServerAddress, m_strPort);
+			boost::system::error_code ec;
+			tcp::resolver::results_type endpoints = resolver.resolve(m_strServerAddress, m_strPort, ec);
 			boost::asio::connect(socket, endpoints);
+			if (!ec)
+				m_bConnected = true;
+			else
+				m_bConnected = false;
 		}
 
 		return IsSocketOpen();
@@ -435,7 +449,16 @@ bool CAbkClient::CBaseAbstraction::NavigatePut(LPCTSTR pszPath, int nSessionId, 
 
 	try
 	{
-		WriteToSocket(socket, std::string(CT2A(pszPath)), strPutData, E_HTTP_PUT);
+		if (nSessionId >= 0)
+		{
+			CString strPathAndQuery;
+			strPathAndQuery.Format(_T("%s?") _T(ABK_QRY_SESSIONID) _T("=%d"), pszPath, nSessionId);
+			WriteToSocket(socket, std::string(CT2A(strPathAndQuery)), strPutData, E_HTTP_PUT);
+		}
+		else
+		{
+			WriteToSocket(socket, std::string(CT2A(pszPath)), E_HTTP_PUT);
+		}
 		ReadFromSocket(socket, response);
 
 #ifdef LOG_BOOST_ABK
@@ -585,13 +608,8 @@ bool CAbkClient::Create(LPCTSTR pszServerAddress, int nPort, CAbkServerEvent *pE
 	m_strServerAddress = std::string(CT2A(pszServerAddress));
 
 #ifdef LOG_BOOST_ABK
-	Log() << "Printing port: " << m_pszPort << std::endl;
+	Log() << "Printing port: " << m_strPort << std::endl;
 #endif
-
-	//boost::asio::connect(socket, endpoints);
-
-	const std::string storage_info = "/abk/system_information/storage_info?SessionId=4";
-	const std::string server_event = "/abk/events/server_event?SessionId=4";
 
 	if (nPort > 0)
 	{
@@ -603,11 +621,16 @@ bool CAbkClient::Create(LPCTSTR pszServerAddress, int nPort, CAbkServerEvent *pE
 		pClientAux->SetServerAddr(m_strServerAddress, nPort);
 		pClientEvent->SetServerAddr(m_strServerAddress, nPort);
 
+		pClientAux->EnsureConnection();
+		pClientEvent->EnsureConnection();
+
 		// Connect and obtain session id
 		m_nSessionId = pClientAux->ObtainSessionId(pszClientClass, pszClientType, pszClientSerial);
 		if (m_nSessionId >= 0)
 		{
 			// Start long-polling thread
+			m_longPollThread = boost::thread(LongPollThreadS, this);
+
 			bSuccess = true;
 		}
 	}
@@ -1093,7 +1116,7 @@ bool CAbkClient::SuspendLongPolling(void)
 {
 	//if (!m_hLongPollThread)
 	//	return false;
-	//m_evLongPollEnable.ResetEvent(); // stall the long polling thread
+	m_evLongPollEnable.Reset(); // stall the long polling thread
 	// TODO:
 	return true;
 }
@@ -1108,9 +1131,168 @@ bool CAbkClient::ResumeLongPolling(void)
 {
 	//if (!m_hLongPollThread)
 	//	return false;
-	//m_evLongPollEnable.SetEvent(); // no longer stall the long polling thread
+	m_evLongPollEnable.Set(); // no longer stall the long polling thread
 	return true;
 }
+
+//--------------------------------------------------------------------------
+// LongPollThreadS()        long polling thread
+// ----------------
+// Input: vpThis = pointer to CAbkClient
+// Return: -
+
+/*static*/ DWORD WINAPI CAbkClient::LongPollThreadS(void *vpThis)
+{
+	assert(vpThis);
+	return (reinterpret_cast<CAbkClient *>(vpThis))->LongPollThread();
+}
+
+//--------------------------------------------------------------------------
+// LongPollThread()        long polling thread
+// ----------------
+// Input: -
+// Return: -
+
+int CAbkClient::LongPollThread(void)
+{
+	AddLog(LOGSEVERITY_TRACE, _T("LongPollThread() started"));
+	// int nErrorCount=0; // incrementing on errors, decrementing on http success
+	DWORD dwTickLastSuccessfulResponse = 0; // ticks when the last successfull response was received
+	while (!m_bTerminateLongPoll)
+	{
+		const char *pszResponse = NULL; // answer from server with events and data
+
+		//WaitForSingleObject(m_evLongPollEnable.m_hObject, INFINITE); // if stalled, block here until the event gets set
+		m_evLongPollEnable.Wait(INFINITE);
+
+		CClientPtrRef pClientEvent(m_pClientEvent);
+		assert(pClientEvent.IsValid()); // no connection with the aux http client established
+		if (!pClientEvent.IsValid())
+			break;
+		//    DWORD dwTickBefore=GetTickCount(); // tick count before the request
+		std::string strResponse = pClientEvent->NavigateGet(_T(ABK_REQUESTURL_SERVEREVENT), m_nSessionId); // request event and wait for answer (blocks here);
+		
+		int nHttpStatus = pClientEvent->GetStatus();
+
+		if (nHttpStatus == 200)
+			pszResponse = strResponse.c_str();
+
+		DWORD dwTickAfter = GetTickCount();
+
+		//char buf[1024];
+		//pszResponse=buf;
+		//memcpy(buf,"{\"DataLists\":{\"DaqListVar\":[74,72174,72174,72174,72174,72174,72174,72174,72174,72174]}}",1024);
+		//Sleep(50);
+
+		if (nHttpStatus == 200 && pszResponse)
+		{
+			dwTickLastSuccessfulResponse = dwTickAfter;
+			CJsonParserAtl jpEvent(pszResponse);
+			for (; !jpEvent.IsDone(); ++jpEvent)  // each event
+			{
+				if (jpEvent.TestObject(ABK_RSP_SERVEREVENT_DATALISTS)) // is there DataLists:{
+				{
+					//OnServerDataBegin();
+					for (++jpEvent; !jpEvent.IsDone(); ++jpEvent)  // each data list
+					{
+						std::string strDaqName;
+						if (jpEvent.TestArray(&strDaqName)) // if array
+						{
+							CAbkSingleLock lockDaq(&m_mutexDaq, true, DAQ_TIMEOUT); // lock the daq map
+							assert(m_mutexDaq.IsLocked());
+							CAbkClientDaq *pDaq = FindDaq(strDaqName); // get the client-side daq list
+							if (pDaq)
+							{
+								bool bNotifyVars; // false if callback wishes the variables not to be updated
+								bNotifyVars = pDaq->OnBeginDataFromServer();
+								if (bNotifyVars)
+								{
+									if (const size_t nVarCount = pDaq->m_vectVars.size())
+									{
+										CAbkClientVar **ppVars = &pDaq->m_vectVars[0];
+										size_t nVar = 0;
+										for (++jpEvent; !jpEvent.IsDone(); ++jpEvent) // each value
+										{
+											if (nVar >= nVarCount) // if the returned data from server contains more data than our daq list specifies..
+											{ //.. it is an error
+												AddLog(LOGSEVERITY_ERROR, _T("The returned data from server in daq \"%s\" contains more data than the daq list specifies"), (LPCTSTR)pDaq->m_strName);
+												break;
+											}
+											CAbkClientVar *pVar = ppVars[nVar]; // this variable gets the new data
+											assert(pVar);
+											pDaq->OnValueFromServer(pVar, &jpEvent);
+											++nVar;
+										}
+									}
+								}
+								else // no variable update
+								{
+									for (++jpEvent; !jpEvent.IsDone(); ++jpEvent); // skip each value
+								}
+								pDaq->OnEndDataFromServer(); // notify the derived class that variable updates are done
+							}
+						} // end of data array
+						jpEvent.SkipItem(); // skip unexpected items
+					} // for each data list
+
+					//OnServerDataEnd();
+				}
+				else if (jpEvent.TestArray(ABK_RSP_SERVEREVENT_EVENTS)) // is there Events:[
+				{
+					assert(m_pNextEventData); // there must be a location to store the event params
+					for (++jpEvent; !jpEvent.IsDone(); ++jpEvent)  // each event
+					{
+						BOOL bSuccessDecode = m_pNextEventData->SetEvent(jpEvent); // decode event into m_pNextEventData
+						jpEvent.SkipItem(); // skip any unknown items
+						if (bSuccessDecode)
+						{
+							m_pNextEventData = OnServerEvent(m_pNextEventData); // call the event handler and get the location for the next event
+						}
+						else // error in syntax or completelyness of the event data
+						{
+							AddLog(LOGSEVERITY_ERROR, _T("The event data was incomplete or had incorrect syntax")/*,m_pNextEventData->m_data.m_strType*/);
+							break;
+						}
+						jpEvent.SkipItem(); // skip unexpected items            
+					} // each event
+				}
+				jpEvent.SkipItem(); // skip unexpected items
+			} // for each event
+		}
+		else if (pszResponse == NULL)
+		{
+			if (dwTickAfter >= dwTickLastSuccessfulResponse + LONGPOLL_FAILURE_TOLERANCE_MS) // tolerated error time span exceeded
+			{
+				DWORD dwErrorDuration = 0;
+				if (dwTickLastSuccessfulResponse)
+					dwErrorDuration = dwTickAfter - dwTickLastSuccessfulResponse;
+				m_bTerminateLongPoll = true; // terminate and signal that thread terminated itself (an error occured)
+				AddLog(LOGSEVERITY_ERROR, _T("Successive http errors for %d ms."), (int)dwErrorDuration/*LONGPOLL_FAILURE_TOLERANCE_MS*/);
+			}
+			else
+			{
+				Sleep(LONGPOLL_FAILURE_RECOVERY_MS);
+			}
+		}
+		else // server responded but with error
+		{
+			DWORD dwWaitBeforeResume = OnLongPollErrorResponse(nHttpStatus, m_nSessionId); // call custom handler
+			while (!m_bTerminateLongPoll && dwWaitBeforeResume != 0)
+			{
+				Sleep(10);
+				if (dwWaitBeforeResume > 10)
+					dwWaitBeforeResume -= 10;
+				else
+					dwWaitBeforeResume = 0;
+			}
+		}
+	}
+	AddLog(LOGSEVERITY_TRACE, _T("LongPollThread() terminating"));
+	//m_longPollThread.detach();
+	m_evLongPollDone.Set();
+	return 0;
+}
+
 
 bool CAbkClient::AddDaq(CAbkClientDaq *pAdd)
 {
@@ -1190,7 +1372,7 @@ std::string CAbkClient::GetClientState(LPCTSTR pszFileExtension)
 	assert(pszFileExtension);
 	assert(pszFileExtension[0] != '\0'); // please no empty extension
 	assert(pszFileExtension[0] == '.'); // extension must start with delimiter dot
-	strUrl.Format(_T("%s/%s_%s_%s%s"), _T(ABK_SERVICE_CLIENTSTATES), m_strClientClass, m_strClientType, m_strClientSerial, pszFileExtension);
+	strUrl.Format(_T("%s/%s_%s_%s%s"), _T(ABK_SERVICE_CLIENTSTATES), CString(m_strClientClass.c_str()), CString(m_strClientType.c_str()), CString(m_strClientSerial.c_str()), pszFileExtension);
 	std::string strResponse = pClientAux->NavigateGet(strUrl, -1); // read data
 	int nStatus = pClientAux->GetStatus();
 	if (nStatus != 200) // if not responded with OK (200)..
@@ -1208,7 +1390,7 @@ bool CAbkClient::SetClientState(const char * pConfigString, LPCTSTR pszFileExten
 		assert(pszFileExtension);
 		assert(pszFileExtension[0] != '\0'); // please no empty extension
 		assert(pszFileExtension[0] == '.'); // extension must start with delimiter dot
-		strUrl.Format(_T("%s/%s_%s_%s%s"), _T(ABK_SERVICE_CLIENTSTATES), m_strClientClass, m_strClientType, m_strClientSerial, pszFileExtension);
+		strUrl.Format(_T("%s/%s_%s_%s%s"), _T(ABK_SERVICE_CLIENTSTATES), CString(m_strClientClass.c_str()), CString(m_strClientType.c_str()), CString(m_strClientSerial.c_str()), pszFileExtension);
 		std::string response = pClientAux->NavigatePut(strUrl, -1, std::string(pConfigString) /*, _T(MIME_TYPE_TEXT)*/);
 		bool bSuccess = !response.empty();
 		if (bSuccess)
@@ -1407,9 +1589,10 @@ void CAbkClient::TidyUp(bool bLostConnection)
 		if (pClientEvent.IsValid())
 		{
 			m_bTerminateLongPoll = true;
-			//m_evLongPollEnable.SetEvent(); // in case the long-poll-thread is stalled, wake it up so it can terminate
+			m_evLongPollEnable.Set(); // in case the long-poll-thread is stalled, wake it up so it can terminate
 			//WaitForSingleObject(m_evLongPollDone.m_hObject, LONGPOLL_FAILURE_TOLERANCE_MS * 2); // wait until terminated
-			//pClientEvent->Close(); // close connection so request of long-polling gets interrrupted
+			m_evLongPollDone.Wait(LONGPOLL_FAILURE_TOLERANCE_MS * 2);
+			pClientEvent->Close(); // close connection so request of long-polling gets interrrupted
 			m_bTerminateLongPoll = false;
 		}
 

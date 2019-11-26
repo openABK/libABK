@@ -6,6 +6,7 @@
 
 #include "LogQueue.h"
 #include "AbkServerEvent.h"
+#include "CrossPlatform.h"
 
 #ifndef BOOST_ABK
 #error "Boost Abk included, but not specified, probably a mistake"
@@ -159,6 +160,7 @@ namespace Abk {
 			boost::asio::io_context io_context;
 			tcp::resolver resolver /*(io_context)*/;
 			tcp::socket socket /*(io_context)*/;
+			bool m_bConnected;
 		};
 
 // End of CBaseAbstraction--------------------------------------------------------------------------------------
@@ -267,6 +269,8 @@ namespace Abk {
 		CAbkMutex m_mutexDaq; // mutex to protect the daq items
 		CAbkServerEvent *m_pNextEventData; // when event is received, it will be stored to this location. Will not be deleted on destruction!
 
+		boost::thread m_longPollThread;
+
 		void AddLog(LOGSEVERITY nSeverity, LPCTSTR pszMessage, ...);
 
 	// construction/destruction/setup
@@ -374,6 +378,14 @@ namespace Abk {
 		bool ReceiveEvent();
 
 		bool IsConnected() const;
+
+		// implementation
+		protected:
+			static DWORD WINAPI LongPollThreadS(void *vpThis); // long polling thread static function
+			int LongPollThread(void); // long polling thread
+
+			CAbkEvent m_evLongPollEnable;
+			CAbkEvent m_evLongPollDone;
 	};
 
 } // namespace Abk
