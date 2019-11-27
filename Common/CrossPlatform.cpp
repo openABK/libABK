@@ -439,6 +439,7 @@ CAbkEvent::CAbkEvent ()
   #if defined(PREFER_BOOST_PLATFORM)
 	//NOTHING TO DO HERE
   //  std::cout << "cabkevent constructor called\n";
+	m_eventCond = false;
   #elif defined(_WIN32)
     m_event=CreateEvent(NULL,TRUE,FALSE,NULL);
   #else
@@ -446,7 +447,7 @@ CAbkEvent::CAbkEvent ()
   #endif
   }
 
-
+#ifndef PREFER_BOOST_PLATFORM
 //--------------------------------------------------------------------------
 // CAbkEvent()             Constructor of CAbkEvent
 // -----------
@@ -464,6 +465,7 @@ CAbkEvent::CAbkEvent (const CAbkEvent &rOther)
     #error Please define your target system
   #endif
   }
+#endif
 
 
 //--------------------------------------------------------------------------

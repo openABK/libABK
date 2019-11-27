@@ -24,7 +24,9 @@
 #if !defined(__CrossPlatform_h__)
 #define __CrossPlatform_h__
 
+#ifdef USE_BOOST
 #define PREFER_BOOST_PLATFORM
+#endif
 
 #ifdef LINUX
 #define PREFER_BOOST_PLATFORM
@@ -157,7 +159,9 @@ namespace Abk
 #endif
     public:
       CAbkEvent ();
+#ifndef PREFER_BOOST_PLATFORM
       CAbkEvent (const CAbkEvent &rOther); // copy constructor
+#endif
       virtual ~CAbkEvent ();
     public:
       bool Set (void); // sets the event to available
