@@ -310,7 +310,7 @@ bool CAbkClient::CBaseAbstraction::EnsureConnection()
 		{
 			boost::system::error_code ec;
 			tcp::resolver::results_type endpoints = resolver.resolve(m_strServerAddress, m_strPort, ec);
-			boost::asio::connect(socket, endpoints);
+			boost::asio::connect(socket, endpoints, ec);
 			if (!ec)
 				m_bConnected = true;
 			else
@@ -497,6 +497,7 @@ std::string CAbkClient::CBaseAbstraction::NavigateGet(LPCTSTR pszPath, int nSess
 	}
 	catch (AbkNetworkException &e)
 	{
+		// ReadFromSocket can fail, if the socket got forcibly close by TidyUp
 		boost::ignore_unused(e);
 #ifdef LOG_BOOST_ABK
 		LogErr() << "Failed to navigate GET due to Network exception" << std::endl;
@@ -546,6 +547,7 @@ void CAbkClient::AddLog(CAbkClient::LOGSEVERITY nSeverity, LPCTSTR pszMessage, .
 	va_start(args, pszMessage);
 	//AddLogV(nSeverity,pszMessage,args);
 	vprintf(CT2A(pszMessage), args);
+	putc('\n', stdout);
 	va_end(args);
 }
 
