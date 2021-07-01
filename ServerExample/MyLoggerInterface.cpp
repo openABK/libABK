@@ -30,6 +30,7 @@
 //#include "mongoose.h" // in this demo, we use the mongoose http server
 #include "ValuesFromSpec.h"
 #include <wincrypt.h>
+#include <Msi.h> // used to query version information out of a microsoft installer module
 #include <ifdef.h>
 
 
@@ -43,7 +44,8 @@
 #pragma warning(disable : 4996)
 
 #pragma comment(lib, "Iphlpapi.lib")
-
+#pragma comment(lib, "Version.lib")
+#pragma comment(lib, "Msi.lib")
 
 using namespace std;
 
@@ -539,49 +541,56 @@ CMyLoggerInterface::CMyLoggerInterface (CMyFakeLogger *pLogger, const struct soc
   }
 
 
-//--------------------------------------------------------------------------
-// OnGetClientFirmwareInfo() returns list of available firmware fot a specific client
-// -------------------------
-// Input: strClientClass = class of client requesting the firmware info
-//        strClientType = type of client, typ. manifacturer and type merged string
-//        lstGet = list to return all available firmware images. When this method
-//                 is called, the list is guarantted to be empty
-// Return: true if handled, false if not handled
 
-/*virtual*/ bool CMyLoggerInterface::OnGetClientFirmwareInfo (const char *pszClientClass, const char *pszClientType, std::list<CClientFirmware> &lstGet) const
-  {
-  std::string strLocalPath=LOCDIR_CLIENTFIRMWARE; // where we store the firmware files
-  strLocalPath.append(pszClientClass);
-  strLocalPath.append("_");
-  strLocalPath.append(pszClientType); // now we have the local path without file extension, e.g. "c:\abk\client_firmware\Display_MyTrionics_SuperDisplay3000"
 
-  CString strFind=CA2T(strLocalPath.c_str(),CP_UTF8);
-  strFind.Append(_T(".*")); // wildcard for the file extension
+/** Returns list of available firmware fot a specific client
+@note This virtual method gets called when the available client firmware information shall be gathered.
+ In derived classed, there is no need to call the base class implementation.
+@param pszClientClass class name of client requesting the firmware info
+@param pszClientType type of client, typ. manufacturer and type merged string
+@param lstGet list to return all available firmware images.
+ There is no need to empty the container since When this method is called, the list is guaranteed to be empty
+@return true if handled, false if not handled
+*/
+/*virtual*/ bool CMyLoggerInterface::OnGetClientFirmwareInfo (const char *pszClientClass, const char *pszClientType, std::list<CClientFirmware> &lstGet) const /*override*/
+{
+  std::string strLocalPath = LOCDIR_CLIENTFIRMWARE; // where we store the firmware files
+  strLocalPath.append (pszClientClass);
+  strLocalPath.append ("_");
+  strLocalPath.append (pszClientType); // now we have the local path without file extension, e.g. "c:\abk\client_firmware\Display_MyTrionics_SuperDisplay3000"
+
+  CString strFind = CA2T (strLocalPath.c_str (), CP_UTF8);
+  strFind.Append (_T (".*")); // wildcard for the file extension
   WIN32_FIND_DATA ffd;
-  HANDLE hFind=FindFirstFile(strFind,&ffd);
-  if(hFind!=INVALID_HANDLE_VALUE)
-    {
+  HANDLE hFind = FindFirstFile (strFind, &ffd);
+  if (hFind != INVALID_HANDLE_VALUE)
+  {
     WIN32_FIND_DATA ffdAdvance;
-    if(!FindNextFile(hFind,&ffdAdvance)) // is there another file? It would be ambiguous
-      {
+    if (!FindNextFile (hFind, &ffdAdvance)) // is there another file? It would be ambiguous
+    {
       CClientFirmware cfw;
-      std::string strFilenameA=CT2A(ffd.cFileName,CP_UTF8); // file name in UTF-8
-      std::string strLocalA=LOCDIR_CLIENTFIRMWARE;
-      strLocalA.append(strFilenameA);
-      cfw.m_strMd5=Md5FromFile(strLocalA.c_str());
-      if(!cfw.m_strMd5.empty()) // if file is present and a valid MD5 could be created..
-        {
-        cfw.m_strUrl=ABK_SERVICE_CLIENTFIRMWARE;
-        cfw.m_strUrl.append("/");
-        cfw.m_strUrl.append(strFilenameA);
-        cfw.m_strVersion="[unknown]"; // with this fake info, we do not support version info
-        lstGet.push_back(cfw); // append to list
-        }
+      std::string strFilenameA = CT2A (ffd.cFileName, CP_UTF8); // file name in UTF-8
+      std::string strLocalA = LOCDIR_CLIENTFIRMWARE;
+      strLocalA.append (strFilenameA);
+      cfw.m_strMd5 = Md5FromFile (strLocalA.c_str ());
+      if (!cfw.m_strMd5.empty ()) // if file is present and a valid MD5 could be created..
+      {
+        cfw.m_strUrl = ABK_SERVICE_CLIENTFIRMWARE;
+        cfw.m_strUrl.append ("/");
+        cfw.m_strUrl.append (strFilenameA);
+        CString strVersion = GetClientFwVersionString (CA2T (strLocalA.c_str (), CP_UTF8));
+        cfw.m_strVersion = CT2A (strVersion);
+        if (cfw.m_strVersion.empty ())
+          cfw.m_strVersion = "[unknown]"; // with this fake info, we do not support version info
+        lstGet.push_back (cfw); // append to list
       }
-    FindClose(hFind);
     }
-  return true; // true: we provided firmware info (even if the list was left empty)
+    FindClose (hFind);
   }
+  return true; // true: we provided firmware info (even if the list was left empty)
+}
+
+
 
 
 //--------------------------------------------------------------------------
@@ -1001,7 +1010,213 @@ void CMyLoggerInterface::PrintAllConnectedClients (void)
 
 
 
+/** retrieves version info of module
+@param pszFileName file path or file name. Dll and Exe load paths are applied if no drectory is specified
+@param pVersionInfo buffer recieving the version info
+@param pProductName pointer to receive product name string, may be NULL
+@param pFileDescription pointer to receive file description string, may be NULL
+@param pLegalCopyRight pointer to receive copyright string, may be NULL
+@param pCompanyName pointer to receive copany name, may be NULL
+@return TRUE on success, FALSE on error
+*/
+/*static*/ BOOL CMyLoggerInterface::GetPeModuleVersionInfo (LPCTSTR pszFileName, __out VS_FIXEDFILEINFO* pVersionInfo, __out CString* pProductName/*=NULL*/, __out CString* pFileDescription/*=NULL*/, __out CString* pLegalCopyRight/*=NULL*/, __out CString* pCompanyName/*=NULL*/)
+{
+  ASSERT (pszFileName);
+  BOOL bSuccess = FALSE;
+  TCHAR tcFileName[_MAX_PATH];
+  _tcscpy_s (tcFileName, _countof (tcFileName), pszFileName); // make copy of file name since GetFileVersionInfoSize() needs non-const input (in WINCE platforms)
+  DWORD dwHandle = 0;
+  DWORD dwInfoSize = GetFileVersionInfoSize (tcFileName, &dwHandle);
+  if (dwInfoSize > 0)
+  {
+    void* pFileVersionInfo = malloc (dwInfoSize);
+    if (pFileVersionInfo)
+    {
+      if (GetFileVersionInfo (tcFileName, NULL, dwInfoSize, pFileVersionInfo))
+      {
+        void* pSubInfo;
+        UINT nSubLen;
 
+        if (VerQueryValue (pFileVersionInfo, _T ("\\VarFileInfo\\Translation"), &pSubInfo, &nSubLen))
+        {
+          CString strEntryNamePrefix;
+          if (nSubLen == sizeof (DWORD))
+          {
+            DWORD dwLang;
+            memcpy (&dwLang, pSubInfo, nSubLen);
+            strEntryNamePrefix.Format (_T ("\\StringFileInfo\\%02X%02X%02X%02X"), (dwLang & 0xff00) >> 8, dwLang & 0xff, (dwLang & 0xff000000) >> 24, (dwLang & 0xff0000) >> 16);
+          }
+          else // more languages defined
+            strEntryNamePrefix.Format (_T ("\\StringFileInfo\\%04X04B0"), GetUserDefaultLangID ());
+          CString strEntryName;
+
+          // get copyright string
+          if (pLegalCopyRight)
+          {
+            strEntryName.Format (_T ("%s\\LegalCopyright"), (LPCTSTR)strEntryNamePrefix);
+            if (VerQueryValue (pFileVersionInfo, strEntryName.GetBuffer (), &pSubInfo, &nSubLen))
+              *pLegalCopyRight = (TCHAR*)pSubInfo;
+            else
+              pLegalCopyRight->Empty ();
+            strEntryName.ReleaseBuffer ();
+          }
+          // get product name string
+          if (pProductName)
+          {
+            strEntryName.Format (_T ("%s\\ProductName"), (LPCTSTR)strEntryNamePrefix);
+            if (VerQueryValue (pFileVersionInfo, strEntryName.GetBuffer (), &pSubInfo, &nSubLen))
+              *pProductName = (TCHAR*)pSubInfo;
+            else
+              pProductName->Empty ();
+            strEntryName.ReleaseBuffer ();
+          }
+          // get product description string
+          if (pFileDescription)
+          {
+            strEntryName.Format (_T ("%s\\FileDescription"), (LPCTSTR)strEntryNamePrefix);
+            if (VerQueryValue (pFileVersionInfo, strEntryName.GetBuffer (), &pSubInfo, &nSubLen))
+              *pFileDescription = (TCHAR*)pSubInfo;
+            else
+              pFileDescription->Empty ();
+            strEntryName.ReleaseBuffer ();
+          }
+          // get company name string
+          if (pCompanyName)
+          {
+            strEntryName.Format (_T ("%s\\CompanyName"), (LPCTSTR)strEntryNamePrefix);
+            if (VerQueryValue (pFileVersionInfo, strEntryName.GetBuffer (), &pSubInfo, &nSubLen))
+              *pCompanyName = (TCHAR*)pSubInfo;
+            else
+              pCompanyName->Empty ();
+            strEntryName.ReleaseBuffer ();
+          }
+        }
+
+        if (VerQueryValue (pFileVersionInfo, _T ("\\"), &pSubInfo, &nSubLen))
+        {
+          VS_FIXEDFILEINFO* pFixedFileInfo = (VS_FIXEDFILEINFO*)pSubInfo;
+          memcpy (pVersionInfo, pFixedFileInfo, sizeof (VS_FIXEDFILEINFO));
+          bSuccess = TRUE;
+        }
+      }
+      free (pFileVersionInfo);
+    }
+  }
+  return bSuccess;
+}
+
+
+
+
+/** retrieves version info of module
+@param hModule module handle to be queried. NULL for actual module
+@param pVersionInfo buffer recieving the version info
+@param pProductName pointer to receive product name string, may be NULL
+@param pFileDescription pointer to receive file description string, may be NULL
+@param pLegalCopyRight pointer to receive copyright string, may be NULL
+@param pCompanyName pointer to receive copany name, may be NULL
+@return TRUE on success, FALSE on error
+*/
+BOOL CMyLoggerInterface::GetPeModuleVersionInfo (_In_opt_ HMODULE hModule, __out VS_FIXEDFILEINFO* pVersionInfo, __out CString* pProductName/*=NULL*/, __out CString* pFileDescription/*=NULL*/, __out CString* pLegalCopyRight/*=NULL*/, __out CString* pCompanyName/*=NULL*/)
+{
+  TCHAR tcFileName[_MAX_PATH];
+  if (GetModuleFileName (hModule, tcFileName, _countof (tcFileName)))
+    return GetPeModuleVersionInfo (tcFileName, pVersionInfo, pProductName, pFileDescription, pLegalCopyRight, pCompanyName);
+  return FALSE;
+}
+
+
+
+
+/** formats revision string
+@param fiModule fileinfo containing the version information
+@return string containing the revision information
+*/
+/*static*/ CString CMyLoggerInterface::GetPeModuleVersionString (VS_FIXEDFILEINFO& fiModule)
+{
+  CString strInfo; // result string
+  strInfo.Format (_T ("%d.%d.%d.%d"), (int)(HIWORD (fiModule.dwFileVersionMS)), (int)(LOWORD (fiModule.dwFileVersionMS)), (int)(HIWORD (fiModule.dwFileVersionLS)), (int)(LOWORD (fiModule.dwFileVersionLS)));
+  // to test when logger only supplies 3 number blocks: strInfo.Format (_T ("%d.%d.%d"), (int)(HIWORD (fiModule.dwFileVersionMS)), (int)(LOWORD (fiModule.dwFileVersionMS)), (int)(LOWORD (fiModule.dwFileVersionLS)));
+  return strInfo;
+}
+
+
+
+
+/** returns string for typical about box information
+@param hModule module handle to be queried. NULL for actual module
+@param nLineCount number of lines to generate, -1 generate all lines
+@return String containing file information in a human readable fashion
+*/
+/*static*/ CString CMyLoggerInterface::GetPeModuleInfoString (_In_opt_ HMODULE hModule/*=NULL*/, int nLineCount/*=-1*/)
+{
+  VS_FIXEDFILEINFO fiModule;
+  CString strInfo; // result string
+  CString strProductName;
+  CString strFileDescription;
+  CString strCopyright;
+  CString strCompanyName;
+  if (GetPeModuleVersionInfo (hModule, &fiModule, &strProductName, &strFileDescription, &strCopyright, &strCompanyName))
+  {
+    CString strVersion = GetPeModuleVersionString (fiModule);
+    strInfo.Format (_T ("%s  Ver %s"), (LPCTSTR)strProductName, (LPCTSTR)strVersion);
+    int nLines = 1;
+    if (nLines < nLineCount || nLineCount < 0)
+    {
+      strInfo.Append (_T ("\n"));
+      strInfo.Append (strCopyright);
+      nLines++;
+    }
+    if (nLines < nLineCount || nLineCount < 0)
+    {
+      strInfo.Append (_T ("\n"));
+      strInfo.Append (strCompanyName);
+      nLines++;
+    }
+    if (nLines < nLineCount || nLineCount < 0)
+    {
+      strInfo.Append (_T ("\n"));
+      strInfo.Append (strFileDescription);
+      nLines++;
+    }
+  }
+  return strInfo;
+}
+
+
+
+
+/** queries the version string of a client firmware
+@param pszPath file path of client firmware package
+@return string containing the revision information
+*/
+/*static*/ CString CMyLoggerInterface::GetClientFwVersionString (LPCTSTR pszPath)
+{
+  CString strVersion;
+
+  if (1) // try the PE (Microsoft portable executable) type
+  {
+    VS_FIXEDFILEINFO fi = { 0 };
+    if (GetPeModuleVersionInfo (pszPath, &fi, nullptr, nullptr, nullptr, nullptr))
+      strVersion = GetPeModuleVersionString (fi);
+  }
+
+  if (strVersion.IsEmpty ()) // try to get the version out of the Microsoft module installer
+  {
+    MSIHANDLE hMsi=0;
+    if (SUCCEEDED (MsiOpenPackage (pszPath, &hMsi)))
+    {
+      DWORD dwVersionLen = 100;
+      UINT nQueryReult = MsiGetProductProperty (hMsi, _T ("ProductVersion"), strVersion.GetBufferSetLength (dwVersionLen + 1), &dwVersionLen);
+      strVersion.ReleaseBuffer ();
+      if (!SUCCEEDED (nQueryReult))
+        strVersion.Empty ();
+      MsiCloseHandle (hMsi);
+    }
+  }
+
+  return strVersion;
+}
 
 
 

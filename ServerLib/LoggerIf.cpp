@@ -2532,19 +2532,23 @@ void CLoggerInterface::StopAudioRec (int nId)
   }
 
 
-//--------------------------------------------------------------------------
-// OnGetClientFirmwareInfo() returns list of available firmware for a specific client
-// -------------------------
-// Input: strClientClass = class of client requesting the firmware info
-//        strClientType = type of client, typ. manifacturer and type merged string
-//        lstGet = list to return all available firmware images. When this method
-//                 is called, the list is guarantted to be empty
-// Return: true if sucessfully handled, otherwise false
 
+
+/** Returns list of available firmware fot a specific client
+@note This virtual method gets called when the available client firmware information shall be gathered.
+ In derived classed, there is no need to call the base class implementation.
+@param pszClientClass class name of client requesting the firmware info
+@param pszClientType type of client, typ. manufacturer and type merged string
+@param lstGet list to return all available firmware images.
+There is no need to empty the container since When this method is called, the list is guaranteed to be empty
+@return true if handled, false if not handled since there is generally no client firmware support
+*/
 /*virtual*/ bool CLoggerInterface::OnGetClientFirmwareInfo (const char *pszClientClass, const char *pszClientType, std::list<CClientFirmware> &lstGet) const
-  {
+{
   return false; // default implementation does not provide client firmware information
-  }
+}
+
+
 
 
 //--------------------------------------------------------------------------

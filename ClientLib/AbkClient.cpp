@@ -52,7 +52,6 @@
 #define LONGPOLL_FAILURE_TOLERANCE_MS 2000 // maximum time span in ms where errors are tolerated
 #define LONGPOLL_FAILURE_RECOVERY_MS 100 // 500 // time the longpoll thread is stalled after an http error occured. Used to reduce error log entry rate
 
-#define ABK_AUX_MAXRESPONSE_MS 500 // response timeout for aux requests
 
 
 #ifdef WINCE
@@ -115,21 +114,22 @@ BOOL CAbkClient::CClientPtr::Delete (void)
 
 
 
-//--------------------------------------------------------------------------
-// CAbkClient()            Constructor of CAbkClient
-// ------------
-// Input: -
-// Return: 
-
-CAbkClient::CAbkClient ()
-  : m_evLongPollEnable(FALSE,TRUE) // use as manual-reset event
-  {
+/** Constructor of CAbkClient
+@param bSuppressLeading If true, http requests wont emit log file entries
+*/
+CAbkClient::CAbkClient (bool bSuppressLog /*= false*/)
+: m_evLongPollEnable(FALSE,TRUE) // use as manual-reset event
+{
   //m_pClientAux=NULL;
   //m_pClientEvent=NULL;
-  m_hLongPollThread=NULL;
-  m_bTerminateLongPoll=false;
-  m_pNextEventData=NULL; // default: no event buffer
-  }
+  m_bSuppressLog = bSuppressLog;
+  m_hLongPollThread = NULL;
+  m_bTerminateLongPoll = false;
+  m_pNextEventData = NULL; // default: no event buffer
+  m_nSessionId = -1;
+}
+
+
 
 
 //--------------------------------------------------------------------------
@@ -144,63 +144,100 @@ CAbkClient::CAbkClient ()
   }
 
 
-//--------------------------------------------------------------------------
-// Create()                creates the client and initializes
-// --------
-// Input: strServerAddress = pointer to string with server IP address. this
-//                           string can be volatile since it will be stored
-//                           internally
-//        nPort = port to connect to
-//        pEventRxBuffer = pointer to event buffer for next event reception
-//                         this can be either a buffer or the first element
-//                         of an event queue.
-//        strClientClass = class name of the client
-//        strClientType = type name of the client
-//        strClientSerial = serial number or id of the client. optional
-// Return: true on success, false on error
 
+
+/** creates the client and initializes
+@param pszServerAddress server IP address. This string can be volatile since it will be stored internally
+@param nPort port to connect to
+@param pEventRxBuffer pointer to event buffer for next event reception.
+ This can be either a buffer or the first element of an event queue.
+ If NULL, no long polling thread will be created
+@param pszClientClass class name of the client. If NULL or an empty string, no session will be obtained
+@param pszClientType type name of the client. If NULL or an empty string, no session will be obtained
+@param pszClientSerial serial number or id of the client. optional
+@return true on success, false on error
+*/
 bool CAbkClient::Create (LPCTSTR pszServerAddress, int nPort, CAbkServerEvent *pEventRxBuffer, LPCTSTR pszClientClass, LPCTSTR pszClientType, LPCTSTR pszClientSerial/*=NULL*/)
+{
+  bool bSuccess = false;
+  TidyUp (false);
+  m_strServerAddress = pszServerAddress;
+  m_nPort = nPort;
+  if (pszClientClass)
+    m_strClientClass = pszClientClass;
+  else
+    m_strClientClass.Empty ();
+  if (pszClientType)
+    m_strClientType = pszClientType; // regular client type, except when querying firmware info
+  else
+    m_strClientType.Empty ();
+  if (pszClientSerial)
+    m_strClientSerial = pszClientSerial;
+  else
+    m_strClientSerial.Empty ();
+
+  m_pNextEventData = pEventRxBuffer; // events will be stored here. After TidyUp() the long-polling thread is stopped and it is safe to change this pointer
+
+  if (m_nPort > 0)
   {
-  bool bSuccess=false;
-  TidyUp(false);
-  m_strServerAddress=pszServerAddress;
-  m_nPort=nPort;
-  m_strClientClass=pszClientClass;
-  m_strClientType=pszClientType; // regular client type, except when querying firmware info
-  if(pszClientSerial)
-    m_strClientSerial=pszClientSerial;
-
-  m_pNextEventData=pEventRxBuffer; // events will be stored here. After TidyUp() the long-polling thread is stopped and it is safe to change this pointer
-
-  if(m_nPort>0)
-    {
     // create clients
-    m_pClientAux=new CBaseAbstraction(this);
-    m_pClientEvent=new CBaseAbstraction(this);
-    CClientPtrRef pClientAux(m_pClientAux);
-    CClientPtrRef pClientEvent(m_pClientEvent);
-    pClientAux->SetServerAddr(m_strServerAddress,nPort);
-    pClientEvent->SetServerAddr(m_strServerAddress,nPort);
-    pClientAux->SetSocketTimeout(ABK_AUX_MAXRESPONSE_MS);
-    pClientEvent->SetSocketTimeout(ABK_LONGPOLL_MAXRESPONSE_MS);
+    m_pClientAux = new CBaseAbstraction (this);
+    m_pClientEvent = new CBaseAbstraction (this);
+    CClientPtrRef pClientAux (m_pClientAux);
+    CClientPtrRef pClientEvent (m_pClientEvent);
+    pClientAux->SetServerAddr (m_strServerAddress, nPort);
+    pClientEvent->SetServerAddr (m_strServerAddress, nPort);
+    pClientAux->SetTimeout (ABK_AUX_MAXRESPONSE_MS);
+    pClientEvent->SetTimeout (ABK_LONGPOLL_MAXRESPONSE_MS);
 
     // get a session id
-    m_nSessionId=pClientAux->ObtainSessionId(m_strClientClass,m_strClientType,m_strClientSerial);
-    if(m_nSessionId>=0)
+    if (!m_strClientClass.IsEmpty () && !m_strClientType.IsEmpty ())
+    {
+      m_nSessionId = pClientAux->ObtainSessionId (m_strClientClass, m_strClientType, m_strClientSerial);
+      if (m_nSessionId >= 0)
       {
-      // start the long-polling thread
+        // start the long-polling thread
 #ifndef STRIPDOWN_LONGPOLL_THREAD
-      m_evLongPollEnable.SetEvent(); // do not initially stall long polling
-      m_evLongPollDone.ResetEvent();
-      m_bTerminateLongPoll=false;
-      m_hLongPollThread=CreateThread(NULL,0,LongPollThreadS,this,0,NULL);
+        if (m_pNextEventData)
+        {
+          m_evLongPollEnable.ResetEvent (); // do not initially stall long polling
+          m_evLongPollDone.ResetEvent ();
+          m_bTerminateLongPoll = false;
+          m_hLongPollThread = CreateThread (NULL, 0, LongPollThreadS, this, 0, NULL);
+        }
 #endif
-      bSuccess=true;
+        bSuccess = true;
       }
     }
-  
-  return bSuccess;
+    else
+    {
+      m_nSessionId = -1;
+      bSuccess = true;
+    }
   }
+
+  return bSuccess;
+}
+
+
+
+
+/** returns true if connected to a server
+@return true if connected to a server
+*/
+bool CAbkClient::IsConnected (void) const
+{
+  bool bConnected = false;
+  if ((m_nPort > 0) && (m_nSessionId > 0))
+  {
+    CClientPtrRefConst a (m_pClientAux);
+    CClientPtrRefConst e (m_pClientEvent);
+    bConnected = a.IsValid () && e.IsValid () && (a->GetPort () > 0) && (e->GetPort () > 0);
+  }
+  return bConnected;
+}
+
+
 
 
 //--------------------------------------------------------------------------
@@ -230,7 +267,8 @@ void CAbkClient::TidyUp (bool bLostConnection)
 #endif
 Sleep(20);
       m_evLongPollEnable.SetEvent(); // in case the long-poll-thread is stalled, wake it up so it can terminate
-      WaitForSingleObject(m_evLongPollDone.m_hObject,LONGPOLL_FAILURE_TOLERANCE_MS*2); // wait until terminated
+      if (m_hLongPollThread)
+        WaitForSingleObject (m_evLongPollDone.m_hObject, LONGPOLL_FAILURE_TOLERANCE_MS * 2); // wait until terminated
       pClientEvent->Close(); // close connection so request of long-polling gets interrrupted
       m_bTerminateLongPoll=false;
       }
@@ -297,7 +335,7 @@ void CAbkClient::SetServerAddr (LPCTSTR pszServerAddress, int nPort)
 // Input: -
 // Return: port of connection
 
-int CAbkClient::GetPort (void) const
+int CAbkClient::GetServerPort (void) const
   {
   //CClientPtrRefConst pClientAux(m_pClientAux);
   //if(pClientAux.IsValid())
@@ -1216,6 +1254,8 @@ bool CAbkClient::DownloadFile (LPCTSTR pszUrl, LPCTSTR pszStorePath, PFNATLSTATU
     return false;
   bool bSuccess=false;
   bSuccess=pClientAux->NavigateGet(pszUrl,-1,pszStorePath,pfnReadCallback,dwCookie);
+  if (!bSuccess)
+    DeleteFile (pszStorePath);
   return bSuccess;
   }
 
@@ -1258,8 +1298,8 @@ const char *CAbkClient::GetServerInfo (void)
   assert(pClientAux.IsValid()); // no connection with the aux http client established
   if(!pClientAux.IsValid())
     return NULL;
-  if(!IsConnected())
-    return NULL;
+  //if(!IsConnected()) // commented-out since it needs no connection since no session neccessary
+  //  return NULL;
   return pClientAux->NavigateGet(_T(ABK_REQUESTURL_SERVERINFO),-1);
   }
 
@@ -1510,12 +1550,12 @@ bool CAbkClient::ResumeLongPolling (void)
 // Return: -
 
 int CAbkClient::LongPollThread (void)
-  {
+{
   AddLog(LOGSEVERITY_TRACE,_T("LongPollThread() started"));
   // int nErrorCount=0; // incrementing on errors, decrementing on http success
   DWORD dwTickLastSuccessfulResponse=0; // ticks when the last successfull response was received
-  while(!m_bTerminateLongPoll)
-    {
+  for (size_t nLoopCounter = 0; !m_bTerminateLongPoll; ++nLoopCounter)
+  {
     const char *pszResponse; // answer from server with events and data
 
     WaitForSingleObject(m_evLongPollEnable.m_hObject,INFINITE); // if stalled, block here until the event gets set
@@ -1524,7 +1564,7 @@ int CAbkClient::LongPollThread (void)
     assert(pClientEvent.IsValid()); // no connection with the aux http client established
     if(!pClientEvent.IsValid())
       break;
-//    DWORD dwTickBefore=GetTickCount(); // tick count before the request
+    //    DWORD dwTickBefore=GetTickCount(); // tick count before the request
     pszResponse=pClientEvent->NavigateGet(_T(ABK_REQUESTURL_SERVEREVENT),m_nSessionId); // request event and wait for answer (blocks here)
     DWORD dwTickAfter=GetTickCount();
 
@@ -1535,112 +1575,112 @@ int CAbkClient::LongPollThread (void)
 
     int nHttpStatus=pClientEvent->GetStatus();
     if(pszResponse && nHttpStatus==HTTP_STATUS_OK)
-      {
+    {
       dwTickLastSuccessfulResponse=dwTickAfter;
       CJsonParserAtl jpEvent(pszResponse);
       for(;!jpEvent.IsDone();++jpEvent)  // each event
-        {
+      {
         if(jpEvent.TestObject(ABK_RSP_SERVEREVENT_DATALISTS)) // is there DataLists:{
-          {
+        {
           OnServerDataBegin();
           for(++jpEvent;!jpEvent.IsDone();++jpEvent)  // each data list
-            {
+          {
             std::string strDaqName;
             if(jpEvent.TestArray(&strDaqName)) // if array
-              {
+            {
               CAbkSingleLock lockDaq(&m_mutexDaq,true,DAQ_TIMEOUT); // lock the daq map
               assert(m_mutexDaq.IsLocked());
               CAbkClientDaq *pDaq=FindDaq(strDaqName); // get the client-side daq list
               if(pDaq)
-                {
+              {
                 bool bNotifyVars; // false if callback wishes the variables not to be updated
                 bNotifyVars=pDaq->OnBeginDataFromServer();
                 if(bNotifyVars)
-                  {
+                {
                   if(const size_t nVarCount=pDaq->m_vectVars.size())
-                    {
+                  {
                     CAbkClientVar **ppVars=&pDaq->m_vectVars[0];
                     size_t nVar=0;
                     for(++jpEvent;!jpEvent.IsDone();++jpEvent) // each value
-                      {
+                    {
                       if(nVar>=nVarCount) // if the returned data from server contains more data than our daq list specifies..
-                        { //.. it is an error
+                      { //.. it is an error
                         AddLog(LOGSEVERITY_ERROR,_T("The returned data from server in daq \"%s\" contains more data than the daq list specifies"),(LPCTSTR)pDaq->m_strName);
                         break;
-                        }
+                      }
                       CAbkClientVar *pVar=ppVars[nVar]; // this variable gets the new data
                       assert(pVar);
                       pDaq->OnValueFromServer(pVar,&jpEvent);
                       ++nVar;
-                      }
                     }
                   }
-                else // no variable update
-                  {
-                  for(++jpEvent;!jpEvent.IsDone();++jpEvent); // skip each value
-                  }
-                pDaq->OnEndDataFromServer(); // notify the derived class that variable updates are done
                 }
-              } // end of data array
+                else // no variable update
+                {
+                  for(++jpEvent;!jpEvent.IsDone();++jpEvent); // skip each value
+                }
+                pDaq->OnEndDataFromServer(); // notify the derived class that variable updates are done
+              }
+            } // end of data array
             jpEvent.SkipItem(); // skip unexpected items
-            } // for each data list
+          } // for each data list
           OnServerDataEnd();
-          }
+        }
         else if(jpEvent.TestArray(ABK_RSP_SERVEREVENT_EVENTS)) // is there Events:[
-          {
+        {
           assert(m_pNextEventData); // there must be a location to store the event params
           for(++jpEvent;!jpEvent.IsDone();++jpEvent)  // each event
-            {
+          {
             BOOL bSuccessDecode=m_pNextEventData->SetEvent(jpEvent); // decode event into m_pNextEventData
             jpEvent.SkipItem(); // skip any unknown items
             if(bSuccessDecode)
-              {
+            {
               m_pNextEventData=OnServerEvent(m_pNextEventData); // call the event handler and get the location for the next event
-              }
+            }
             else // error in syntax or completelyness of the event data
-              {
+            {
               AddLog(LOGSEVERITY_ERROR,_T("The event data was incomplete or had incorrect syntax")/*,m_pNextEventData->m_data.m_strType*/);
               break;
-              }
+            }
             jpEvent.SkipItem(); // skip unexpected items            
-            } // each event
-          }
+          } // each event
+        }
         jpEvent.SkipItem(); // skip unexpected items
-        } // for each event
-      }
+      } // for each event
+    }
     else if(pszResponse==NULL)
-      {
+    {
       if(dwTickAfter>=dwTickLastSuccessfulResponse+LONGPOLL_FAILURE_TOLERANCE_MS) // tolerated error time span exceeded
-        {
+      {
         DWORD dwErrorDuration=0;
         if(dwTickLastSuccessfulResponse)
           dwErrorDuration=dwTickAfter-dwTickLastSuccessfulResponse;
         m_bTerminateLongPoll=true; // terminate and signal that thread terminated itself (an error occured)
         AddLog(LOGSEVERITY_ERROR,_T("Successive http errors for %d ms."),(int)dwErrorDuration/*LONGPOLL_FAILURE_TOLERANCE_MS*/);
-        }
-      else
-        {
-        Sleep(LONGPOLL_FAILURE_RECOVERY_MS);
-        }
       }
-    else // server responded but with error
+      else
       {
+        Sleep(LONGPOLL_FAILURE_RECOVERY_MS);
+      }
+    }
+    else // server responded but with error
+    {
       DWORD dwWaitBeforeResume=OnLongPollErrorResponse(nHttpStatus,m_nSessionId); // call custom handler
       while(!m_bTerminateLongPoll && dwWaitBeforeResume!=0)
-        {
+      {
         Sleep(10);
         if(dwWaitBeforeResume>10)
           dwWaitBeforeResume-=10;
         else
           dwWaitBeforeResume=0;
-        }
       }
     }
+  }
   AddLog(LOGSEVERITY_TRACE,_T("LongPollThread() terminating"));
   m_hLongPollThread=NULL;
   m_evLongPollDone.SetEvent();
   return 0;
-  }
+}
 
 
 //--------------------------------------------------------------------------
@@ -1893,19 +1933,22 @@ void CAbkClient::AddLogV (LOGSEVERITY nSeverity, LPCTSTR pszMessage, va_list arg
 // Return: 
 
 void CAbkClient::AddLogHttp (LOGSEVERITY nSeverity, int nHttpStatusCode, LPCTSTR pszUrl, LPCTSTR pszMethod, const char *pcszResponse, const char *pcszoPostPutData/*=NULL*/)
+{
+  if (!m_bSuppressLog)
   {
-//ASSERT(nHttpStatusCode>=0);
-  if(pcszoPostPutData)
-    AddLog(LOGSEVERITY_ERROR,_T("HTTP status code %d. Url: \"%s\", Method: %s, Request: \"%s\", Response: \"%s\""),nHttpStatusCode,pszUrl,pszMethod,(LPCTSTR)CA2T(pcszoPostPutData,CP_UTF8),(LPCTSTR)CA2T(pcszResponse,CP_UTF8));
-  else
-    AddLog(LOGSEVERITY_ERROR,_T("HTTP status code %d. Url: \"%s\", Method: %s, Response: \"%s\""),nHttpStatusCode,pszUrl,pszMethod,(LPCTSTR)CA2T(pcszResponse,CP_UTF8));
-  if(nHttpStatusCode<0)
+    //ASSERT(nHttpStatusCode>=0);
+    if(pcszoPostPutData)
+      AddLog(LOGSEVERITY_ERROR,_T("HTTP status code %d. Url: \"%s\", Method: %s, Request: \"%s\", Response: \"%s\""),nHttpStatusCode,pszUrl,pszMethod,(LPCTSTR)CA2T(pcszoPostPutData,CP_UTF8),(LPCTSTR)CA2T(pcszResponse,CP_UTF8));
+    else
+      AddLog(LOGSEVERITY_ERROR,_T("HTTP status code %d. Url: \"%s\", Method: %s, Response: \"%s\""),nHttpStatusCode,pszUrl,pszMethod,(LPCTSTR)CA2T(pcszResponse,CP_UTF8));
+    if(nHttpStatusCode<0)
     {
-    // 23.10.18: Desktop-PC, Fehler in c:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\atlmfc\include\atlspriv.inl Zeile 218, inline bool ZEvtSyncSocket::Read()=> WSARecv()-Fehler. WSAGetLastError(): 10053
-    DWORD dwError=GetLastError();
-    AddLog(LOGSEVERITY_ERROR,_T("HTTP status code %d => Error-Code %d"),nHttpStatusCode,(int)dwError);
+      // 23.10.18: Desktop-PC, Fehler in c:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\atlmfc\include\atlspriv.inl Zeile 218, inline bool ZEvtSyncSocket::Read()=> WSARecv()-Fehler. WSAGetLastError(): 10053
+      DWORD dwError=GetLastError();
+      AddLog(LOGSEVERITY_ERROR,_T("HTTP status code %d => Error-Code %d"),nHttpStatusCode,(int)dwError);
     }
   }
+}
 
 
 //--------------------------------------------------------------------------
@@ -1945,20 +1988,18 @@ BOOL CAbkClient::PopLog (LOGSEVERITY &nSeverityGet, CString &strMessageGet)
 
 
 
-//--------------------------------------------------------------------------
-// CBaseAbstraction()            Constructor of CBaseAbstraction
-// ------------
-// Input: strServerAddress = address of server
-//        nPort = port the server offers his service
-// Return: 
-
+/** Constructor of CBaseAbstraction
+@param pOwner Pointer to the owning openABK client. Mainly used to emit log files entities
+*/
 CAbkClient::CBaseAbstraction::CBaseAbstraction (CAbkClient *pOwner)
-  : m_csNavigate(LOCK_HIER_ABK_NAVIGATE,_T("Abk::CAbkClient::CBaseAbstraction::m_csNavigate"))
-  {
-  m_pOwner=pOwner;
-  m_pszServerAddress=NULL;
-  m_nPort=0;
-  }
+: m_csNavigate(LOCK_HIER_ABK_NAVIGATE,_T("Abk::CAbkClient::CBaseAbstraction::m_csNavigate"))
+{
+  ASSERT (pOwner);
+  m_pOwner = pOwner;
+  m_pszServerAddress = NULL;
+  m_dwTimeout = 10000;
+  m_nPort = 0;
+}
 
 
 
@@ -1990,6 +2031,32 @@ void CAbkClient::CBaseAbstraction::SetServerAddr (LPCTSTR pszServerAddress, int 
 
 
 
+/** sets the timeout for reads on http requests
+@param dwNewTimeout timeout in terms of milli seconds to be set
+*/
+void CAbkClient::CBaseAbstraction::SetTimeout (DWORD dwNewTimeout)
+{
+  if (dwNewTimeout != m_dwTimeout)
+  {
+    m_dwTimeout = dwNewTimeout;
+    SetSocketTimeout (dwNewTimeout);
+  }
+}
+
+
+
+
+/** returns timeout for reads on http requests
+@return timeout for reads on http requests
+*/
+DWORD CAbkClient::CBaseAbstraction::GetTimeout (void) const
+{
+  return m_dwTimeout;
+}
+
+
+
+
 //--------------------------------------------------------------------------
 // NavigateX()             navigates
 // -----------
@@ -2001,7 +2068,7 @@ void CAbkClient::CBaseAbstraction::SetServerAddr (LPCTSTR pszServerAddress, int 
 bool CAbkClient::CBaseAbstraction::NavigateX (LPCTSTR pszServer, LPCTSTR pszPath, ATL_NAVIGATE_DATA *pNavData)
   {
 #ifdef WINCE
-  return Navigate(pszServer,pszPath,pNavData);
+  return Navigate (pszServer, pszPath, pNavData, NULL, m_pOwner->m_bSuppressLog);
 #else
   bool bSuccess=false;
   for(int nRetry=0;nRetry<2 && !bSuccess;++nRetry)
@@ -2024,35 +2091,35 @@ bool CAbkClient::CBaseAbstraction::NavigateX (LPCTSTR pszServer, LPCTSTR pszPath
 // Return: pointer to buffer with response data, NULL on error
 
 const char *CAbkClient::CBaseAbstraction::NavigateGet (LPCTSTR pszPath, int nSessionId)
-  {
+{
+  const char *pResponse = NULL;
   LOCKED_SECTION_NAV(_T("CAbkClient::CBaseAbstraction::NavigateGet()"));
   assert(m_pszServerAddress);
-  if(1)
-    {
-    CAtlNavigateData nav;
-    nav.SetPort(m_nPort);
-    nav.SetMethod(ATL_HTTP_METHOD_GET);
-    nav.SetPostData(NULL,0,NULL);
-    nav.RemoveFlags(ATL_HTTP_FLAG_SEND_BLOCKS);
-    nav.SetExtraHeaders(_T("Connection: keep-alive\r\n"));
-    bool bSuccess;
-    if(nSessionId>=0)
-      {
-      CString strPathAndQuery;
-      strPathAndQuery.Format(_T("%s?")_T(ABK_QRY_SESSIONID)_T("=%d"),pszPath,nSessionId);
-      bSuccess=NavigateX(m_pszServerAddress,strPathAndQuery,&nav);
-      }
-    else
-      {
-      bSuccess=NavigateX(m_pszServerAddress,pszPath,&nav);
-      }
-    if(bSuccess)
-      {
-      return (const char *)GetBody();
-      }
-    }
-  m_pOwner->AddLogHttp(LOGSEVERITY_ERROR,GetStatus(),pszPath,ATL_HTTP_METHOD_GET,GetBodySave());
-  return NULL;
+  CAtlNavigateData nav;
+  nav.SetPort(m_nPort);
+  nav.SetMethod(ATL_HTTP_METHOD_GET);
+  nav.SetPostData(NULL,0,NULL);
+  nav.RemoveFlags(ATL_HTTP_FLAG_SEND_BLOCKS);
+  nav.SetExtraHeaders(_T("Connection: keep-alive\r\n"));
+  nav.dwTimeout = m_dwTimeout;
+  bool bSuccess;
+  if(nSessionId>=0)
+  {
+    CString strPathAndQuery;
+    strPathAndQuery.Format(_T("%s?")_T(ABK_QRY_SESSIONID)_T("=%d"),pszPath,nSessionId);
+    bSuccess=NavigateX(m_pszServerAddress,strPathAndQuery,&nav);
+    if (!bSuccess)
+      m_pOwner->AddLogHttp (LOGSEVERITY_ERROR, GetStatus (), (LPCTSTR)strPathAndQuery, ATL_HTTP_METHOD_GET, GetBodySave ());
+  }
+  else
+  {
+    bSuccess=NavigateX(m_pszServerAddress,pszPath,&nav);
+    if (!bSuccess)
+      m_pOwner->AddLogHttp (LOGSEVERITY_ERROR, GetStatus (), pszPath, ATL_HTTP_METHOD_GET, GetBodySave ());
+  }
+  if(bSuccess)
+    pResponse = (const char *)GetBody();
+  return pResponse;
   }
 
 
@@ -2062,7 +2129,7 @@ const char *CAbkClient::CBaseAbstraction::NavigateGet (LPCTSTR pszPath, int nSes
 // Input: pszPath = URL path within the server
 //        nSessionId = id of session to be formatted into query string,
 //                     -1 if no session shall be put to query string
-//        pszStorePath = local path where to store the result to. Any exixting file
+//        pszStorePath = local path where to store the result to. Any existing file
 //                       will be overwritten
 //        pFileDest = file the result shall be written to
 // Return: true on success, false on error
@@ -2103,7 +2170,8 @@ bool CAbkClient::CBaseAbstraction::NavigateGet (LPCTSTR pszPath, int nSessionId,
     nav.SetReadStatusCallback(pfnReadCallback,dwCookie);
     nav.RemoveFlags(ATL_HTTP_FLAG_SEND_BLOCKS);
     nav.SetExtraHeaders(_T("Connection: keep-alive\r\n"));
-    if(nSessionId>=0)
+    nav.dwTimeout = m_dwTimeout;
+    if (nSessionId >= 0)
       {
       CString strPathAndQuery;
       strPathAndQuery.Format(_T("%s?")_T(ABK_QRY_SESSIONID)_T("=%d"),pszPath,nSessionId);
@@ -2160,6 +2228,7 @@ const char *CAbkClient::CBaseAbstraction::NavigatePost (LPCTSTR pszPath, int nSe
     nav.SetPostData((BYTE *)strPostData.c_str(),(DWORD)strPostData.length(),_T(MIME_TYPE_JSON));
     nav.RemoveFlags(ATL_HTTP_FLAG_SEND_BLOCKS);
     nav.SetExtraHeaders(_T("Connection: keep-alive\r\n"));
+    nav.dwTimeout = m_dwTimeout;
     bool bSuccess;
     if(nSessionId>=0)
       {
@@ -2205,7 +2274,8 @@ bool CAbkClient::CBaseAbstraction::NavigateDelete (LPCTSTR pszPath, int nSession
     nav.SetPostData((BYTE *)strPostData.c_str(),(DWORD)strPostData.length(),_T(MIME_TYPE_JSON));
     nav.RemoveFlags(ATL_HTTP_FLAG_SEND_BLOCKS);
     nav.SetExtraHeaders(_T("Connection: keep-alive\r\n"));
-    if(nSessionId>=0)
+    nav.dwTimeout = m_dwTimeout;
+    if (nSessionId >= 0)
       {
       CString strPathAndQuery;
       strPathAndQuery.Format(_T("%s?")_T(ABK_QRY_SESSIONID)_T("=%d"),pszPath,nSessionId);
@@ -2262,7 +2332,8 @@ const char *CAbkClient::CBaseAbstraction::NavigatePut (LPCTSTR pszPath, int nSes
   nav.SetPostData((BYTE *)pPutData,nLen,pszMimeType);
   nav.RemoveFlags(ATL_HTTP_FLAG_SEND_BLOCKS);
   nav.SetExtraHeaders(_T("Connection: keep-alive\r\n"));
-  if(nSessionId>=0)
+  nav.dwTimeout = m_dwTimeout;
+  if (nSessionId >= 0)
     {
     CString strPathAndQuery;
     strPathAndQuery.Format(_T("%s?")_T(ABK_QRY_SESSIONID)_T("=%d"),pszPath,nSessionId);
@@ -2358,7 +2429,8 @@ bool CAbkClient::CBaseAbstraction::GetLastModified (LPCTSTR pszUrl, CTime *pGet)
     nav.SetPostData(NULL,0,NULL);
     nav.RemoveFlags(ATL_HTTP_FLAG_SEND_BLOCKS);
     nav.SetExtraHeaders(_T("Connection: keep-alive\r\n"));
-    bSuccess=NavigateX(m_pszServerAddress,pszUrl,&nav);
+    nav.dwTimeout = m_dwTimeout;
+    bSuccess = NavigateX (m_pszServerAddress, pszUrl, &nav);
     if(bSuccess||GetResponseStatus()==RR_READBODY_FAILED)  // HEAD method creates an error but with the RR_READBODY_FAILED it is OK
       {
       CString strDateModified;

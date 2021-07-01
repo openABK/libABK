@@ -34,6 +34,9 @@
 #include <comutil.h>
 
 
+#define ABK_AUX_MAXRESPONSE_MS 2000 // response timeout for aux requests (30th June 2021: 500 ms turned out to be too short to query meta data)
+
+
 enum
   {
   LOCK_HIER_ABK_STARTOF=0x10000,
@@ -71,6 +74,7 @@ namespace Abk
       private:
         LPCTSTR m_pszServerAddress; // c-string of the server address
         int m_nPort; // port at the server. it is used to initialize the CAtlNavigateData
+        DWORD m_dwTimeout; // timeout for read requests on http
         CAbkClient *m_pOwner; // pointer to owning container object
         // CAtlNavigateData m_nav; // navigation information
         CMyCriticalSection m_csNavigate; // prevent Navigate() from beeing called in different contexts
@@ -84,6 +88,8 @@ namespace Abk
       protected:
         void SetServerAddr (LPCTSTR pszServerAddress, int nPort); // re-assigns the server address and port
         int GetPort (void) const {return m_nPort;} // returns port
+        void SetTimeout (DWORD dwNewTimeout); // sets the timeout for reads on http requests
+        DWORD GetTimeout (void) const; // returns timeout for reads on http requests
         bool NavigateX (LPCTSTR pszServer, LPCTSTR pszPath, ATL_NAVIGATE_DATA *pNavData);
         const char *NavigateGet (LPCTSTR pszPath, int nSessionId); // sends GET request and waits for answer
         bool        NavigateGet (LPCTSTR pszPath, int nSessionId, LPCTSTR pszStorePath, PFNATLSTATUSCALLBACK pfnReadCallback=NULL, DWORD_PTR dwCookie=0); // sends a POST request and waits for answer, stores result as file in the local file system
@@ -208,16 +214,17 @@ namespace Abk
       bool m_bTerminateLongPoll; // true if long-polling thread shall terminate
       CAbkMutex m_mutexDaq; // mutex to protect the daq items
       CAbkServerEvent *m_pNextEventData; // when event is received, it will be stored to this location. Will not be deleted on destruction!
+      bool m_bSuppressLog; // true suppresses log file output
 
     // construction/destruction/setup
     public:
-      CAbkClient ();
+      CAbkClient (bool bSuppressLog = false);
       virtual ~CAbkClient ();
       bool Create (LPCTSTR pszServerAddress, int nPort, CAbkServerEvent *pEventRxBuffer, LPCTSTR pszClientClass, LPCTSTR pszClientType, LPCTSTR pszClientSerial=NULL); // creates the client and initializes
 
     // state and control
     public:
-      bool IsConnected (void) const {CClientPtrRefConst a(m_pClientAux); CClientPtrRefConst e(m_pClientEvent); return ((m_nPort>0) && a.IsValid() && e.IsValid() && (m_nSessionId>0) && (a->GetPort()>0) && (e->GetPort()>0));} // returns true if connected to a server
+      bool IsConnected (void) const; // returns true if connected to a server
       bool SuspendLongPolling (void); // pauses the long-poll thread
       bool ResumeLongPolling (void); // resumes long poll thread
 
@@ -226,7 +233,7 @@ namespace Abk
       void TidyUp (bool bLostConnection); // cleans object
       void SetServerAddr (LPCTSTR pszServerAddress, int nPort); // re-assigns the server address and port
       const CString &GetServerAddr (void) const {return m_strServerAddress;} // returns server address string
-      int GetPort (void) const; // returns port of server connection
+      int GetServerPort (void) const; // returns port of server connection
       int GetSessionId (void) {return m_nSessionId;} // returns the session id, -1 if no session created
       bool GetCurrentServerTime (time_t *pGet); // retrieves the current time of the server
       bool GetStorageInfo (unsigned long long &rTotal, unsigned long long &rFree); // requests storage info of the server

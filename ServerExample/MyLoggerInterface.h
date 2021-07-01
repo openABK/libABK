@@ -99,7 +99,11 @@ class CMyLoggerInterface : public CLoggerInterface
   // implementation
   protected:
     static std::string Md5FromFile (const char *pszFilePath); // generates MD5 from file
-    
+    static BOOL GetPeModuleVersionInfo (LPCTSTR pszFileName, __out VS_FIXEDFILEINFO* pVersionInfo, __out CString* pProductName/*=NULL*/, __out CString* pFileDescription/*=NULL*/, __out CString* pLegalCopyRight/*=NULL*/, __out CString* pCompanyName/*=NULL*/);
+    static BOOL GetPeModuleVersionInfo (_In_opt_ HMODULE hModule, __out VS_FIXEDFILEINFO* pVersionInfo, __out CString* pProductName/*=NULL*/, __out CString* pFileDescription/*=NULL*/, __out CString* pLegalCopyRight/*=NULL*/, __out CString* pCompanyName/*=NULL*/);
+    static CString GetPeModuleVersionString (VS_FIXEDFILEINFO& fiModule); // reads version information from a Microsoft compatible module
+    static CString GetPeModuleInfoString (_In_opt_ HMODULE hModule/*=NULL*/, int nLineCount/*=-1*/);
+    static CString GetClientFwVersionString (LPCTSTR pszFileName); // queries the version string of a client firmware
   // overrides
   protected:
     virtual bool OnGetVariableList (std::list<CVarRef *> *pList) const override; // called to retrieve the available variable catalogue
