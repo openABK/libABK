@@ -1,62 +1,90 @@
-var xhrSend = null;
-xhrSend = new XMLHttpRequest();
-var g_nSessionId = 0; // session id
-var g_strClientAddress = ""; // client IP address, got from server
-var g_fnOnEvent; // callback when event occured
+/**
+@file abk.js openABK helping and abstraction functions
+@author Dietmar Burger - https://www.openABK.org
+*/
 
 
-//--------------------------------------------------------------------------
-// AbkEventPoller is used to poll events with the long polling methods
-//
-// to use it, create an instance, e.g. var poller = new AbkEventPoller(OnLoggerEvent)
+
+var xhrSend = new XMLHttpRequest(); ///< XML http request used to send data and events
+var g_nSessionId = 0; ///< ID of the sesstion. This ID gets assigned from the server
 
 
-function AbkEventPoller(fnOnEvent)
+
+/** Tests whether the answer of the request was successfully received
+@param xhrTest request object to be tested for success
+@return true, if the anwer was successfully received, false otherwise
+*/
+function AbkXhrAnswerSuccess (xhrTest)
 {
-  g_fnOnEvent = fnOnEvent;
-  xhrRecieve = new XMLHttpRequest();
-  AbkEventPoller.RequestInfo(); // start long polling
+  return (xhrTest.readyState == 4) && (xhrTest.status == 200);
 }
 
-AbkEventPoller.ProcessEventResponse = function ()
+
+
+
+/** Sets the request header which suppresses cacheing
+@param xhrSet request the header shall be set for
+*/
+function AbkSetRequestHeaderNoCacheing (xhrSet)
 {
-  if (AbkEventPoller.xhrRecieve.readyState == 4 && AbkEventPoller.xhrRecieve.status == 200)
+  xhrSet.setRequestHeader("If-Modified-Since", new Date(0));
+}
+
+
+
+
+
+/** AbkEventPoller is used to poll events with the long polling methods
+@note To use it, create an instance, e.g. var poller = new AbkEventPoller(OnLoggerEvent)
+*/
+class AbkEventPoller
+{
+
+  /** Constructor
+  @param fnOnEvent Function to be called when the server responds to the request (the response can be seen as an event)
+  */
+  constructor(fnOnEvent)
   {
-    var objEvent = JSON.parse(AbkEventPoller.xhrRecieve.responseText);
-    g_fnOnEvent(objEvent);
-    AbkEventPoller.RequestInfo(); // next long polling cycle
+    this.fnOnEvent = fnOnEvent;
+    this.xhrLongpoll = new XMLHttpRequest();
+    this.RequestNext(); // start long polling
   }
+
+  /** Sends the request for the next long polling cycle.
+   When the answer of the request arrives, the next request is issued automatically
+  */
+  RequestNext ()
+  {
+    var self = this;
+    this.xhrLongpoll.onreadystatechange = function ()
+    {
+      if (AbkXhrAnswerSuccess(self.xhrLongpoll))
+      {
+        var objEvent = JSON.parse(self.xhrLongpoll.responseText);
+        self.fnOnEvent(objEvent);
+        self.RequestNext(); // next long polling cycle
+      }
+    };
+    this.xhrLongpoll.open("GET", "/abk/events/server_event?SessionId=" + g_nSessionId, true);
+    AbkSetRequestHeaderNoCacheing(this.xhrLongpoll);
+    this.xhrLongpoll.send(null);
+  }
+
 }
 
-AbkEventPoller.RequestInfo = function ()
+
+
+
+
+
+/** composes an URI string
+@param strUrl Location string
+@param objQuery query object. each member will be set into the query string
+@return The complete URI string
+ */
+function AbkHttpComposeUri (strUrl, objQuery)
 {
-  AbkEventPoller.xhrRecieve.onreadystatechange = this.ProcessEventResponse;
-  AbkEventPoller.xhrRecieve.open("GET", "/abk/events/server_event?SessionId=" + g_nSessionId, true);
-  AbkEventPoller.xhrRecieve.setRequestHeader("If-Modified-Since", new Date(0));
-  AbkEventPoller.xhrRecieve.send(null);
-}
-
-AbkEventPoller.xhrRecieve = new XMLHttpRequest();
-
-
-
-
-
-//**************************************************************************
-// HTTP request abstraction
-//
-//**************************************************************************
-
-//--------------------------------------------------------------------------
-// AbkHttpComposeUri() composes a uri string
-// ---------------
-// Input: strUri = location string
-//        objQuery = query object. each member will be set into the query string
-// Return: the complete uri string
-
-function AbkHttpComposeUri(strUri, objQuery)
-{
-  var strUriComposed = strUri + "?SessionId=" + g_nSessionId;
+  var strUriComposed = strUrl + "?SessionId=" + g_nSessionId;
   if (objQuery)
   {
     for (var item in objQuery)
@@ -68,34 +96,33 @@ function AbkHttpComposeUri(strUri, objQuery)
 }
 
 
-//--------------------------------------------------------------------------
-// AbkHttpPut() sends an http put request (synchronousely)
-// --------
-// Input: strUri = location string
-//        objQuery = object put to the query string
-//        objSend = object to be sent in the body of the request
-// Return: -
 
-function AbkHttpPut(strUri, objQuery, objSend)
+
+/** sends an http put request (synchronousely)
+@param strUrl Location URL string without query parameters
+@param objQuery object to be put to the query string
+@param objSend object to be sent in the body of the request
+*/
+function AbkHttpPut (strUrl, objQuery, objSend)
 {
-  xhrSend.open("PUT", AbkHttpComposeUri(strUri, objQuery), false);
+  xhrSend.open("PUT", AbkHttpComposeUri(strUrl, objQuery), false);
   xhrSend.send(JSON.stringify(objSend));
 }
 
 
-//--------------------------------------------------------------------------
-// AbkHttpPost() sends an http post request (synchronousely)
-// ---------
-// Input: strUri = location string
-//        objSend = object put to the request body
-// Return: parsed response as an object
 
-function AbkHttpPost(strUri, objSend)
+
+/** sends an http post request (synchronousely)
+@param strUrl Location URL string without query parameters
+@param objSend object to be sent in the body of the request
+@return  parsed response as an object or null if failed
+*/
+function AbkHttpPost (strUrl, objSend)
 {
-  xhrSend.open("POST", AbkHttpComposeUri(strUri, null), false);
-  xhrSend.setRequestHeader("If-Modified-Since", new Date(0));
+  xhrSend.open("POST", AbkHttpComposeUri(strUrl, null), false);
+  AbkSetRequestHeaderNoCacheing(xhrSend);
   xhrSend.send(JSON.stringify(objSend));
-  if (xhrSend.readyState == 4 && xhrSend.status == 200)
+  if (AbkXhrAnswerSuccess(xhrSend))
   {
     return JSON.parse(xhrSend.responseText);    // eval("(" + xhrSend.responseText + ")");
   }
@@ -103,77 +130,74 @@ function AbkHttpPost(strUri, objSend)
 }
 
 
-//--------------------------------------------------------------------------
-// AbkHttpGet() sends an http get request (synchronousely)
-// ------------
-// Input: strUri = location string
-//        objQuery = object put to the query string
-// Return: parsed response as an object
-
-function AbkHttpGet(strUri, objQuery)
-{
-  xhrSend.open("GET", AbkHttpComposeUri(strUri, objQuery), false);
-  xhrSend.setRequestHeader("If-Modified-Since", new Date(0));
-  xhrSend.send(); // JSON.stringify(objSend));
-  if (xhrSend.readyState == 4 && xhrSend.status == 200)
-  {
-    return JSON.parse(xhrSend.responseText);    // eval("(" + xhrSend.responseText + ")");
-  }
-  return null
-}
 
 
-//--------------------------------------------------------------------------
-// AbkHttpGetRaw() sends an http get request (synchronousely)
-// ---------------
-// Input: strUri = location string
-// Return: read file as string
-
-function AbkHttpGetRaw(strUri)
+/** sends an http get request without adding query string and without decoding the result (synchronousely)
+@param strUri location string
+@return read file as string
+*/
+function AbkHttpGetRaw (strUri)
 {
   xhrSend.open("GET", strUri, false);
-  xhrSend.setRequestHeader("If-Modified-Since", new Date(0));
+  AbkSetRequestHeaderNoCacheing(xhrSend);
   xhrSend.send();
-  if (xhrSend.readyState == 4 && xhrSend.status == 200)
+  if (AbkXhrAnswerSuccess(xhrSend))
   {
     return xhrSend.responseText;
   }
   return null
 }
 
-//--------------------------------------------------------------------------
-// AbkHttpDelete() sends an http delete request (synchronousely)
-// -----------
-// Input: strUri = location string
-//        objQuery = object put to the query string
-//        objSend = object put to the request body
-// Return: -
 
-function AbkHttpDelete(strUri, objQuery, objSend)
+
+
+/** sends an http get request (synchronousely)
+@param strUrl Location URL string without query parameters
+@param objQuery object to be put to the query string
+@return parsed response as an object
+*/
+function AbkHttpGet (strUrl, objQuery)
 {
-  xhrSend.open("DELETE", AbkHttpComposeUri(strUri, objQuery), false);
-  xhrSend.setRequestHeader("If-Modified-Since", new Date(0));
+  xhrSend.open("GET", AbkHttpComposeUri(strUrl, objQuery), false);
+  AbkSetRequestHeaderNoCacheing(xhrSend);
+  xhrSend.send();
+  if (AbkXhrAnswerSuccess(xhrSend))
+  {
+    return JSON.parse(xhrSend.responseText);    // eval("(" + xhrSend.responseText + ")");
+  }
+  return null
+}
+
+
+
+/** sends an http delete request (synchronousely)
+@param strUrl location string
+@param objQuery object put to the query string
+@param objSend object put to the request body
+*/
+function AbkHttpDelete (strUrl, objQuery, objSend)
+{
+  xhrSend.open("DELETE", AbkHttpComposeUri(strUrl, objQuery), false);
+  AbkSetRequestHeaderNoCacheing(xhrSend);
   xhrSend.send(JSON.stringify(objSend));
 }
 
 
-//--------------------------------------------------------------------------
-// AbkGetLastModified() returns the last-modified date of a file
-// --------------------
-// Input: strUrl = location string
-// Return: in case of success: last-modified-date of the file
-//         in case of an error: null
 
-function AbkGetLastModified(strUrl)
+
+/** returns the last-modified date of a file
+@param strUrl location string
+@return In case of success: last-modified-date of the file. In case of an error: null
+*/
+function AbkGetLastModified (strUrl)
 {
   xhrSend.open("HEAD", strUrl, false);
-  xhrSend.setRequestHeader("If-Modified-Since", new Date(0));
+  AbkSetRequestHeaderNoCacheing(xhrSend);
   xhrSend.send();
-  if (xhrSend.readyState == 4 && xhrSend.status == 200)
+  if (AbkXhrAnswerSuccess(xhrSend))
   {
     var strRet = xhrSend.getResponseHeader("Last-Modified");
     var dtModified = new Date(Date.parse(strRet));   //  AbkParseDate(strRet);
-    var i = 12;
     return dtModified
   }
   return null
@@ -181,13 +205,18 @@ function AbkGetLastModified(strUrl)
 
 
 
-//--------------------------------------------------------------------------
-// AbkParseDate() parses a string with date information
-// Iput: strDate = date to be parsed
-// Return: date object or unchanged string in case of error
-// see also http://blog.activa.be/index.php/2010/03/handling-dates-in-json-responses-with-jquery-1-4-the-easy-way/
 
-function AbkParseDate(strDate)
+/** parses a string with date information
+@note: We expect data being in this format:
+ a) \"2021-01-01T23:28:56.782Z or 
+ b) \2021-01-01T23:28:56.782Z or 
+ c) "2021-01-01T23:28:56.782Z or 
+ d) Date(...)
+@param strDate Date to be parsed
+@return Date object or unchanged string in case of error
+@note See also http://blog.activa.be/index.php/2010/03/handling-dates-in-json-responses-with-jquery-1-4-the-easy-way/
+*/
+function AbkParseDate (strDate)
 {
   var a;
   if (typeof strDate === 'string')
@@ -224,108 +253,165 @@ function AbkParseDate(strDate)
 
 
 
+
+
 //**************************************************************************
 // HighLevel functions for access to server
 //
 //**************************************************************************
 
 
-//--------------------------------------------------------------------------
-// AbkGetSession() gets a session id and stores it globally
-// ---------------
-// Input: strClientClass = class of the client, e.g. "Display"
-//        strClientType = type of client, e.g. "Mytronics_superdisplay3000"
-//        strClientSerial = serial number of client. may be null, if no serial number
-//                          is available due to a single-per-class system (e.g. single-display-system)
-// Return: none. Session id will be stored globally
 
-function AbkGetSession(strClientClass, strClientType,strClientSerial)
+
+/** Requets a session id and stores it globally
+@param strClientClass Class of the client, e.g. "Display"
+@param strClientType type of client, e.g. "Mytronics_superdisplay3000"
+@param strClientSerial serial number of client. may be null, if no serial number is available due to a single-per-class system (e.g. single-display-system)
+*/
+function AbkGetSession (strClientClass, strClientType, strClientSerial)
 {
-  var objSend= {"Class":strClientClass, "Type":strClientType}; // setup the mandatory part
-  if(strClientSerial)
-    objSend.Serial=strClientSerial;
+  var objSend = { "Class": strClientClass, "Type": strClientType }; // setup the mandatory part
+  if (strClientSerial)
+    objSend.Serial = strClientSerial;
   var objResponse = AbkHttpPost("/abk/system_information/session_id", objSend); // generate session at server side
   g_nSessionId = objResponse.SessionId;
 }
 
 
-//--------------------------------------------------------------------------
-// AbkSendEvent() composes a uri string
-// ---------------
-// Input: strEventType = event type string
-//        strStringParam = string parameter to be sent with the event
-//        dParam1, dParam2 = numeric parameters
-//        bPrivate: if true, client intends to process the reflected event
-//                  by itself and the server shall not reflect the event
-//                  to other clients
-// Return: -
 
-function AbkSendEvent(strEventType, strStringParam, dParam1, dParam2, bPrivate)
+
+/** Sends a client-event to the server
+@param strEventType event type string
+@param strStringParam string parameter to be sent with the event
+@param dParam1 1st numeric parameter
+@param dParam2 2nd numeric parameter
+@param bPrivate: if true, client intends to process the reflected event by itself and the server shall not reflect the event to other clients
+*/
+function AbkSendEvent (strEventType, strStringParam, dParam1, dParam2, bPrivate)
 {
   var strTime = JSON.stringify(new Date());
   AbkHttpPut("/abk/events/client_event", null, { Sender: g_nSessionId, Time: strTime, EventType: strEventType, StringParam: strStringParam, Param1: dParam1, Param2: dParam2, Private: bPrivate });
 }
 
 
-//--------------------------------------------------------------------------
-function AbkDeleteSession()
+
+
+/** Deletes the current session at the server
+*/
+function AbkDeleteSession ()
 {
   AbkHttpDelete("/abk/system_information/session_id");
+  g_nSessionId = 0;
 }
 
 
-//--------------------------------------------------------------------------
-function AbkGetClientAddress()
+
+
+/** Queries the client address (of this device) as the server sees me
+@return My address from the servers side, null on error
+*/
+function AbkGetClientAddress ()
 {
   var objResponse = AbkHttpGet("/abk/system_information/client_address");
-  g_strClientAddress = objResponse.Address;
+  if (objResponse != null)
+    return objResponse.Address;
+  else
+    return null;
 }
 
 
-//--------------------------------------------------------------------------
-function AbkGetVarValue(strVarName)
+
+
+/** Queries the current value of a variable
+@param strVarName Name of the variable to be queried
+@return the value of the variable or null on failure
+*/
+function AbkGetVarValue (strVarName)
 {
   var objResponse = AbkHttpPost("/abk/variables/var_value", { GetList: [strVarName] });
-  return objResponse.Data[0];
+  if (objResponse != null)
+    return objResponse.Data[0];
+  else
+    return null;
 }
 
-//--------------------------------------------------------------------------
-function AbkSetVarValue(strVarName, newValue)
+
+
+
+/** Sets the value of a variable in the logger
+@param strVarName Name of the variable to be set
+@param newValue Value for the variable
+*/
+function AbkSetVarValue (strVarName, newValue)
 {
-  AbkHttpPut("/abk/variables/var_value", null, { PutList: [{ Name: strVarName, Value: newValue}] });
+  AbkHttpPut("/abk/variables/var_value", null, { PutList: [{ Name: strVarName, Value: newValue }] });
 }
 
-//--------------------------------------------------------------------------
-function AbkGetMailboxValue(strVarName)
+
+
+
+/** Queries the current value of a mailbox
+@param strVarName Name of the mailbox to be queried
+@return the value of the mailbox or null on failure
+*/
+function AbkGetMailboxValue (strVarName)
 {
   var objResponse = AbkHttpPost("/abk/variables/mailbox_value", { GetList: [strVarName] });
-  return objResponse.Data[0];
+  if (objResponse != null)
+    return objResponse.Data[0];
+  else
+    return null;
 }
 
-//--------------------------------------------------------------------------
-function AbkSetMailboxValue(strVarName, newValue)
+
+
+
+/** Sets the value of a mailbox in the logger
+@param strVarName Name of the mailbox to be set
+@param newValue Value for the mailbox
+*/
+function AbkSetMailboxValue (strVarName, newValue)
 {
-  AbkHttpPut("/abk/variables/mailbox_value", null, { PutList: [{ Name: strVarName, Value: newValue}] });
+  AbkHttpPut("/abk/variables/mailbox_value", null, { PutList: [{ Name: strVarName, Value: newValue }] });
 }
 
-function AbkGetVarMetaSingleVar(strVarName)
+
+
+/** Queries the meta-data of one variable
+@param strVarName Name of the variable to be queried
+@return The meta-data of the variable
+*/
+function AbkGetVarMetaSingleVar (strVarName)
 {
   var objMeta = AbkHttpPost("/abk/variables/var_meta", { VarList: [strVarName] });
   AbkMetaRawToPhysical(objMeta.MetaData[0]);
   return objMeta.MetaData[0]; // return the first (is the one and only member) meta data
 }
 
-function AbkGetVarMetaMultipleVars(arryVarList)
+
+
+
+/** Queries the meta-data of multiple variables
+@param arryVarList Array of strings of variable names
+@return Array with the meta-data of the variables in the same order as in arryVarList
+*/
+function AbkGetVarMetaMultipleVars (arryVarList)
 {
   var objMeta = AbkHttpPost("/abk/variables/var_meta", { VarList: arryVarList });
   for (var meta in objMeta.MetaData)
   {
     AbkMetaRawToPhysical(objMeta.MetaData[meta]);
   }
-  return objMeta.MetaData; // return the array contining objects for each variable with the meta data
+  return objMeta.MetaData;
 }
 
-function AbkMetaRawToPhysical(objMeta)
+
+
+
+/** Converts the raw meta-data (usually in the sensor-related units) to physical meta-data
+@param objMeta Object with the meta-data of a variable
+*/
+function AbkMetaRawToPhysical (objMeta)
 {
   if (objMeta.Factor && objMeta.Offset)
   {
@@ -333,12 +419,20 @@ function AbkMetaRawToPhysical(objMeta)
       objMeta.RangeMin = objMeta.RangeMin * objMeta.Factor + objMeta.Offset;
     if (objMeta.RangeMax)
       objMeta.RangeMax = objMeta.RangeMax * objMeta.Factor + objMeta.Offset;
-    for (var nThreshold = 0; nThreshold < objMeta.Thresholds.length;nThreshold++ )
+    for (var nThreshold = 0; nThreshold < objMeta.Thresholds.length; nThreshold++)
       objMeta.Thresholds[nThreshold] = objMeta.Thresholds[nThreshold] * objMeta.Factor + objMeta.Offset;
   }
 }
 
-function AbkSetupDaqList(strDaqName, nCycleMs, arryVars)
+
+
+/** Installs a DAQ (data acquisition) list at the server
+@note A DAQ list defines a list of variables, whose values are transferred at once for each DAQ cycle 
+@param strDaqName Name for the DAQ list
+@param nCycleMs Polling cycle when reading data with long-polling
+@param arryVars array of names of the variables to be put to the daq list
+*/
+function AbkSetupDaqList (strDaqName, nCycleMs, arryVars)
 {
   var objDaqList = { Name: strDaqName };
   if (nCycleMs)
@@ -348,7 +442,16 @@ function AbkSetupDaqList(strDaqName, nCycleMs, arryVars)
   AbkHttpPut("/abk/variables/daq_list", null, objDaqList);
 }
 
-function AbkSetupDaqTrend(strDaqName, nCycleMs, strVarName)
+
+
+
+/** Installs a DAQ (data acquisition) trend at the server
+@note A DAQ trend sets-up the transfer of multiple conscutive values within each DAQ cycle for one variable. It is used for high-speed signals
+@param strDaqName Name for the DAQ trend
+@param nCycleMs Polling cycle when reading data with long-polling
+@param strVarName Names of the variable to be transferred by means of the DAQ trend
+*/
+function AbkSetupDaqTrend (strDaqName, nCycleMs, strVarName)
 {
   var objDaqTrend = { Name: strDaqName };
   if (nCycleMs)
@@ -357,30 +460,62 @@ function AbkSetupDaqTrend(strDaqName, nCycleMs, strVarName)
   AbkHttpPut("/abk/variables/daq_trend", null, objDaqTrend);
 }
 
-function AbkSetDaqUpdateCycle(strDaqListName, nCycleMs)
+
+
+
+/** Dynamically changes the update rate of a DAQ list
+@param strDaqListName Name of the DAQ list to be changed. This DAQ list must have been already installed with AbkSetupDaqList()
+@param nCycleMs New cycle in terms of milli-seconds
+*/
+function AbkSetDaqUpdateCycle (strDaqListName, nCycleMs)
 {
   AbkHttpPut("/abk/variables/daq_list", null, { Name: strDaqListName, Cycle: nCycleMs });
 }
 
-function AbkGetServerTime()
+
+
+/**Queries the real-time-clock of the server
+@return The servers UTC-time
+*/
+function AbkGetServerTime ()
 {
   var tmServer = AbkHttpGet("/abk/system_information/current_time");
   return AbkParseDate(tmServer.Time);
 }
 
 
-function AbkPutClientState(strClass, strType, strSerial, strWrite)
+
+/** Sends the client state file to the server
+@note A client can save its state (i.e. user settings) to the server and can recall it at re-booting.
+ The client identification is done by means of class, type and serial-number
+@param strClass Class of the client, e.g. "Display"
+@param strType type of client, e.g. "Mytronics_superdisplay3000"
+@param strSerial serial number of client.may be null, if no serial number is available due to a single - per - class system (e.g.single - display - system)
+@param strWrite A client-specific formatted string of the client state
+*/
+function AbkPutClientState (strClass, strType, strSerial, strWrite)
 {
   var strUlr = "/abk/client_states/" + strClass + "_" + strType + "_" + strSerial + ".txt";
   xhrSend.open("PUT", strUlr, false);
   xhrSend.send(strWrite);
 }
 
-function AbkGetClientState(strClass, strType, strSerial)
+
+
+
+/** Queries the client state file from the server
+@note A client can save its state (i.e. user settings) to the server and can recall it at re-booting
+ The client identification is done by means of class, type and serial-number
+@param strClass Class of the client, e.g. "Display"
+@param strType type of client, e.g. "Mytronics_superdisplay3000"
+@param strSerial serial number of client.may be null, if no serial number is available due to a single - per - class system (e.g.single - display - system)
+@return The state as it was saved with AbkPutClientState()
+*/
+function AbkGetClientState (strClass, strType, strSerial)
 {
   var strUlr = "/abk/client_states/" + strClass + "_" + strType + "_" + strSerial + ".txt";
   xhrSend.open("GET", strUlr, false);
-  xhrSend.setRequestHeader("If-Modified-Since", new Date(0));
+  AbkSetRequestHeaderNoCacheing(xhrSend);
   xhrSend.send();
   if (xhrSend.readyState == 4 && xhrSend.status == 200)
   {
@@ -390,19 +525,30 @@ function AbkGetClientState(strClass, strType, strSerial)
 }
 
 
-function AbkGetFormAsHtml(strFormName, strEvalOnButton)
+
+/** Requests a form (structure and initial data) from server and formats it as an HTML form
+@note Usually, a server sends an event as a request for the primary client to open a form.
+@param strFormName Name of the form. It is used to a) identify the elements within the DOM and b) identify, which form needs to be requested from the server
+@param strEvalOnButton Name of a function which is executed when a button is pressed.
+ The function shall take two arguments:
+ a) Name of the form: strFormName will be passed to this handler function
+ b) Name of the button: The name of the button (which the user pressed) will be passed to this handler function.
+@return An HTML-formatted form, which can be set as innerHtml of a div.
+ It will contain a table with the form name and a prefix of "formtbl_" as ID. The ID may be used later to find the form in the DOM
+*/
+function AbkGetFormAsHtml (strFormName, strEvalOnButton)
 {
   var objForm = AbkHttpGet("/abk/forms/" + strFormName);
   var strInnerHtml;
   strInnerHtml = "<h2>" + objForm.Caption + "</h2><br /><br />";
   //strInnerHtml = "<form>";
-  strInnerHtml += "<table id='formtbl_"+strFormName+"' border='0' cellpadding='5' cellspacing='0'>";
+  strInnerHtml += "<table id='formtbl_" + strFormName + "' border='0' cellpadding='5' cellspacing='0'>";
   for (var nItem in objForm.Controls)
   {
     strInnerHtml += "<tr>";
     var objControl = objForm.Controls[nItem]
     var strControlName = objControl.Name;
-    var strInitialValue=null;
+    var strInitialValue = null;
     if (objControl.InitialValue)
       strInitialValue = objControl.InitialValue;
     var bReadOnly = false;
@@ -431,9 +577,9 @@ function AbkGetFormAsHtml(strFormName, strEvalOnButton)
         strInnerHtml += "<td>";
         var strCheckReadOnly = "";
         // if (bReadOnly)
-          strCheckReadOnly = "readonly";
+        strCheckReadOnly = "readonly";
         strInitialValue = objControl.InitialValue ? "checked" : "";
-        strInnerHtml += "<input type='checkbox' name='" + strControlName + "' " + strInitialValue + " "+strCheckReadOnly+" />"
+        strInnerHtml += "<input type='checkbox' name='" + strControlName + "' " + strInitialValue + " " + strCheckReadOnly + " />"
         strInnerHtml += "</td>";
         break;
       case "List":
@@ -454,7 +600,7 @@ function AbkGetFormAsHtml(strFormName, strEvalOnButton)
         else if (objControl.Cancel)
           strButtonType = "reset";
         strInnerHtml += "<td></td><td>";
-        strInnerHtml += "<input name='" + strControlName + "' type='"+strButtonType+"' value='" + objControl.Caption + "' onclick='" + strEvalOnButton + "(\"" + strFormName + "\",\"" + strControlName + "\")' />";
+        strInnerHtml += "<input name='" + strControlName + "' type='" + strButtonType + "' value='" + objControl.Caption + "' onclick='" + strEvalOnButton + "(\"" + strFormName + "\",\"" + strControlName + "\")' />";
         strInnerHtml += "</td>";
         break;
     }
@@ -466,11 +612,18 @@ function AbkGetFormAsHtml(strFormName, strEvalOnButton)
 }
 
 
-function AbkSendForm(strFormName, strFireButtonName)
+
+/** Submits a form to the server
+@note There must be a table with an ID containing "formtbl_"+form name. When utilizing AbkGetFormAsHtml(), this scenario is provided.
+@note The server may be interested in the button, the user pressed when submitting the form (e.g. was it the OK or the Cancel button?).
+@param strFormName Name of the form. It is used to a) find the elements within the DOM and b) send the form name to the server
+@param strFireButtonName Name of the button which initiated the submission. Emptpy string or null if no button was the initiator of the submission
+*/
+function AbkSendForm (strFormName, strFireButtonName)
 {
   var bCloseRequired = false;
   var objReturnData = new Object();
-  var tblControls = document.getElementById("formtbl_"+strFormName);
+  var tblControls = document.getElementById("formtbl_" + strFormName);
   for (var nControl = 0; nControl < tblControls.rows.length; nControl++)
   {
     var cellControl = tblControls.rows[nControl].cells[1];
@@ -482,10 +635,10 @@ function AbkSendForm(strFormName, strFireButtonName)
       case "text":
         break;
       case "checkbox":
-        value=ctrlX.checked;
+        value = ctrlX.checked;
         break;
       case "select-one":
-        value=ctrlX.options.selectedIndex;
+        value = ctrlX.options.selectedIndex;
         break;
       case "submit":
       case "cancel":

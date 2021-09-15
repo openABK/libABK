@@ -266,10 +266,10 @@ CMyFakeLogger::CMyFakeLogger (int nVarCount, int nAniCycle)
 #if defined (TESTBENCH_ABKBUTTONS)
 #else
   // Var #0 specialities
-  sprintf(m_vars[0].szName,"Tire.p<r>essure",nVar);
-  sprintf(m_vars[0].szDisplayName,"Reifen-druck",nVar);
-  sprintf(m_vars[0].szUnit,"bar",nVar);
-  sprintf(m_vars[0].szComment,"von Hand erstellte Variable",nVar);
+  sprintf(m_vars[0].szName,"Tire.p<r>essure");
+  sprintf(m_vars[0].szDisplayName,"Reifen-druck");
+  sprintf(m_vars[0].szUnit,"bar");
+  sprintf(m_vars[0].szComment,"von Hand erstellte Variable");
   m_vars[0].dFactor=0.01;
   m_vars[0].dOffset=1.8;
   m_vars[0].dThresholds[0]=15;

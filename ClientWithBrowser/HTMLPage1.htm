@@ -1,5 +1,4 @@
-﻿<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml">
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <head>
   <script type="text/javascript" src="simpletabs_1.3.js"></script>
   <script type="text/javascript" src="Abk.js"></script>
@@ -8,9 +7,8 @@
   <link rel="stylesheet" type="text/css" href="./AbkDemo.css" />
   <link rel="stylesheet" type="text/css" href="./simpletabs.css" />
   <style type="text/css">
-    .blackback
-    {
-      z-index:100;
+    .blackback {
+      z-index: 100;
       filter: alpha(opacity=80); /*older IE*/
       filter: progid:DXImageTransform.Microsoft.Alpha(opacity=80); /* IE */
       -moz-opacity: .80; /*older Mozilla*/
@@ -26,117 +24,115 @@
       vertical-align: middle;
       color: #FFF;
       font-weight: bold;
-      
     }
-    
   </style>
-  <title>Untitled Page</title>
+  <title>openABK Demo</title>
 </head>
 <body>
-      <div style="width:160px; float:right; vertical-align:top">
-        <br />
-        <br />
-        <table width="100%">
-          <tr>
-            <td width="100%" align="center">
-              <button id="btnTrigger" style="width: 150px; height: 40px; font-size: large; background-color: #FF0000;" onmousedown="HandleButtonMouseDown(this.id)"
-                onmouseup="HandleButtonMouseUp(this.id)" onmouseout="HandleButtonMouseOut(this.id)">
-                Trigger
-              </button>
-            </td>
-          </tr>
-          </table>
-          <br />
-        <table width="100%">
-          <tr>
-            <td width="50%" align="center">
-              <button id="btnF1" style="width: 75px; height: 40px; font-size: large;" onmousedown="HandleButtonMouseDown(this.id)"
-                onmouseup="HandleButtonMouseUp(this.id)" onmouseout="HandleButtonMouseOut(this.id)">
-                F1
-              </button>
-            </td>
-            <td width="50%" align="center">
-              <button id="btnF2" style="width: 75px; height: 40px; font-size: large;" onmousedown="HandleButtonMouseDown(this.id)"
-                onmouseup="HandleButtonMouseUp(this.id)" onmouseout="HandleButtonMouseOut(this.id)">
-                F2
-              </button>
-            </td>
-          </tr>
-        </table>
-        <table width="100%">
-          <tr>
-            <td align="center">
-            </td>
-            <td align="center">
-              <button id="btnUp" style="width: 50px; height: 50px" onmousedown="HandleButtonMouseDown(this.id)"
-                onmouseup="HandleButtonMouseUp(this.id)" onmouseout="HandleButtonMouseOut(this.id)">
-                <img src="ArrowUp.png" alt="Up" />
-              </button>
-            </td>
-            <td align="center">
-            </td>
-          </tr>
-          <tr>
-            <td align="center">
-              <button id="btnLeft" style="width: 50px; height: 50px" onmousedown="HandleButtonMouseDown(this.id)"
-                onmouseup="HandleButtonMouseUp(this.id)" onmouseout="HandleButtonMouseOut(this.id)">
-                <img src="ArrowLeft.png" alt="Left" />
-              </button>
-            </td>
-            <td align="center">
-              <button id="btnEnter" style="width: 50px; height: 50px" onmousedown="HandleButtonMouseDown(this.id)"
-                onmouseup="HandleButtonMouseUp(this.id)" onmouseout="HandleButtonMouseOut(this.id)">
-                <img src="Enter.png" alt="Enter" />
-              </button>
-            </td>
-            <td align="center">
-              <button id="btnRight" style="width: 50px; height: 50px" onmousedown="HandleButtonMouseDown(this.id)"
-                onmouseup="HandleButtonMouseUp(this.id)" onmouseout="HandleButtonMouseOut(this.id)">
-                <img src="ArrowRight.png" alt="Right" />
-              </button>
-            </td>
-          </tr>
-          <tr>
-            <td align="center">
-            </td>
-            <td align="center">
-              <button id="btnDown" style="width: 50px; height: 50px" onmousedown="HandleButtonMouseDown(this.id)"
-                onmouseup="HandleButtonMouseUp(this.id)" onmouseout="HandleButtonMouseOut(this.id)">
-                <img src="ArrowDown.png" alt="Down" />
-              </button>
-            </td>
-            <td align="center">
-            </td>
-          </tr>
-        </table>
-        <table width="100%">
-          <tr>
-            <td width="50%" align="center">
-              <button id="btnMenu" style="width: 75px; height: 40px; font-size: large;" onmousedown="HandleButtonMouseDown(this.id)"
-                onmouseup="HandleButtonMouseUp(this.id)" onmouseout="HandleButtonMouseOut(this.id)">
-                Menu
-              </button>
-            </td>
-            <td width="50%" align="center">
-              <button id="btnBack" style="width: 75px; height: 40px; font-size: large;" onmousedown="HandleButtonMouseDown(this.id)"
-                onmouseup="HandleButtonMouseUp(this.id)" onmouseout="HandleButtonMouseOut(this.id)">
-                Back
-              </button>
-            </td>
-          </tr>
-        </table>
-      </div>    <div style="width:700px;">
-      
-      
-      
+  <div style="width:160px; float:right; vertical-align:top">
+    <br />
+    <br />
+    <table width="100%">
+      <tr>
+        <td width="100%" align="center">
+          <button id="btnTrigger" style="width: 150px; height: 40px; font-size: large; background-color: #FF0000;" onmousedown="HandleButtonMouseDown(this.id)"
+                  onmouseup="HandleButtonMouseUp(this.id)" onmouseout="HandleButtonMouseOut(this.id)">
+            Trigger
+          </button>
+        </td>
+      </tr>
+    </table>
+    <br />
+    <table width="100%">
+      <tr>
+        <td width="50%" align="center">
+          <button id="btnF1" style="width: 75px; height: 40px; font-size: large;" onmousedown="HandleButtonMouseDown(this.id)"
+                  onmouseup="HandleButtonMouseUp(this.id)" onmouseout="HandleButtonMouseOut(this.id)">
+            F1
+          </button>
+        </td>
+        <td width="50%" align="center">
+          <button id="btnF2" style="width: 75px; height: 40px; font-size: large;" onmousedown="HandleButtonMouseDown(this.id)"
+                  onmouseup="HandleButtonMouseUp(this.id)" onmouseout="HandleButtonMouseOut(this.id)">
+            F2
+          </button>
+        </td>
+      </tr>
+    </table>
+    <table width="100%">
+      <tr>
+        <td align="center">
+        </td>
+        <td align="center">
+          <button id="btnUp" style="width: 50px; height: 50px" onmousedown="HandleButtonMouseDown(this.id)"
+                  onmouseup="HandleButtonMouseUp(this.id)" onmouseout="HandleButtonMouseOut(this.id)">
+            <img src="ArrowUp.png" alt="Up" />
+          </button>
+        </td>
+        <td align="center">
+        </td>
+      </tr>
+      <tr>
+        <td align="center">
+          <button id="btnLeft" style="width: 50px; height: 50px" onmousedown="HandleButtonMouseDown(this.id)"
+                  onmouseup="HandleButtonMouseUp(this.id)" onmouseout="HandleButtonMouseOut(this.id)">
+            <img src="ArrowLeft.png" alt="Left" />
+          </button>
+        </td>
+        <td align="center">
+          <button id="btnEnter" style="width: 50px; height: 50px" onmousedown="HandleButtonMouseDown(this.id)"
+                  onmouseup="HandleButtonMouseUp(this.id)" onmouseout="HandleButtonMouseOut(this.id)">
+            <img src="Enter.png" alt="Enter" />
+          </button>
+        </td>
+        <td align="center">
+          <button id="btnRight" style="width: 50px; height: 50px" onmousedown="HandleButtonMouseDown(this.id)"
+                  onmouseup="HandleButtonMouseUp(this.id)" onmouseout="HandleButtonMouseOut(this.id)">
+            <img src="ArrowRight.png" alt="Right" />
+          </button>
+        </td>
+      </tr>
+      <tr>
+        <td align="center">
+        </td>
+        <td align="center">
+          <button id="btnDown" style="width: 50px; height: 50px" onmousedown="HandleButtonMouseDown(this.id)"
+                  onmouseup="HandleButtonMouseUp(this.id)" onmouseout="HandleButtonMouseOut(this.id)">
+            <img src="ArrowDown.png" alt="Down" />
+          </button>
+        </td>
+        <td align="center">
+        </td>
+      </tr>
+    </table>
+    <table width="100%">
+      <tr>
+        <td width="50%" align="center">
+          <button id="btnMenu" style="width: 75px; height: 40px; font-size: large;" onmousedown="HandleButtonMouseDown(this.id)"
+                  onmouseup="HandleButtonMouseUp(this.id)" onmouseout="HandleButtonMouseOut(this.id)">
+            Menu
+          </button>
+        </td>
+        <td width="50%" align="center">
+          <button id="btnBack" style="width: 75px; height: 40px; font-size: large;" onmousedown="HandleButtonMouseDown(this.id)"
+                  onmouseup="HandleButtonMouseUp(this.id)" onmouseout="HandleButtonMouseOut(this.id)">
+            Back
+          </button>
+        </td>
+      </tr>
+    </table>
+  </div>    <div style="width:700px;">
+
+
+
     <div class="simpleTabs">
       <ul class="simpleTabsNavigation">
-        <li><a href="#">Messwerte</a></li>
-        <li><a href="#">Grenzwerte</a></li>
-        <li><a href="#">Großanzeige</a></li>
+        <li><a href="#">Data</a></li>
+        <li><a href="#">Ranges</a></li>
+        <li><a href="#">Large View</a></li>
         <li><a href="#">Tools</a></li>
       </ul>
-      <div class="simpleTabsContent" id="pgMess">
+      <div class="simpleTabsContent" id="pgMeas">
       </div>
       <div class="simpleTabsContent" id="pgLimits">
       </div>
@@ -144,9 +140,9 @@
       </div>
       <div class="simpleTabsContent" id="pgTools">
         <!-- TAB TOOLS -->
-        Empfangene Ereignisse:
-        <span class='whatIsThis' onmouseover="ShowHelp('Ereignisliste.htm');"
-          onmouseout="HideHelp();">&nbsp;?&nbsp;</span>
+        Received Events:
+        <span class='whatIsThis' onmouseover="ShowHelp('EventList.htm');"
+              onmouseout="HideHelp();">&nbsp;?&nbsp;</span>
         <br />
         <select id="eventdump" size="10" style="width: 100%">
         </select>
@@ -155,7 +151,7 @@
           <tr>
             <td width="30%">
               <br />
-              ServerInformationen:
+              Server Information:
             </td>
             <td>
               <br />
@@ -171,8 +167,8 @@
             </td>
             <td width="30%">
               <br />
-              Statistik: <span class='whatIsThis' onmouseover="ShowHelp('ServerInformationen.htm');"
-                onmouseout="HideHelp();">&nbsp;?&nbsp;</span>
+              Statistics: <span class='whatIsThis' onmouseover="ShowHelp('ServerInformation.htm');"
+                                onmouseout="HideHelp();">&nbsp;?&nbsp;</span>
             </td>
           </tr>
           <tr>
@@ -182,14 +178,14 @@
             <td>
             </td>
             <td valign="top" style="margin: 3px; padding: 5px; border-style: solid; border-width: thin;">
-              SessionId:<br />
-              <input id="SessionId" style="width: 30px"/><br />
+              Session-ID:<br />
+              <input id="SessionId" style="width: 30px" /><br />
               ServerTime:<br />
-              <input id="ServerTime" style="width: 250px"/><br />
+              <input id="ServerTime" style="width: 250px" /><br />
               Total Storage:<br />
-              <input id="StorageTotal" style="width: 50px"/> MB<br />
+              <input id="StorageTotal" style="width: 50px" /> MB<br />
               Available Storage:<br />
-              <input id="StorageFree" style="width: 50px"/> MB<br />
+              <input id="StorageFree" style="width: 50px" /> MB<br />
             </td>
             <td>
             </td>
@@ -203,13 +199,13 @@
     </div>
   </div>
 
-  <input id="btnReset" onclick="ResetValues();" type="button" value="Reset Counter"/>
+  <input id="btnReset" onclick="ResetValues();" type="button" value="Reset Counter" />
   <script type="text/javascript">
 
     //    var xhrRecieve = null;
     //    xhrRecieve = new XMLHttpRequest();
     var g_tmStartPerformance; // start time of performance measurement
-    var g_nTransfers=0; // number of transfers since start
+    var g_nTransfers = 0; // number of transfers since start
     var tblVar; // variable list table within the DOM
     var tblLimits; // variable limit list table within the DOM
     var tblLarge; // table (DOM) for large display
@@ -221,7 +217,7 @@
     var nLargeDisplayYCount = 2;
     var nLargeDisplayXCount = 2;
     var g_idIntervalIdentify = 0; // timer for hiding the indentification message
-    var objMe = { strClass: 'Display', strType: 'AbkDemoOnBrowser', strSerial:'0' };
+    var objMe = { strClass: 'Display', strType: 'AbkDemoOnBrowser', strSerial: '0' };
     var g_bStallValueList = false; // true stalls the output to the list
 
 
@@ -298,17 +294,22 @@
 
     }
 
-    function GetVarList()
+
+
+
+    /** Builds the table views according to the variables which are offered by the openABK Server
+    */
+    function BuildListViewTables()
     {
       var objVarList = AbkHttpGet("/abk/variables/var_list");
       var nVarCount = objVarList.VarList.length;
 
       // page with values
       var nColWidth = [200, 100, 80, "60%", 70, 70];
-      var strCaptions = ["Name", "Wert", "Einheit", "Kommentar", "Min", "Max"];
-      var pg = document.getElementById("pgMess");
+      var strCaptions = ["Name", "Value", "Unit", "Comment", "Min", "Max"];
+      var pg = document.getElementById("pgMeas");
       var strHtml = WriteEmptyTableToString(nVarCount + 1, "tblValues", nColWidth, strCaptions);
-      strHtml += "<br/>Aktualisierungsrate: "
+      strHtml += "<br/>Update Rate: "
       strHtml += "<input onclick='AbkSetDaqUpdateCycle(\"FirstList\",1000);' type='button' value='1 Hz' />&nbsp;";
       strHtml += "<input onclick='AbkSetDaqUpdateCycle(\"FirstList\",100);' type='button' value='10 Hz' />&nbsp;";
       strHtml += "<input onclick='AbkSetDaqUpdateCycle(\"FirstList\",10);' type='button' value='100 Hz' />&nbsp;";
@@ -320,7 +321,7 @@
 
       // page with limit values
       nColWidth = ["30%", "10%", "10%", "10%", "50%"];
-      strCaptions = ["Name", "Min", "Max", "Einheit", "Kommentar"];
+      strCaptions = ["Name", "Min", "Max", "Unit", "Comment"];
       pg = document.getElementById("pgLimits");
       pg.innerHTML = WriteEmptyTableToString(nVarCount + 1, "tblLimits", nColWidth, strCaptions);
       tblLimits = document.getElementById("tblLimits");
@@ -372,7 +373,6 @@
       ResetPerformanceMeter();
       window.setInterval("UpdatePerformaceMeter()", 100);
 
-
     }
 
 
@@ -386,7 +386,6 @@
 
     function ShowStatistics()
     {
-
       var objResponse = AbkHttpGet("/abk/system_information/interface_statistic");
       var cellDump = document.getElementById("Statistics");
       var strDump = DumpObject(objResponse);
@@ -498,8 +497,8 @@
         var cbSelection = document.getElementById("cbLargeSelect" + nDisplay);
         var strVarName = cbSelection.options[cbSelection.options.selectedIndex].value;
         objVarList[nDisplay] = strVarName;
-        }
-      g_arryMetaLarge= AbkGetVarMetaMultipleVars(objVarList);
+      }
+      g_arryMetaLarge = AbkGetVarMetaMultipleVars(objVarList);
       for (nDisplay = 0; nDisplay < nDisplayCount; nDisplay++)
       {
         var cellUnit = document.getElementById("largeUnit" + nDisplay);
@@ -588,7 +587,12 @@
       }
     }
 
-
+    /**
+     * Processes an event which was received from the server
+     * @param objEvent An herarchicaly structured object containing information about the server.
+        The event also contains the informatin whether the client (this browser) is considered to be the primary client.
+        A primay client is usually responsible for all user interactions while the non-primary ones are ment for simple data viewers.
+     */
     function ProcessEvent(objEvent)
     {
       var bPrimary = false;
@@ -629,41 +633,43 @@
           if (bPrimary)
             ShowForm(objEvent.StringParam);
           break;
+        case "FormClose":
+          if (bPrimary)
+            HideForm(objEvent.StringParam);
+          break;
       }
     }
-    
-    
-    AbkGetClientAddress(); // query the client address (the server knows it)
+
 
     // open a session
-    AbkGetSession(objMe.strClass,objMe.strType,objMe.strSerial);
+    AbkGetSession(objMe.strClass, objMe.strType, objMe.strSerial);
     document.getElementById("SessionId").value = g_nSessionId;
 
 
 
     // get the list of variables
-    GetVarList();
+    BuildListViewTables();
 
 
 
     // see also http://www.bennadel.com/blog/1504-Ask-Ben-Parsing-CSV-Strings-With-Javascript-Exec-Regular-Expression-Command.htm
-    // This will parse a delimited string into an array of arrays. The default delimiter is the comma, but this can be overriden in the second argument. 
+    // This will parse a delimited string into an array of arrays. The default delimiter is the comma, but this can be overriden in the second argument.
     function CSVToArray(strData, strDelimiter)
     {
-      strDelimiter = (strDelimiter || ","); // Check to see if the delimiter is defined. If not, then default to comma. 
+      strDelimiter = (strDelimiter || ","); // Check to see if the delimiter is defined. If not, then default to comma.
       // Create a regular expression to parse the CSV values.
       var objPattern = new RegExp((/*Delimiters: */"(\\" + strDelimiter + "|\\r?\\n|\\r|^)" + /*Quoted fields: */"(?:\"([^\"]*(?:\"\"[^\"]*)*)\"|" + /*Standard fields: */"([^\"\\" + strDelimiter + "\\r\\n]*))"), "gi");
-      var arrData = [[]]; // Create an array to hold our data. Give the array a default empty first row. 
-      var arrMatches = null; // Create an array to hold our individual pattern matching groups. 
+      var arrData = [[]]; // Create an array to hold our data. Give the array a default empty first row.
+      var arrMatches = null; // Create an array to hold our individual pattern matching groups.
       while (arrMatches = objPattern.exec(strData))
-      { // Keep looping over the regular expression matches until we can no longer find a match. 
+      { // Keep looping over the regular expression matches until we can no longer find a match.
         var strMatchedDelimiter = arrMatches[1]; // Get the delimiter that was found.
         // Check to see if the given delimiter has a length (is not the start of string) and if it matches field delimiter. If id does not, then we know that this delimiter is a row delimiter.
         if (strMatchedDelimiter.length && (strMatchedDelimiter != strDelimiter))
         {
           arrData.push([]); // Since we have reached a new row of data, add an empty row to our data array.
         }
-        // Now that we have our delimiter out of the way, let's check to see which kind of value we captured (quoted or unquoted). 
+        // Now that we have our delimiter out of the way, let's check to see which kind of value we captured (quoted or unquoted).
         if (arrMatches[2])
           var strMatchedValue = arrMatches[2].replace(new RegExp("\"\"", "g"), "\""); // We found a quoted value. When we capture this value, unescape any double quotes.
         else
@@ -687,13 +693,13 @@
       if (nAlerts > 0)
       {
         divShader.style.display = "";
-        var strInnterHtml="";
+        var strInnterHtml = "";
         var nBox;
         for (nBox = 0; nBox < nAlerts; nBox++)
         {
           var objAlert = g_arryAlert[nBox];
           strInnterHtml += "<div id='alertbox" + nBox + "' class='alertbox' style='left:" + (nBox + 1) * 30 + "px; top:" + (nBox + 1) * 30 + "px;'>";
-          strInnterHtml += "<u>"+objAlert.Message + "</u><br/>";
+          strInnterHtml += "<u>" + objAlert.Message + "</u><br/>";
 
           if (objAlert.EventType == "LimitAlert")
           {
@@ -726,7 +732,7 @@
     {
       var objAlert = g_arryAlert[nIndex];
       var strHash = objAlert.EventType + objAlert.strContext;
-      g_SuppressedAlerts[strHash] = { nCounter: 0 }; ; // the not-show-state
+      g_SuppressedAlerts[strHash] = { nCounter: 0 };; // the not-show-state
     }
 
     function AlertMaintainPersistance()
@@ -821,7 +827,26 @@
     }
 
 
-    function ShowForm(strFormName)
+
+    /**
+     * Hides a form
+     * @param strFormName
+     */
+    function HideForm (strFormName)
+    {
+      var divForm1 = document.getElementById('dialog');
+      divForm1.style.display = "none";
+      divForm1.innerHTML = "";
+    }
+
+
+
+
+    /**
+     * Requests the form structure and initial data from the server and opens a form
+     * @param strFormName When requesting the forms structure and initial data, this name will be used
+     */
+    function ShowForm (strFormName)
     {
       var divForm1 = document.getElementById('dialog');
       divForm1.style.display = "";
@@ -829,13 +854,19 @@
       divForm1.innerHTML = strInnterHtml;
     }
 
+
+
+
+    /**
+     * Handler for a button on a form. It submits the form and passes the button name as initiator identification to the server. Then the form gets closed
+     * @param strFormName Name of the form the button is placed in
+     * @param strFireButtonName Name of the button which was pressed
+     */
     function FormOnButton(strFormName, strFireButtonName)
     {
       if (AbkSendForm(strFormName, strFireButtonName))
       {
-        var divForm1 = document.getElementById('dialog');
-        divForm1.style.display = "none";
-        divForm1.innerHTML = "";
+        HideForm(strFormName);
       }
     }
 
@@ -844,7 +875,7 @@
     var g_idIntervalProgress = 0;
     var g_bTransferStarted = false;
 
-    function ShowRouteDialog()
+    function ShowRouteDialog ()
     {
       var divDialog = document.getElementById('dialog');
       divDialog.style.display = "";
@@ -894,13 +925,8 @@
         g_bTransferStarted = false;
         g_idIntervalProgress = window.setInterval("UpdateransferStatus()", 500);
       }
-
-
-
-
-
-
     }
+
 
     function StartDataTransfer()
     {
@@ -917,7 +943,7 @@
       var strRoute = cbRoute.options[cbRoute.options.selectedIndex].value;
       var strStorage = cbStorage.options[cbStorage.options.selectedIndex].value;
       var strEventInfo = JSON.stringify({ Route: strRoute, Storage: strStorage });
-      AbkSendEvent("Custom_StartDataTransfer", strEventInfo, 1, 0,false);
+      AbkSendEvent("Custom_StartDataTransfer", strEventInfo, 1, 0, false);
     }
 
     function UpdateransferStatus()
@@ -955,7 +981,7 @@
       {
         divShader.style.display = "";
         divShader.innerHTML = "<br/><br/>" + strMessage;
-        g_idIntervalIdentify=window.setInterval("ShowIdentification('',false)", 3000);
+        g_idIntervalIdentify = window.setInterval("ShowIdentification('',false)", 3000);
       }
       else
       {
@@ -970,8 +996,8 @@
     function End()
     {
       AbkDeleteSession();
-      var objState=GetLargeSelection();
-      var strState=JSON.stringify(objState);
+      var objState = GetLargeSelection();
+      var strState = JSON.stringify(objState);
       AbkPutClientState(objMe.strClass, objMe.strType, objMe.strSerial, strState);
     }
 
@@ -999,6 +1025,9 @@
 
 
   </script>
+
+
+
   <div id="backshader" class="blackback" style="display: none;">
   </div>
   <div id="dialog" class="dialog" style="display: none;">

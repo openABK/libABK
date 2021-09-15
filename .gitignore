@@ -190,3 +190,4 @@ ModelManifest.xml
 /.vs
 *.tlog
 /ClientLib/Win32/DebugRemote
+/ClientWithBrowser/DoxyOutput

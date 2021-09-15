@@ -72,7 +72,7 @@
 using namespace std;
 
 
-#define HTML_DIR "X:\\Entwicklung\\SW\\Visualisierung\\Abk\\Server\\Browser\\"
+#define HTML_DIR "C:\\Source\\Repos\\abk\\ClientWithBrowser\\"
 #define JPEGS_BASE_URL "/abk/jpegs/"
 
 //--------------------------------------------------------------------------
