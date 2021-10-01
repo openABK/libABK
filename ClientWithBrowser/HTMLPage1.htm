@@ -1,4 +1,5 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
 <head>
   <script type="text/javascript" src="simpletabs_1.3.js"></script>
   <script type="text/javascript" src="Abk.js"></script>
@@ -151,7 +152,7 @@
           <tr>
             <td width="30%">
               <br />
-              Server Information:
+              Server Info: <span class='whatIsThis' onmouseover="ShowHelp('ServerInformation.htm');" onmouseout="HideHelp();">&nbsp;?&nbsp;</span>
             </td>
             <td>
               <br />
@@ -167,8 +168,7 @@
             </td>
             <td width="30%">
               <br />
-              Statistics: <span class='whatIsThis' onmouseover="ShowHelp('ServerInformation.htm');"
-                                onmouseout="HideHelp();">&nbsp;?&nbsp;</span>
+              Statistics: <span class='whatIsThis' onmouseover="ShowHelp('ServerInterfaceStatistics.htm');" onmouseout="HideHelp();">&nbsp;?&nbsp;</span>
             </td>
           </tr>
           <tr>
@@ -189,8 +189,8 @@
             </td>
             <td>
             </td>
-            <td id="Statistics" valign="top" height="50" width="50%" style="border-style: solid;
-              border-width: thin; font-size: 10px">
+            <td valign="top" width="100%" style="border-style: solid; border-width: thin; font-size: 0.5em" ;=;>
+              <div id="Statistics" style="max-height: 500px; overflow:scroll"></div>
             </td>
           </tr>
         </table>
@@ -199,7 +199,7 @@
     </div>
   </div>
 
-  <input id="btnReset" onclick="ResetValues();" type="button" value="Reset Counter" />
+  <input id="btnTest" onclick="InvokeTest();" type="button" value="Invoke Test" />
   <script type="text/javascript">
 
     //    var xhrRecieve = null;
@@ -211,7 +211,7 @@
     var tblLarge; // table (DOM) for large display
     var g_arryMetaLarge; // meta info of large display variable
     var g_arryMetaAll; // meta data of all variables;
-    var colorValue = ["#FA1BD5", "#B339FA", "#0D2CFA", "#000000", "#FAB62D", "#FA1808"]; // colors for values: negative critical, negative marginal, normal, positive marginal, positive critical
+    var colorValue = ["#FA1BD5", "#B339FA", "#0D2CFA", "#000000", "#FAB62D", "#FA1808"]; // colors for values: negative critical, negative marginal, normal-, normal+, positive marginal, positive critical
     var g_arryAlert = new Array(); // alert in an array
     var g_SuppressedAlerts = new Object();  // alerts not to be shown any more
     var nLargeDisplayYCount = 2;
@@ -225,8 +225,10 @@
 
 
 
-
-    function OnLoggerEvent(objEvent)
+    /** Called each time the server issued one or more events
+    @param objEvent The decoded event data the server sent
+    */
+    function OnLoggerEvent (objEvent)
     {
       var nList;
 
@@ -288,7 +290,10 @@
     }
 
 
-    function ResetValues()
+
+    /** This is for testing only. It gets called when the user presses the test button
+    */
+    function InvokeTest ()
     {
       AbkSetVarValue("Reifendruck", 12);
 
@@ -299,7 +304,7 @@
 
     /** Builds the table views according to the variables which are offered by the openABK Server
     */
-    function BuildListViewTables()
+    function BuildListViewTables ()
     {
       var objVarList = AbkHttpGet("/abk/variables/var_list");
       var nVarCount = objVarList.VarList.length;
@@ -365,10 +370,6 @@
       // setup daq list for table
       AbkSetupDaqList("FirstList", 1000, objVarList.VarList);
 
-
-      // ### test
-      // AbkSetupDaqTrend("Trend1", 1000, "Reifendruck");
-
       // performance measurement
       ResetPerformanceMeter();
       window.setInterval("UpdatePerformaceMeter()", 100);
@@ -383,8 +384,10 @@
 
 
 
-
-    function ShowStatistics()
+    /** Queries the servers interface statistic information and puts it to the appropriate field
+    @note This gets called periodically
+    */
+    function ShowServerStatistics ()
     {
       var objResponse = AbkHttpGet("/abk/system_information/interface_statistic");
       var cellDump = document.getElementById("Statistics");
@@ -395,24 +398,10 @@
 
 
 
-    function UpdatePerformaceMeter()
-    {
-      var tmNow = new Date();
-      var ctrlTransfersPerSecond = document.getElementById("TransfersPerSecond");
-      var tmUp = tmNow - g_tmStartPerformance;
-      var dRate = g_nTransfers / tmUp * 1000
-      ctrlTransfersPerSecond.value = dRate.toFixed(0);
-    }
-
-    function ResetPerformanceMeter()
-    {
-      g_nTransfers = 0;
-      g_tmStartPerformance = new Date();
-    }
-
-
-
-    function ShowServerInfo()
+    /** Queries the servers information and puts it to the appropriate field
+    @note This gets called periodically
+    */
+    function ShowServerInfo ()
     {
       var objResponse = AbkHttpGet("/abk/system_information/server_info");
       var cellDump = document.getElementById("VersionInfo");
@@ -425,25 +414,60 @@
     }
 
 
-    function StallListUpdate(bStall)
+
+    /** Updates the data rate monitor field
+    */
+    function UpdatePerformaceMeter ()
+    {
+      var tmNow = new Date();
+      var ctrlTransfersPerSecond = document.getElementById("TransfersPerSecond");
+      var tmUp = tmNow - g_tmStartPerformance;
+      var dRate = g_nTransfers / tmUp * 1000
+      ctrlTransfersPerSecond.value = dRate.toFixed(0);
+    }
+
+
+    /** resets the data rate monitor field
+    */
+    function ResetPerformanceMeter ()
+    {
+      g_nTransfers = 0;
+      g_tmStartPerformance = new Date();
+    }
+
+
+
+    /** Stalls updating the data list
+    @param bStall true stalls, false updates
+    */
+    function StallListUpdate (bStall)
     {
       g_bStallValueList = bStall;
     }
 
 
-    function ShowServerTime()
+
+    /** Queries the servers time and puts it to the appropriate field
+    */
+    function ShowServerTime ()
     {
       document.getElementById("ServerTime").value = AbkGetServerTime();
     }
 
-    function ShowServerStorage()
+
+    /** Queries the servers storage capacity and puts it to the appropriate field
+    */
+    function ShowServerStorage ()
     {
       var objServerStorage = AbkHttpGet("/abk/system_information/storage_info");
       document.getElementById("StorageTotal").value = (objServerStorage.Total / 1024 / 1024).toFixed(2);
       document.getElementById("StorageFree").value = (objServerStorage.Free / 1024 / 1024).toFixed(2);
     }
 
-    function ShowServerStatus()
+
+    /** Queries the servers storage capacity and the servers time and puts them to the appropriate fields
+    */
+    function ShowServerStatus ()
     {
       ShowServerTime();
       ShowServerStorage();
@@ -456,25 +480,30 @@
 
 
 
-
-    function DumpObject(arr, level)
+    /** Formats an object to an html string
+    @param obj Object structure to be dumped
+    @param indent_level
+    */
+    function DumpObject (obj, indent_level)
     {
       var dumped_text = "";
-      if (!level) level = 0;
+      if (!indent_level)
+        indent_level = 0;
 
       //The padding given at the beginning of the line.
       var level_padding = "";
-      for (var j = 0; j < level + 1; j++) level_padding += "&nbsp;&nbsp;&nbsp;&nbsp;";
+      for (var j = 0; j < indent_level; j++)
+        level_padding += ".&nbsp;&nbsp;&nbsp;";
 
-      if (typeof (arr) == 'object')
+      if (typeof (obj) == 'object')
       { //Array/Hashes/Objects
-        for (var item in arr)
+        for (var item in obj)
         {
-          var value = arr[item];
+          var value = obj[item];
           if (typeof (value) == 'object')
           { //If it is an array,
             dumped_text += level_padding + "[-" + item + "-] ...<br />";
-            dumped_text += DumpObject(value, level + 1);
+            dumped_text += DumpObject(value, indent_level + 1);
           } else
           {
             dumped_text += level_padding + item + " : " + value + "<br />";
@@ -482,13 +511,16 @@
         }
       } else
       { //Stings/Chars/Numbers etc.
-        dumped_text = "===>" + arr + "<===(" + typeof (arr) + ")";
+        dumped_text = "===>" + obj + "<===(" + typeof (obj) + ")";
       }
       return dumped_text;
     }
 
 
-    function SyncForLargeSelect()
+
+    /** Synchronizes DAQ lists for the large tile views
+    */
+    function SyncForLargeSelect ()
     {
       var nDisplayCount = nLargeDisplayYCount * nLargeDisplayXCount;
       var objVarList = new Array();
@@ -509,7 +541,11 @@
       AbkSetupDaqList("LargeDisplayList", null, objVarList);
     }
 
-    function RestoreLargeSelect(objSelection)
+
+    /** Restores the large-view selection from the user settings
+    @param objSelection an array of selections. Each item corresponds to a large view variable selection
+    */
+    function RestoreLargeSelect (objSelection)
     {
       var nDisplayCount = nLargeDisplayYCount * nLargeDisplayXCount;
       for (nDisplay = 0; nDisplay < nDisplayCount; nDisplay++)
@@ -528,7 +564,11 @@
       SyncForLargeSelect();
     }
 
-    function GetLargeSelection()
+
+    /** collects the current large-view selections out of the combo boxes
+    @return An array with the selections. Each entity corresponds to a large-view combo box
+    */
+    function GetLargeSelection ()
     {
       var objVarList = new Array();
       var nDisplayCount = nLargeDisplayYCount * nLargeDisplayXCount;
@@ -542,7 +582,12 @@
     }
 
 
-    function GetValueColor(dValue, arryThresholds)
+    /** Retrieves the color out of a value and a color definition array
+    @note There are six pre-defined colors for negative critical, negative marginal, normal-, normal+, positive marginal, positive critical
+    @param dValue Value, which determines the color selection
+    @param arryThresholds Array of value thresholds
+    */
+    function GetValueColor (dValue, arryThresholds)
     {
       var nThreshold;
       for (nThreshold = 0; nThreshold < 5; nThreshold++)
@@ -554,8 +599,10 @@
     }
 
 
-
-    function AddEventsToDump(objEvent)
+    /** Appends events to the appropriate document item
+    @param objEvent Object which contains one or more events
+    */
+    function AddEventsToDump (objEvent)
     {
       var lstEvent = document.getElementById("eventdump");
       for (var iterEvent in objEvent)
@@ -587,13 +634,12 @@
       }
     }
 
-    /**
-     * Processes an event which was received from the server
-     * @param objEvent An herarchicaly structured object containing information about the server.
+    /** Processes an event which was received from the server
+    @param objEvent An herarchicaly structured object containing information about the server.
         The event also contains the informatin whether the client (this browser) is considered to be the primary client.
         A primay client is usually responsible for all user interactions while the non-primary ones are ment for simple data viewers.
-     */
-    function ProcessEvent(objEvent)
+    */
+    function ProcessEvent (objEvent)
     {
       var bPrimary = false;
       if (objEvent.Role == "primary")
@@ -654,7 +700,7 @@
 
     // see also http://www.bennadel.com/blog/1504-Ask-Ben-Parsing-CSV-Strings-With-Javascript-Exec-Regular-Expression-Command.htm
     // This will parse a delimited string into an array of arrays. The default delimiter is the comma, but this can be overriden in the second argument.
-    function CSVToArray(strData, strDelimiter)
+    function CSVToArray (strData, strDelimiter)
     {
       strDelimiter = (strDelimiter || ","); // Check to see if the delimiter is defined. If not, then default to comma.
       // Create a regular expression to parse the CSV values.
@@ -680,13 +726,13 @@
     }
 
 
-    function DHTMLSound(surl)
+    function DHTMLSound (surl)
     {
       document.getElementById("soundspan").innerHTML = "<embed src='" + surl + "' hidden=true autostart=true loop=false>";
     }
 
 
-    function ShowAlerts()
+    function ShowAlerts ()
     {
       var divShader = document.getElementById('backshader');
       var nAlerts = g_arryAlert.length;
@@ -722,20 +768,20 @@
       }
     }
 
-    function RemoveAlert(nIndex)
+    function RemoveAlert (nIndex)
     {
       g_arryAlert.splice(nIndex, 1);
       ShowAlerts();
     }
 
-    function InhibitAlert(nIndex)
+    function InhibitAlert (nIndex)
     {
       var objAlert = g_arryAlert[nIndex];
       var strHash = objAlert.EventType + objAlert.strContext;
       g_SuppressedAlerts[strHash] = { nCounter: 0 };; // the not-show-state
     }
 
-    function AlertMaintainPersistance()
+    function AlertMaintainPersistance ()
     {
       var nAlert;
       for (nAlert = 0; nAlert < g_arryAlert.length; nAlert++)
@@ -752,12 +798,12 @@
       }
     }
 
-    function AlertSort(a, b)
+    function AlertSort (a, b)
     {
       return a.Severity - b.Severity;
     }
 
-    function AddAlert(objAlert)
+    function AddAlert (objAlert)
     {
       objAlert.nPersistance = -1; // default: infinite display of the alert
       objAlert.strContext = ""; // default context
@@ -862,7 +908,7 @@
      * @param strFormName Name of the form the button is placed in
      * @param strFireButtonName Name of the button which was pressed
      */
-    function FormOnButton(strFormName, strFireButtonName)
+    function FormOnButton (strFormName, strFireButtonName)
     {
       if (AbkSendForm(strFormName, strFireButtonName))
       {
@@ -880,18 +926,18 @@
       var divDialog = document.getElementById('dialog');
       divDialog.style.display = "";
       var strInnterHtml;
-      strInnterHtml = "<h2>Streckeneingabe</h2><br/>";
+      strInnterHtml = "<h2>Route input</h2><br/>";
 
       strInnterHtml += "<table border='0' cellpadding='5' cellspacing='0'>";
-      strInnterHtml += "<tr><td>Streckenauswahl</td><td><select size='1' style='width: 200px' id='cbRoute' /></td></tr>";
-      strInnterHtml += "<tr><td>Speicherort</td><td><select size='1' style='width: 200px' id='cbStorage' /></td></tr>";
+      strInnterHtml += "<tr><td>Route Selection:</td><td><select size='1' style='width: 200px' id='cbRoute' /></td></tr>";
+      strInnterHtml += "<tr><td>Storage:</td><td><select size='1' style='width: 200px' id='cbStorage' /></td></tr>";
       strInnterHtml += "</table>";
-      strInnterHtml += "<br/><span id='spanTransferStatus'>Bitte geben Sie die Strecke ein und wählen Sie die Speicherart</span>";
+      strInnterHtml += "<br/><span id='spanTransferStatus'>Please enter your route and select the storage location</span>";
       strInnterHtml += "<br/><br/><input id='TransferStart' onclick='StartDataTransfer()' type='button' value='Start' />";
       divDialog.innerHTML = strInnterHtml;
 
-      // read Strecken.txt and fill to the combo
-      xhrSend.open("GET", "/Strecken.txt", false);
+      // read Routes.txt and fill it to the combo
+      xhrSend.open("GET", "Routes.txt", false);
       xhrSend.setRequestHeader("If-Modified-Since", new Date(0));
       xhrSend.send(); // JSON.stringify(objSend));
       if (xhrSend.readyState == 4 && xhrSend.status == 200)
@@ -928,7 +974,7 @@
     }
 
 
-    function StartDataTransfer()
+    function StartDataTransfer ()
     {
       var cbStorage = document.getElementById("cbStorage");
       var cbRoute = document.getElementById("cbRoute");
@@ -946,7 +992,7 @@
       AbkSendEvent("Custom_StartDataTransfer", strEventInfo, 1, 0, false);
     }
 
-    function UpdateransferStatus()
+    function UpdateransferStatus ()
     {
       var spanStatus = document.getElementById("spanTransferStatus");
       var objTransfer = AbkHttpPost("/abk/variables/mailbox_value", { GetList: ["TransferProgress", "TransferStatus"] });
@@ -963,7 +1009,7 @@
         HideRouteDialog();
     }
 
-    function HideRouteDialog()
+    function HideRouteDialog ()
     {
       var divDialog = document.getElementById('dialog');
       divDialog.style.display = "none";
@@ -974,7 +1020,7 @@
 
 
 
-    function ShowIdentification(strMessage, bOn)
+    function ShowIdentification (strMessage, bOn)
     {
       var divShader = document.getElementById('backshader');
       if (bOn)
@@ -993,7 +1039,7 @@
     }
 
 
-    function End()
+    function End ()
     {
       AbkDeleteSession();
       var objState = GetLargeSelection();
@@ -1004,24 +1050,11 @@
 
     var poller = new AbkEventPoller(OnLoggerEvent);
 
-    window.setInterval("ShowStatistics()", 500);
+    window.setInterval("ShowServerStatistics()", 500);
     window.setInterval("ShowServerStatus()", 500);
     window.setInterval("AlertMaintainPersistance()", 1000); // maintain auto-removing alerts
 
     window.onbeforeunload = End;
-
-
-    if ("WebSocket" in window)
-    {
-      // alert("WebSocket is supported by your Browser!");
-    }
-    else
-    {
-      // alert("WebSocket NOT supported by your Browser!");
-    }
-
-
-    // var Socket = new WebSocket(url, [protocal]);
 
 
   </script>

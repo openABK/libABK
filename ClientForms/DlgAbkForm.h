@@ -34,7 +34,7 @@ class CDlgAbkForm : public CDialog
 
   // data members
   protected:
-    std::list<Abk::CAbkClient::CFormElement> m_lstElements; // elements to be displayed
+    std::vector<Abk::CAbkClient::CFormElement> m_vectElements; // elements to be displayed
     std::map<CString,int> m_mapControlIds; // mapping control names to ids
     DLGTEMPLATE *m_pTemplate; // dialog template
     BOOL m_bInitialUpdate; // TRUE if controls are updated from data initially. FALSE on consecutive updates
@@ -49,11 +49,11 @@ class CDlgAbkForm : public CDialog
   public:
     CDlgAbkForm();   // standard constructor
     virtual ~CDlgAbkForm();
-    BOOL InitModal (CObject *pOwner, PFN_REGISTER pfnRegister, PFN_UNREGISTER pfnUnregister, LPCTSTR pszName, LPCTSTR pszCaption, int nPersistenceMs, std::list<Abk::CAbkClient::CFormElement> &lstElements, const LOGFONT *pLogfont=NULL, CWnd* pParentWnd=NULL); // creates the dialog
+    BOOL InitModal (CObject *pOwner, PFN_REGISTER pfnRegister, PFN_UNREGISTER pfnUnregister, LPCTSTR pszName, LPCTSTR pszCaption, int nPersistenceMs, std::vector<Abk::CAbkClient::CFormElement> &vectElements, const LOGFONT *pLogfont=NULL, CWnd* pParentWnd=NULL); // creates the dialog
 
   // attribute and methods
   public:
-    std::list<Abk::CAbkClient::CFormElement> &GetData (void); // returns reference to the data elements
+    std::vector<Abk::CAbkClient::CFormElement> &GetData (void); // returns reference to the data elements
     const CString &GetName (void); // returns the name of the form
     BOOL UpdateContent (LPCTSTR pszCaption, int nPersistenceMs, std::list<Abk::CAbkClient::CFormElement> &lstElements); // update the forms content (and caption)
     void CloseForm (void); // closes the form
@@ -63,7 +63,7 @@ class CDlgAbkForm : public CDialog
   // implementation
   protected:
     virtual void DoDataExchange (CDataExchange* pDX);    // DDX/DDV support
-    BOOL CreateTemplate (LPCTSTR pszCaption, std::list<Abk::CAbkClient::CFormElement> &lstElements, const LOGFONT *pLogfont=NULL); // creates template for given form elements
+    BOOL CreateTemplate (LPCTSTR pszCaption, std::vector<Abk::CAbkClient::CFormElement> &vectElements, const LOGFONT *pLogfont=NULL); // creates template for given form elements
     CWnd *GetControl (const CString &strName); // returns control by given name
     Abk::CAbkClient::CFormElement *GetData (LPCTSTR pszName); // searches for the data structure for a given control name
 

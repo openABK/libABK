@@ -61,7 +61,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\ClientLib;..\Common;..\..\mfc-tools\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\ClientLib;..\Common;..\..\mfc-tools\include;C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional\VC\atlmfc\include</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
     </ClCompile>
@@ -81,7 +81,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\ClientLib;..\Common;..\..\mfc-tools\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\ClientLib;..\Common;..\..\mfc-tools\include;C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional\VC\atlmfc\include</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
     </ClCompile>

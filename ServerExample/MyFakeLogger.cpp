@@ -266,10 +266,10 @@ CMyFakeLogger::CMyFakeLogger (int nVarCount, int nAniCycle)
 #if defined (TESTBENCH_ABKBUTTONS)
 #else
   // Var #0 specialities
-  sprintf(m_vars[0].szName,"Tire.p<r>essure");
-  sprintf(m_vars[0].szDisplayName,"Reifen-druck");
+  sprintf(m_vars[0].szName,"Tirepressure"); // "Tire.p<r>essure"
+  sprintf(m_vars[0].szDisplayName,"Tire-pressure");
   sprintf(m_vars[0].szUnit,"bar");
-  sprintf(m_vars[0].szComment,"von Hand erstellte Variable");
+  sprintf(m_vars[0].szComment,"manually generated variable");
   m_vars[0].dFactor=0.01;
   m_vars[0].dOffset=1.8;
   m_vars[0].dThresholds[0]=15;
@@ -289,7 +289,7 @@ CMyFakeLogger::CMyFakeLogger (int nVarCount, int nAniCycle)
   // init the fake mailboxes
   memset(&m_mailboxes,0,sizeof(m_mailboxes));
   InitMailbox(MAILBOX_ROUTES,"Streckenliste",234567895.  /*"Wolnzach;Regensburg;Ulm"*/);
-  InitMailbox(MAILBOX_MEDIA,"StorageMedia","WLAN,WLAN\nHDD,Lokale Festplatte");
+  InitMailbox(MAILBOX_MEDIA,"StorageMedia","WLAN,WLAN\nHDD,Local HDD");
   InitMailbox(MAILBOX_TRANSFER_PROGRESS,"TransferProgress",-1.); // currently no transfer in progress
   InitMailbox(MAILBOX_TRANSFER_STATUS,"TransferStatus",""); // currently no transfer in progress
   InitMailbox(MAILBOX_MEASUREMENT,"MeasurementInProgress",false); // currently no transfer in progress
@@ -492,7 +492,7 @@ bool CMyFakeLogger::Sleep (int nTimeMs)
     if(pMbTransferProgress->dValue>=0)
       {
       pMbTransferProgress->dValue++;
-      sprintf(pMbTransferStatus->strValue,"MyFakeLogger: Transfer in progress: %d Prozent",(int)pMbTransferProgress->dValue);
+      sprintf(pMbTransferStatus->strValue,"MyFakeLogger: Transfer in progress: %d %%",(int)pMbTransferProgress->dValue);
       if(pMbTransferProgress->dValue>=101)
         {
         pMbTransferProgress->dValue=-1;

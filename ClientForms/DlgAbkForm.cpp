@@ -90,10 +90,10 @@ void CDlgAbkForm::DoDataExchange (CDataExchange* pDX)
 
   ASSERT(m_pTemplate); // dialog was not initialized
   int nControlId=DLGCONTROLID_BASE;
-  std::list<Abk::CAbkClient::CFormElement>::iterator iterElement;
+  std::vector<Abk::CAbkClient::CFormElement>::iterator iterElement;
   if(pDX->m_bSaveAndValidate) // update data from control
     {
-    for(iterElement=m_lstElements.begin();iterElement!=m_lstElements.end();++iterElement)
+    for(iterElement=m_vectElements.begin();iterElement!=m_vectElements.end();++iterElement)
       {
       CWnd *pControl=GetDlgItem(nControlId);
       Abk::CAbkClient::CFormElement *pElement=&*iterElement;
@@ -153,7 +153,7 @@ void CDlgAbkForm::DoDataExchange (CDataExchange* pDX)
     }
   else // update the control from data
     {
-    for(iterElement=m_lstElements.begin();iterElement!=m_lstElements.end();++iterElement)
+    for(iterElement=m_vectElements.begin();iterElement!=m_vectElements.end();++iterElement)
       {
       Abk::CAbkClient::CFormElement *pElement=&*iterElement;
       CWnd *pControl=GetDlgItem(nControlId);
@@ -188,9 +188,9 @@ void CDlgAbkForm::DoDataExchange (CDataExchange* pDX)
             ASSERT(pControl);
             CComboBox *pCombo=static_cast<CComboBox *>(pControl);
             pCombo->ResetContent(); // before inserting items, remove the old combo options
-            std::list<CString>::iterator iterOptions;
+            std::vector<CString>::iterator iterOptions;
             int nOption=0;
-            for(iterOptions=pElement->m_lstOptions.begin();iterOptions!=pElement->m_lstOptions.end();++iterOptions)
+            for(iterOptions=pElement->m_vectOptions.begin();iterOptions!=pElement->m_vectOptions.end();++iterOptions)
               pCombo->InsertString(-1,*iterOptions);
             HRESULT hresConversion=::VariantChangeType(&pElement->m_varValue,&pElement->m_varValue,0,VT_I4);
             if(hresConversion!=S_OK)
@@ -223,7 +223,7 @@ void CDlgAbkForm::DoDataExchange (CDataExchange* pDX)
 //        pParentWnd = parent window, optional
 // Return: 
 
-BOOL CDlgAbkForm::InitModal (CObject *pOwner, PFN_REGISTER pfnRegister, PFN_UNREGISTER pfnUnregister, LPCTSTR pszName, LPCTSTR pszCaption, int nPersistenceMs, std::list<Abk::CAbkClient::CFormElement> &lstElements, const LOGFONT *pLogfont/*=NULL*/, CWnd* pParentWnd/*=NULL*/)
+BOOL CDlgAbkForm::InitModal (CObject *pOwner, PFN_REGISTER pfnRegister, PFN_UNREGISTER pfnUnregister, LPCTSTR pszName, LPCTSTR pszCaption, int nPersistenceMs, std::vector<Abk::CAbkClient::CFormElement> &vectElements, const LOGFONT *pLogfont/*=NULL*/, CWnd* pParentWnd/*=NULL*/)
   {
   ASSERT(m_pOwner==NULL); // you tried to double-init the form
   ASSERT(!m_bIsRegistered); // twice initialized?
@@ -234,8 +234,8 @@ BOOL CDlgAbkForm::InitModal (CObject *pOwner, PFN_REGISTER pfnRegister, PFN_UNRE
     (*m_pOwner.*pfnRegister)(this); // register form at the owner
   m_bIsRegistered=TRUE;
   m_nPersistenceMs=nPersistenceMs;
-  m_lstElements=lstElements; // make copy of element list
-  if(CreateTemplate(pszCaption,lstElements,pLogfont))
+  m_vectElements=vectElements; // make copy of element list
+  if(CreateTemplate(pszCaption,vectElements,pLogfont))
     {
     return CDialog::InitModalIndirect(m_pTemplate,pParentWnd);
     }
@@ -298,9 +298,9 @@ BOOL CDlgAbkForm::UpdateContent (LPCTSTR pszCaption, int nPersistenceMs, std::li
 
 Abk::CAbkClient::CFormElement *CDlgAbkForm::GetData (LPCTSTR pszName)
   {
-  std::list<Abk::CAbkClient::CFormElement>::iterator iterElement;
+  std::vector<Abk::CAbkClient::CFormElement>::iterator iterElement;
   BOOL bSuccess=TRUE;
-  for(iterElement=m_lstElements.begin();iterElement!=m_lstElements.end();++iterElement) // go through all elements
+  for(iterElement=m_vectElements.begin();iterElement!=m_vectElements.end();++iterElement) // go through all elements
     {
     if(!iterElement->m_strName.Compare(pszName)) // if element found
       return &*iterElement;
@@ -349,7 +349,7 @@ class CTemplateWriter
 //        pLogFont = pointe to font description for the dialog
 // Return: TRUE on success, false on error
 
-BOOL CDlgAbkForm::CreateTemplate (LPCTSTR pszCaption, std::list<Abk::CAbkClient::CFormElement> &lstElements, const LOGFONT *pLogfont/*=NULL*/)
+BOOL CDlgAbkForm::CreateTemplate (LPCTSTR pszCaption, std::vector<Abk::CAbkClient::CFormElement> &vectElements, const LOGFONT *pLogfont/*=NULL*/)
   {
   // see http://msdn.microsoft.com/en-us/magazine/cc163755.aspx
   // see http://blogs.msdn.com/b/oldnewthing/archive/2005/04/29/412577.aspx
@@ -411,8 +411,8 @@ BOOL CDlgAbkForm::CreateTemplate (LPCTSTR pszCaption, std::list<Abk::CAbkClient:
     szDialog.cy=TOPGAP+BOTTOMGAP-GAPY;
     int nCaptionWidthMax=0; // the widest caption
     int nControlCount=0; // number of controls to be set
-    std::list<Abk::CAbkClient::CFormElement>::iterator iterElement;
-    for(iterElement=lstElements.begin();iterElement!=lstElements.end();++iterElement)
+    std::vector<Abk::CAbkClient::CFormElement>::iterator iterElement;
+    for(iterElement=vectElements.begin();iterElement!=vectElements.end();++iterElement)
       {
       Abk::CAbkClient::CFormElement *pElement=&*iterElement;
       CString strStaticCaption=pElement->m_strCaption;
@@ -473,7 +473,7 @@ BOOL CDlgAbkForm::CreateTemplate (LPCTSTR pszCaption, std::list<Abk::CAbkClient:
 
     int nIdControl=DLGCONTROLID_BASE;
     int nYPos=TOPGAP; // current y-position
-    for(iterElement=lstElements.begin();iterElement!=lstElements.end();++iterElement)
+    for(iterElement=vectElements.begin();iterElement!=vectElements.end();++iterElement)
       {
       Abk::CAbkClient::CFormElement *pElement=&*iterElement;
 
@@ -637,9 +637,9 @@ BOOL CDlgAbkForm::OnInitDialog()
 // Input: -
 // Return: 
 
-std::list<Abk::CAbkClient::CFormElement> &CDlgAbkForm::GetData (void)
+std::vector<Abk::CAbkClient::CFormElement> &CDlgAbkForm::GetData (void)
   {
-  return m_lstElements;
+  return m_vectElements;
   }
 
 

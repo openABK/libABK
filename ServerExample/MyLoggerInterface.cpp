@@ -815,15 +815,15 @@ void CMyLoggerInterface::PrintAllConnectedClients (void)
   if(1)
     {
     char cRandomText[100];
-    sprintf(cRandomText,"bitte eingeben [%d]",nRandomVal);
+    sprintf(cRandomText,"please enter [%d]",nRandomVal);
     CJsonStreamArray jaControls(&jfForm,ABK_RSP_FORMS_CONTROLS); // "Controls": [
 
-    CLoggerInterface::FormWriteInput   (jaControls,"ctrlInput1", "Eingabe",cRandomText/*"bitte eingeben"*/,-1,false,false,true);
-    CLoggerInterface::FormWriteInput   (jaControls,"ctrlInput2", "Passwort","",-1,false,true);
-    CLoggerInterface::FormWriteInput   (jaControls,"ctrlInput3", "Nur Lesen","read-only",-1,true);
-    CLoggerInterface::FormWriteCheckbox(jaControls,"ctrlCheck1", "Check",true,true); // updateable check box
-    CLoggerInterface::FormWriteList    (jaControls,"ctrlList1",  "Auswahl",0,lstOptions,true);
-    CLoggerInterface::FormWriteButton  (jaControls,"ctrlButton1","OK",true);
+    CLoggerInterface::FormWriteInput    (jaControls, "ctrlInput1", "Input", cRandomText, -1, false, false, true);
+    CLoggerInterface::FormWriteInput    (jaControls, "ctrlInput2", "Password", "", -1, false, true);
+    CLoggerInterface::FormWriteInput    (jaControls, "ctrlInput3", "Read-onl y", "read-only", -1, true);
+    CLoggerInterface::FormWriteCheckbox (jaControls, "ctrlCheck1", "Check", true, true); // updateable check box
+    CLoggerInterface::FormWriteList     (jaControls, "ctrlList1",  "Select", 0, lstOptions, true);
+    CLoggerInterface::FormWriteButton   (jaControls, "ctrlButton1", "OK", true);
     } // ]
 #endif
 

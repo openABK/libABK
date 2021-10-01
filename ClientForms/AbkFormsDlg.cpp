@@ -284,7 +284,7 @@ LRESULT CAbkFormsDlg::WindowProc(UINT message, WPARAM wParam, LPARAM lParam)
   {
   if(message==MESSAGE_FORM_OPEN) // server requested to open a form
     {
-    std::list<Abk::CAbkClient::CFormElement> lstElements; // list for recieving the form elements
+    std::vector<Abk::CAbkClient::CFormElement> vectElements; // list for recieving the form elements
     CString strFormName;
       {
       CAbkSingleLock lockForm(&m_client.m_mutexAbk,true,1000);
@@ -292,10 +292,10 @@ LRESULT CAbkFormsDlg::WindowProc(UINT message, WPARAM wParam, LPARAM lParam)
       }
     CString strCaption; // caption of the form
     int nPersistenceMs=0;
-    if(m_client.GetForm(strFormName,lstElements,strCaption,nPersistenceMs)) // request and decode the form
+    if(m_client.GetForm(strFormName, vectElements,strCaption,nPersistenceMs)) // request and decode the form
       {
       CDlgAbkForm dlgForm;
-      dlgForm.InitModal(NULL,NULL,NULL,strFormName,strCaption,nPersistenceMs,lstElements,NULL,this);
+      dlgForm.InitModal(NULL,NULL,NULL,strFormName,strCaption,nPersistenceMs,vectElements,NULL,this);
       INT_PTR nResponse=dlgForm.DoModal();
       m_client.SendForm(strFormName,dlgForm.GetData()); // send back the filled form
       }

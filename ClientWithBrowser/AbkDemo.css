@@ -27,8 +27,8 @@ td
   z-index:1000;
   padding: 10px;
   background-color: #FFFFCC;
-  border: 1px solid #C0C0C0;
-  color: #808080;
+  border: 2px solid #C0C0C0;
+  color: #404040;
   position: fixed;
   font-size: small;
 }

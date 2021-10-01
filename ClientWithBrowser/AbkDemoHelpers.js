@@ -1,10 +1,15 @@
 
-// globals
 
+// globals
 var g_nButtonStates = new Array(); // current state of each button, used to track and inhibit redundant events
 
 
-
+/** Writes an empty table to the current document
+@param nHeight Number of rows to be created
+@param strId ID tag for the new table
+@param nColWidths Array of column widths. Each entity can contain either a numeric value or a string with units (e.g. 60%).
+@param strCaptions Array of strings with the captions for the first row
+*/
 function WriteEmptyTable(nHeight, strId, nColWidths, strCaptions)
 {
   var strHtml = WriteEmptyTableToString(nWidth, nHeight, strId, nColWidths, strCaptions);
@@ -12,6 +17,14 @@ function WriteEmptyTable(nHeight, strId, nColWidths, strCaptions)
 }
 
 
+
+/** Formats an empty table to a string
+@param nHeight Number of rows to be created
+@param strId ID tag for the new table
+@param nColWidths Array of column widths. Each entity can contain either a numeric value or a string with units (e.g. 60%).
+@param strCaptions Array of strings with the captions for the first row
+@return The html-formatted string of the table
+*/
 function WriteEmptyTableToString(nHeight, strId, nColWidths, strCaptions)
 {
   var strOut = "";
@@ -49,6 +62,16 @@ function WriteEmptyTableToString(nHeight, strId, nColWidths, strCaptions)
 }
 
 
+
+/** Formats a tile which shows a variable value in a large manner
+@param nIdSuffix The suffix string which will be appended to the ID tag of several items. These items are:
+ cbLargeSelect Combo box <select> the user can select the variable
+ tblLarge A table <table> where the elements are placed into 
+ largeName The table <td> where the name of the variable will be shown
+ largeValue The table <td> where the value will be shown
+ largeUnit The table <td> where the unit will be shown
+@return The html-formatted string for the variable display
+*/
 function WriteLargeDisplayToString(nIdSuffix)
 {
   var strHtml = "";
@@ -72,6 +95,13 @@ function WriteLargeDisplayToString(nIdSuffix)
   return strHtml;
 }
 
+
+
+
+/** Fills a combo box with variable names
+@param strComboId ID of the combo box to be filled
+@param objVarList An array of strings holding the variable names
+*/
 function FillComboWithVars(strComboId, objVarList)
 {
   var cbTarget = document.getElementById(strComboId);

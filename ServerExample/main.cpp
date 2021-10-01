@@ -71,8 +71,11 @@
 
 using namespace std;
 
-
+#if !defined (NDEBUG)
 #define HTML_DIR "C:\\Source\\Repos\\abk\\ClientWithBrowser\\"
+#else
+#define HTML_DIR "C:\\abk\\ClientWithBrowser\\"
+#endif
 #define JPEGS_BASE_URL "/abk/jpegs/"
 
 //--------------------------------------------------------------------------
