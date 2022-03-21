@@ -872,7 +872,10 @@ bool CJsonParser::ScanDate (const char *pszDate, size_t nLen, time_t *pReturn) c
     tmScan.tm_year-=1900;
     tmScan.tm_mon--;
     tmScan.tm_isdst=false;
-    ttResult=mktime(&tmScan); // convert to calendar UTC time. Since mktime() converts from local to UTC, the result has an offset which will be compenstated later. The offset does not contain daylight saving effect
+    if (tmScan.tm_year == 70 && tmScan.tm_mon == 0 && tmScan.tm_mday == 1) // workaround: 1. Jan. 1970 may cause out-of-range conditions in mktime() if in non Greenwich time zones
+      ttResult = 0;
+    else
+      ttResult = mktime (&tmScan); // convert to calendar UTC time. Since mktime() converts from local to UTC, the result has an offset which will be compenstated later. The offset does not contain daylight saving effect
     if(ttResult==-1)
       {
       char strDay[21];

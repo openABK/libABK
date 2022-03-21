@@ -875,6 +875,12 @@ void CMyLoggerInterface::PrintAllConnectedClients (void)
 
 /*virtual*/ bool CMyLoggerInterface::OnSessionEventPollEstablished (CSession* pNewSession)
   {
+
+  //CJsonFormatter jfAdditionalFields;
+  //jfAdditionalFields.WriteValue ("Title", "Fake-Logger Alert");
+  //jfAdditionalFields.Close ();
+  //Alert ("MyVar", "pszAlertClassName", 0, 0, true, &jfAdditionalFields);
+
   return false;
   }
 

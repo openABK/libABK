@@ -90,6 +90,7 @@ class CAbkServerEvent
 
   // attributes and methods
   public:
+    const CData& GetData (void) const { return m_data; }
     BOOL GetEvent (CData &dataGet); // peeks data from event and then marks it as empty
     BOOL SetEvent (CJsonParserAtl &jpEvent); // sets event
 

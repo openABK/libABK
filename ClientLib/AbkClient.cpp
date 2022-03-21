@@ -1628,13 +1628,14 @@ int CAbkClient::LongPollThread (void)
         }
         else if(jpEvent.TestArray(ABK_RSP_SERVEREVENT_EVENTS)) // is there Events:[
         {
-          assert(m_pNextEventData); // there must be a location to store the event params
           for(++jpEvent;!jpEvent.IsDone();++jpEvent)  // each event
           {
+            assert(m_pNextEventData); // there must be a location to store the event params
             BOOL bSuccessDecode=m_pNextEventData->SetEvent(jpEvent); // decode event into m_pNextEventData
             jpEvent.SkipItem(); // skip any unknown items
             if(bSuccessDecode)
             {
+              AddLog (LOGSEVERITY_TRACE, _T ("Event: %s, Param1 = %d, Param2 = %d"), m_pNextEventData->GetData().m_strType, (int)m_pNextEventData->GetData().m_dParam1, (int)m_pNextEventData->GetData ().m_dParam2);
               m_pNextEventData=OnServerEvent(m_pNextEventData); // call the event handler and get the location for the next event
             }
             else // error in syntax or completelyness of the event data
