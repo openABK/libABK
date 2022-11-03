@@ -67,6 +67,8 @@
 #include <boost/iostreams/device/array.hpp>
 #include <boost/iostreams/stream.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/smart_ptr.hpp>
+#include <boost/smart_ptr/make_unique.hpp>
 #include <boost/test/unit_test.hpp>
 #include <boost/unordered_map.hpp>
 #include <boost/thread.hpp>

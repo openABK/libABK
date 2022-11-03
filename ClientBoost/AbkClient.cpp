@@ -66,7 +66,7 @@ namespace Abk
 //----------------------------------------------------------------------
 
 CAbkClient::CBaseAbstraction::CBaseAbstraction(CAbkClient *pOwner): 
-	resolver(io_context), socket(io_context)
+	resolver(io_context), socket(boost::make_unique<tcp::socket>(io_context))
 {
 	m_pOwner = pOwner;
 	m_nPort = 0;
@@ -89,7 +89,7 @@ void CAbkClient::CBaseAbstraction::SetServerAddr(const std::string &strServerAdd
 
 //------------------------------------------------------------------------------------------------
 
-size_t CAbkClient::CBaseAbstraction::WriteToSocket(tcp::socket &a_Socket, const std::string &a_Path, CAbkClient::CBaseAbstraction::eHttpRequestType a_Type)
+size_t CAbkClient::CBaseAbstraction::WriteToSocket(const std::string &a_Path, CAbkClient::CBaseAbstraction::eHttpRequestType a_Type)
 {
 	try
 	{
@@ -106,7 +106,7 @@ size_t CAbkClient::CBaseAbstraction::WriteToSocket(tcp::socket &a_Socket, const 
 		request_stream << "User-Agent: AbkClientBoost\r\n";
 		request_stream << "Connection: keep-alive\r\n\r\n";
 
-		return boost::asio::write(socket, request);
+		return boost::asio::write(*socket, request);
 	}
 	catch (std::exception &e)
 	{
@@ -116,7 +116,7 @@ size_t CAbkClient::CBaseAbstraction::WriteToSocket(tcp::socket &a_Socket, const 
 	}
 }
 
-size_t CAbkClient::CBaseAbstraction::WriteToSocket(tcp::socket &a_Socket, const std::string &a_Path, const std::string &a_Message, CAbkClient::CBaseAbstraction::eHttpRequestType a_Type)
+size_t CAbkClient::CBaseAbstraction::WriteToSocket(const std::string &a_Path, const std::string &a_Message, CAbkClient::CBaseAbstraction::eHttpRequestType a_Type)
 {
 	try
 	{
@@ -156,12 +156,16 @@ size_t CAbkClient::CBaseAbstraction::WriteToSocket(tcp::socket &a_Socket, const 
 		request_stream << "\r\n";
 		request_stream << a_Message;
 
-		return boost::asio::write(socket, request);
+		boost::system::error_code ec;
+		size_t bytes = boost::asio::write(*socket, request, ec);
+
+		return bytes;
 	}
 	catch (std::exception &e)
 	{
 		boost::ignore_unused(e);
 		m_bConnected = false;
+		socket->close();
 		throw AbkNetworkException();
 	}
 }
@@ -177,15 +181,15 @@ CAbkClient::CBaseAbstraction::eHttpHeaders CAbkClient::CBaseAbstraction::GetEnum
 	return returnValue;
 }
 
-size_t CAbkClient::CBaseAbstraction::ReadFromSocket(tcp::socket &a_Socket, std::string &a_Message)
+size_t CAbkClient::CBaseAbstraction::ReadFromSocket(std::string &a_Message)
 {
 	std::stringstream sstream;
-	size_t bytes = ReadFromSocket(a_Socket, sstream);
+	size_t bytes = ReadFromSocket(sstream);
 	a_Message = sstream.str();
 	return bytes;
 }
 
-size_t CAbkClient::CBaseAbstraction::ReadFromSocket(tcp::socket &a_Socket, std::ostream &sstream)
+size_t CAbkClient::CBaseAbstraction::ReadFromSocket(std::ostream &sstream)
 {
 	try
 	{
@@ -193,7 +197,7 @@ size_t CAbkClient::CBaseAbstraction::ReadFromSocket(tcp::socket &a_Socket, std::
 		// grow to accommodate the entire line. The growth may be limited by passing
 		// a maximum size to the streambuf constructor.
 		boost::asio::streambuf response;
-		boost::asio::read_until(socket, response, "\r\n");
+		boost::asio::read_until(*socket, response, "\r\n");
 
 		// Check that response is OK.
 		std::istream response_stream(&response);
@@ -220,7 +224,7 @@ size_t CAbkClient::CBaseAbstraction::ReadFromSocket(tcp::socket &a_Socket, std::
 		}
 
 		// Read the response headers, which are terminated by a blank line.
-		boost::asio::read_until(socket, response, "\r\n\r\n");
+		boost::asio::read_until(*socket, response, "\r\n\r\n");
 
 		size_t responseBytesExpected;
 
@@ -258,7 +262,7 @@ size_t CAbkClient::CBaseAbstraction::ReadFromSocket(tcp::socket &a_Socket, std::
 
 		while ((responseBytesRead < responseBytesExpected) && bytesLeftToRead)
 		{ 
-			responseBytesRead += boost::asio::read(socket, response,
+			responseBytesRead += boost::asio::read(*socket, response,
 				boost::asio::transfer_at_least(bytesLeftToRead));
 			sstream << &response;
 		}
@@ -278,6 +282,13 @@ size_t CAbkClient::CBaseAbstraction::ReadFromSocket(tcp::socket &a_Socket, std::
 		boost::ignore_unused(e);
 		//std::cerr << "Failed to read from socket: " << e.what() << std::endl;
 		m_bConnected = false;
+		socket->close();
+		// TODO: If we have move this works
+#if defined(BOOST_ASIO_HAS_MOVE)
+		socket = boost::make_unique<tcp::socket>(io_context);
+#else
+#error "C++11 required for socket to work properly"
+#endif
 		throw AbkNetworkException();
 	}
 	return 0;
@@ -285,7 +296,7 @@ size_t CAbkClient::CBaseAbstraction::ReadFromSocket(tcp::socket &a_Socket, std::
 
 bool CAbkClient::CBaseAbstraction::IsSocketOpen() const
 {
-	return m_bConnected && socket.is_open();
+	return m_bConnected && socket->is_open();
 }
 
 bool CAbkClient::IsConnected() const
@@ -299,7 +310,7 @@ bool CAbkClient::IsConnected() const
 void Abk::CAbkClient::CBaseAbstraction::Close()
 {
 // TODO: Consider shutdown
-	socket.close();
+	socket->close();
 }
 
 bool CAbkClient::CBaseAbstraction::EnsureConnection()
@@ -310,7 +321,7 @@ bool CAbkClient::CBaseAbstraction::EnsureConnection()
 		{
 			boost::system::error_code ec;
 			tcp::resolver::results_type endpoints = resolver.resolve(m_strServerAddress, m_strPort, ec);
-			boost::asio::connect(socket, endpoints, ec);
+			boost::asio::connect(*socket, endpoints, ec);
 			if (!ec)
 				m_bConnected = true;
 			else
@@ -339,13 +350,15 @@ std::string CAbkClient::CBaseAbstraction::NavigatePost(LPCTSTR pszPath, int nSes
 	std::string strPostData = pPostData->GetStream()->str();
 	std::string response;
 
+	CAbkSingleLock lockDaq(&m_mutex, true);
+
 	if (!EnsureConnection())
 		return response;
 
 	try
 	{
-		WriteToSocket(socket, std::string(CT2A(pszPath)), strPostData, E_HTTP_POST);
-		ReadFromSocket(socket, response);
+		WriteToSocket(std::string(CT2A(pszPath)), strPostData, E_HTTP_POST);
+		ReadFromSocket(response);
 
 #ifdef LOG_BOOST_ABK
 		LogErr() << "Response was: " << response << std::endl;
@@ -370,13 +383,15 @@ bool CAbkClient::CBaseAbstraction::NavigateDelete(LPCTSTR pszPath, int nSessionI
 	std::string strPostData = pPostData->GetStream()->str();
 	std::string response;
 
+	CAbkSingleLock lockDaq(&m_mutex, true);
+
 	if (!EnsureConnection())
 		return false;
 
 	try
 	{
-		WriteToSocket(socket, std::string(CT2A(pszPath)), strPostData, E_HTTP_DELETE);
-		ReadFromSocket(socket, response);
+		WriteToSocket(std::string(CT2A(pszPath)), strPostData, E_HTTP_DELETE);
+		ReadFromSocket(response);
 
 #ifdef LOG_BOOST_ABK
 		LogErr() << "Response was: " << response << std::endl;
@@ -408,13 +423,15 @@ std::string CAbkClient::CBaseAbstraction::NavigatePut(LPCTSTR pszPath, int nSess
 	//assert(pPostData->GetStream()->rdbuf()->in_avail > 0);
 	std::string response;
 
+	CAbkSingleLock lockDaq(&m_mutex, true);
+
 	if (!EnsureConnection())
 		return false;
 
 	try
 	{
-		WriteToSocket(socket, std::string(CT2A(pszPath)), strData, E_HTTP_PUT);
-		ReadFromSocket(socket, response);
+		WriteToSocket(std::string(CT2A(pszPath)), strData, E_HTTP_PUT);
+		ReadFromSocket(response);
 
 #ifdef LOG_BOOST_ABK
 		LogErr() << "Response was: " << response << std::endl;
@@ -441,42 +458,74 @@ bool CAbkClient::CBaseAbstraction::NavigatePut(LPCTSTR pszPath, int nSessionId, 
 	std::string strPutData = pPutData->GetStream()->str();
 	std::string response;
 
-	if (!EnsureConnection())
-		return false;
+	CAbkSingleLock lockDaq(&m_mutex, true);
 
-	try
-	{
-		if (nSessionId >= 0)
+
+		if (!EnsureConnection())
+			return false;
+
+		try
 		{
-			CString strPathAndQuery;
-			strPathAndQuery.Format(_T("%s?") _T(ABK_QRY_SESSIONID) _T("=%d"), pszPath, nSessionId);
-			WriteToSocket(socket, std::string(CT2A(strPathAndQuery)), strPutData, E_HTTP_PUT);
+			if (nSessionId >= 0)
+			{
+				CString strPathAndQuery;
+				strPathAndQuery.Format(_T("%s?") _T(ABK_QRY_SESSIONID) _T("=%d"), pszPath, nSessionId);
+				WriteToSocket(std::string(CT2A(strPathAndQuery)), strPutData, E_HTTP_PUT);
+			}
+			else
+			{
+				WriteToSocket(std::string(CT2A(pszPath)), strPutData, E_HTTP_PUT);
+			}
 		}
-		else
+		catch (AbkNetworkException &e)
 		{
-			WriteToSocket(socket, std::string(CT2A(pszPath)), strPutData, E_HTTP_PUT);
+			boost::ignore_unused(e);
+#ifdef LOG_BOOST_ABK
+			LogErr() << "Failed to navigate POST due to Network exception" << std::endl;
+#endif
+			response.clear();
 		}
-		ReadFromSocket(socket, response);
+
+		bool bNeedReconnect = false;
+		try
+		{
+			ReadFromSocket(response);
+		}
+		catch (AbkNetworkException &e) // probably lost connection, retry
+		{
+			boost::ignore_unused(e);
+			bNeedReconnect = true;
+		}
+
+		if (bNeedReconnect)
+		{
+			try
+			{
+				if (!EnsureConnection())
+					return false;
+
+				ReadFromSocket(response);
+			}
+			catch (AbkNetworkException &e)
+			{
+				LogErr() << "Failed to reconnect" << std::endl;
+			}
+		}
 
 #ifdef LOG_BOOST_ABK
 		LogErr() << "Response was: " << response << std::endl;
 #endif
-	}
-	catch (AbkNetworkException &e)
-	{
-		boost::ignore_unused(e);
-#ifdef LOG_BOOST_ABK
-		LogErr() << "Failed to navigate POST due to Network exception" << std::endl;
-#endif
-		response.clear();
-	}
-	return (m_uStatus == 200);
+
+
+	return (m_uStatus == 201);
 }
 
 std::string CAbkClient::CBaseAbstraction::NavigateGet(LPCTSTR pszPath, int nSessionId)
 {
 	assert(pszPath);
 	std::string response;
+
+	CAbkSingleLock lockDaq(&m_mutex, true);
 
 	if (!EnsureConnection())
 		return response;
@@ -487,13 +536,13 @@ std::string CAbkClient::CBaseAbstraction::NavigateGet(LPCTSTR pszPath, int nSess
 		{
 			CString strPathAndQuery;
 			strPathAndQuery.Format(_T("%s?") _T(ABK_QRY_SESSIONID) _T("=%d"), pszPath, nSessionId);
-			WriteToSocket(socket, std::string(CT2A(strPathAndQuery)), E_HTTP_GET);
+			WriteToSocket(std::string(CT2A(strPathAndQuery)), E_HTTP_GET);
 		}
 		else
 		{
-			WriteToSocket(socket, std::string(CT2A(pszPath)), E_HTTP_GET);
+			WriteToSocket(std::string(CT2A(pszPath)), E_HTTP_GET);
 		}
-		ReadFromSocket(socket, response);
+		ReadFromSocket(response);
 	}
 	catch (AbkNetworkException &e)
 	{
@@ -512,6 +561,8 @@ bool CAbkClient::CBaseAbstraction::NavigateGet(LPCTSTR pszPath, int nSessionId, 
 {
 	assert(pszPath);
 
+	CAbkSingleLock lockDaq(&m_mutex, true);
+
 	if (!EnsureConnection())
 		return false;
 
@@ -521,13 +572,13 @@ bool CAbkClient::CBaseAbstraction::NavigateGet(LPCTSTR pszPath, int nSessionId, 
 		{
 			CString strPathAndQuery;
 			strPathAndQuery.Format(_T("%s?") _T(ABK_QRY_SESSIONID) _T("=%d"), pszPath, nSessionId);
-			WriteToSocket(socket, std::string(CT2A(strPathAndQuery)), E_HTTP_GET);
+			WriteToSocket(std::string(CT2A(strPathAndQuery)), E_HTTP_GET);
 		}
 		else
 		{
-			WriteToSocket(socket, std::string(CT2A(pszPath)), E_HTTP_GET);
+			WriteToSocket(std::string(CT2A(pszPath)), E_HTTP_GET);
 		}
-		ReadFromSocket(socket, out);
+		ReadFromSocket(out);
 		return true;
 	}
 	catch (AbkNetworkException &e)

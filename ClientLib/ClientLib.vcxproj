@@ -128,7 +128,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
-      <AdditionalIncludeDirectories>..\Common;..\..\mfc-tools\Include;..\ClientLib\atl;..\ClientLib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\Common;..\..\mfc-tools\Include;..\ClientLib\atl;..\ClientLib;C:/Users/pz/Downloads/AtlServer/sourceCode/sourceCode/include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>

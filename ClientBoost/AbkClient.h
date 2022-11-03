@@ -148,11 +148,11 @@ namespace Abk {
 
 			eHttpHeaders GetEnumFromString(const std::string &str) const;
 
-			size_t WriteToSocket(tcp::socket & a_Socket, const std::string & a_Path, eHttpRequestType a_Type);
-			size_t WriteToSocket(tcp::socket & a_Socket, const std::string & a_Path, const std::string & a_Message, eHttpRequestType a_Type);
+			size_t WriteToSocket(const std::string & a_Path, eHttpRequestType a_Type);
+			size_t WriteToSocket(const std::string & a_Path, const std::string & a_Message, eHttpRequestType a_Type);
 
-			size_t ReadFromSocket(tcp::socket & a_Socket, std::string & a_Message);
-			size_t ReadFromSocket(tcp::socket & a_Socket, std::ostream & sstream);
+			size_t ReadFromSocket(std::string & a_Message);
+			size_t ReadFromSocket(std::ostream & sstream);
 
 			bool IsSocketOpen() const;
 			unsigned int GetStatus() { return m_uStatus; }
@@ -160,7 +160,7 @@ namespace Abk {
 		public:
 			boost::asio::io_context io_context;
 			tcp::resolver resolver /*(io_context)*/;
-			tcp::socket socket /*(io_context)*/;
+			std::unique_ptr<tcp::socket> socket /*(io_context)*/;
 			bool m_bConnected;
 		};
 
