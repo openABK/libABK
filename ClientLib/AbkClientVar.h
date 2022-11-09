@@ -27,6 +27,7 @@
 #include "ValuesFromSpec.h"
 #include "JsonParserAtl.h"
 #include <list>
+#include <vector>
 
 class CJsonParser;
 
@@ -38,7 +39,34 @@ namespace Abk
   class CAbkClientMeta
     {
     public:
-      class CEntity {CString m_strName; CComVariant m_varData;};  // a non-hardcoded meta information
+      //class CEntity {CString m_strName; CComVariant m_varData;};  // a non-hardcoded meta information
+
+    public:
+      struct VALUE_TO_TEXT ///< table entity for translating a value into a text
+      {
+        double dRangeLower; // lower end of range, included
+        double dRangeUpper; // upper end of range, non-included
+        CString strText; // text output if this entity matches a received value
+        VALUE_TO_TEXT ();
+        bool ExtractFromJson (CJsonParser& jpSource); // extracts table entity from JSON parser
+      };
+
+    public:
+      class CValueTable ///< a lookup table for converting a value into text
+      {
+      protected:
+        std::vector<VALUE_TO_TEXT> m_vectEntities; // all entities in the order as they came from the server
+        VALUE_TO_TEXT m_entFallback; // to be applied if no entity matches
+      public:
+        CValueTable ();
+        size_t GetCount (void) const;
+        const VALUE_TO_TEXT& operator[](int nIndex) const;
+              VALUE_TO_TEXT& operator[](int nIndex);
+        bool CheckIndex (int nIndex) const; // checks whether an index is a valid table index
+        void Add (const VALUE_TO_TEXT& entAdd); // adds an item to the tail
+        void SetFallback (const VALUE_TO_TEXT& entFallback); // sets the fall-back entity
+        bool ExtractFromJson (CJsonParser& jpSource); // extracts table from JSON parser
+      };
 
     // data members
     public:
@@ -54,11 +82,12 @@ namespace Abk
       double m_dOffset; // offset
       int m_nFractionalDigits; // number of fractional digits
       double m_dThresholds[ABK_VALUE_THRESHOLD_COUNT]; // semantic thresholds, already calculated with factor and offset
-      std::list<CEntity> m_lstEntities; // meta data not hard-coded
+      //std::list<CEntity> m_lstEntities; // meta data not hard-coded
       bool m_bHasThresholds;
       bool m_bIsMailbox; // true for mailbox
       CString m_strObjUrl; // not empty if variable has an url where to download an object, e.g. an image. Url without host name/address
       CString m_strObjMime; // mime-type of the data on the object URL, e.g. image/jpeg
+      CValueTable m_tblValToText;
 
     // construction/destruction/setup
     public:
@@ -80,6 +109,7 @@ namespace Abk
       int GetFractDigits (void) const {return m_nFractionalDigits;}
       const CString &GetObjUrl (void) const {return m_strObjUrl;}
       const CString &GetObjMime (void) const {return m_strObjMime;}
+      const CValueTable& GetValueTable (void) const; // returns a reference to the value table
 
     // methods and properties
     public:

@@ -1,3 +1,5 @@
+#include "VarRef.h"
+#include "VarRef.h"
 //------------------------------------------------------------------------------------------------
 // Author: D. Burger, Friedberg, Germany, <www.openABK.org>, <www.embu-sys.de>, <info@openABK.org>
 //
@@ -38,6 +40,196 @@ namespace Abk {
 
 
 
+  /** Constructor of value to text table entity
+*/
+  CVarRef::CMeta::VALUE_TO_TEXT::VALUE_TO_TEXT ()
+  {
+    dRangeLower = 0.;
+    dRangeUpper = 0.;
+  }
+
+
+
+
+  /** Formats content to JSON  
+  @param joDump JSON output
+  */
+  void CVarRef::CMeta::VALUE_TO_TEXT::FormatAsJson (CJsonStreamObject& joDump) const
+  {
+    joDump.WriteValue (ABK_RSP_VALTBL_VALUE,dRangeLower);
+#if defined(ABK_RSP_VALTBL_VALUE_TO)
+    joDump.WriteValue (ABK_RSP_VALTBL_VALUE_TO, dRangeUpper);
+#endif
+    joDump.WriteValue (ABK_RSP_VALTBL_TEXT,strText);
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  /** Constructor of value table */
+  CVarRef::CMeta::CValueTable::CValueTable ()
+  {
+  }
+
+
+
+
+  /** Returns number of table entities, excluding the fall-back entity  
+  @return Number of table entities
+  */
+  size_t CVarRef::CMeta::CValueTable::GetCount (void) const
+  {
+    return m_vectEntities.size ();
+  }
+
+
+
+
+  /** Returns entity of a certain index or the default entity
+  @param nIndex zero-based index of entity to be retrieved. Any invalid index returns the fall-back entity
+  @return entity of specified index or the fall-back entity.
+  */
+  const CVarRef::CMeta::VALUE_TO_TEXT& CVarRef::CMeta::CValueTable::operator[](int nIndex) const
+  {
+    return CheckIndex (nIndex) ? m_vectEntities[nIndex] : m_entFallback;
+  }
+
+  CVarRef::CMeta::VALUE_TO_TEXT& CVarRef::CMeta::CValueTable::operator[](int nIndex)
+  {
+    return CheckIndex (nIndex) ? m_vectEntities[nIndex] : m_entFallback;
+  }
+
+
+
+
+  /** checks whether an index is a valid table index
+  @param nIndex Index to be tested
+  @return true if the index addresses an item in the table. false if out-of-range
+  */
+  bool CVarRef::CMeta::CValueTable::CheckIndex (int nIndex) const // checks whether an index is a valid table index
+  {
+    return (nIndex >= 0) && (nIndex < (int)m_vectEntities.size ());
+  }
+
+
+
+
+  /** adds an item to the tail
+  @param entAdd reference to entity to be added
+  */
+  void CVarRef::CMeta::CValueTable::Add (const VALUE_TO_TEXT& entAdd) // adds an item to the tail
+  {
+    m_vectEntities.push_back (entAdd);
+  }
+
+
+
+
+  /** Adds an item to the tail  
+  @param dRangeLower lower bound of range, included
+  @param dRangeUpper upper bound of range, not included
+  @param pszText Text for the range
+  */
+  void CVarRef::CMeta::CValueTable::Add (double dRangeLower, double dRangeUpper, const char* pszText)
+  {
+    VALUE_TO_TEXT entNew;
+    entNew.dRangeLower = dRangeLower;
+    entNew.dRangeUpper = dRangeUpper;
+    entNew.strText = pszText;
+    Add (entNew);
+  }
+
+
+
+
+  /** adds an item to the tail
+  @param dValue value of table entity. A smallest-possible range beginning with this value will be created
+  @param pszText Text for the value
+  */
+  void CVarRef::CMeta::CValueTable::Add (double dValue, const char* pszText)
+  {
+    Add (dValue, nextafter (dValue, dValue + 1.), pszText);
+  }
+
+
+
+
+  /** sets the fall-back entity
+  @note Since only the text is relevant at the current implementation, a call to SetFallback (const char *) is preferred over this overload
+  @param entFallback Reference to an entity to be set as default. The range information will be ignored
+  */
+  void CVarRef::CMeta::CValueTable::SetFallback (const VALUE_TO_TEXT& entFallback) // sets the fall-back entity
+  {
+    m_entFallback = entFallback;
+    m_entFallback.dRangeLower = 0.;
+    m_entFallback.dRangeUpper = 0.;
+  }
+
+
+
+
+  /** sets the fall-back text  
+  @param pszFallbackText fall-back text to be set
+  */
+  void CVarRef::CMeta::CValueTable::SetFallback (const char* pszFallbackText)
+  {
+    m_entFallback.strText = pszFallbackText;
+    m_entFallback.strText = pszFallbackText; // 05th Nov. 2022, D. Burger: needed to do it twice due to an error in the lib??
+  }
+
+
+
+
+  /** Formats content as JSON  
+  @note This also writes the fall-back string
+  @param joDump JSON object to place the table within
+  @param pszName Name of the table array
+  */
+  void CVarRef::CMeta::CValueTable::FormatAsJson (CJsonStreamObject& joDump, const char* pszName) const // formats to JSON string
+  {
+    CJsonStreamArray jaTable (&joDump, pszName); // "Text":[
+    if (const size_t nEntityCount = m_vectEntities.size ())
+    {
+      for (size_t nEntity = 0; nEntity < nEntityCount; ++nEntity)
+      {
+        CJsonStreamObject joEntity (&jaTable);
+        m_vectEntities[nEntity].FormatAsJson (joEntity);
+        joEntity.Close ();
+      }
+    }
+    jaTable.Close ();
+    joDump.WriteValue (ABK_RSP_VARMETA_TEXTFALLBACK, m_entFallback.strText);
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 //--------------------------------------------------------------------------
 // CMeta()                  constructor, inits to default meta data
@@ -58,51 +250,171 @@ CVarRef::CMeta::CMeta ()
   }
 
 
-//--------------------------------------------------------------------------
-// SetObject()             sets object url and mime-type
-// -----------
-// Input: pszUrl = [in] url without host name/address where clients can download an object
-//                      NULL to delete the object url/mime type
-//        pszMimeType = [in] MIME type of object
-// Return: 
 
-void CVarRef::CMeta::SetObject (const char *pszUrl, const char *pszMimeType)
+
+/** Sets the display name attribute  
+@param pszDispName name to be set
+*/
+void CVarRef::CMeta::SetDispName (const char* pszDispName)
+{
+  m_strDispName = pszDispName;
+  m_dwValidMemberFlags |= VARMETA_DISPNAME;
+}
+
+
+
+
+/** Sets the comment attribute  
+@param pszComment comment to be set
+*/
+void CVarRef::CMeta::SetComment (const char* pszComment)
+{
+  m_strComment = pszComment;
+  m_dwValidMemberFlags |= VARMETA_COMMENT;
+}
+
+
+
+
+/** Sets the unit attribute  
+@param pszUnit The unit attribute to be set
+*/
+void CVarRef::CMeta::SetUnit (const char* pszUnit)
+{
+  m_strUnit = pszUnit;
+  m_dwValidMemberFlags |= VARMETA_UNIT;
+}
+
+
+
+
+/** Sets the symbol attribute
+@param pszSymbol Symbol to be set. The symbol is for example "t" for time or "v" for velocity
+*/
+void CVarRef::CMeta::SetSymbol (const char* pszSymbol)
+{
+  m_strSymbol = pszSymbol;
+  m_dwValidMemberFlags |= VARMETA_SYMBOL;
+}
+
+
+
+
+/** Sets the tags attribute  
+@param pszTags The tags to be set
+*/
+void CVarRef::CMeta::SetTags (const char* pszTags)
+{
+  m_strTags = pszTags;
+  m_dwValidMemberFlags |= VARMETA_TAGS;
+}
+
+
+
+
+/** Sets the expected range  
+@param dMin lower bound of range
+@param dMax upper bound of range
+*/
+void CVarRef::CMeta::SetRange (double dMin, double dMax)
+{
+  m_dRangeMin = dMin; m_dRangeMax = dMax; m_dwValidMemberFlags |= VARMETA_RANGE;
+}
+
+
+
+
+/** Sets factor and offset  
+@param dFactor Factor to be set
+@param dOffset Offset to be set
+*/
+void CVarRef::CMeta::SetFactorOffset (double dFactor, double dOffset)
+{
+  m_dFactor = dFactor;
+  m_dOffset = dOffset;
+  m_dwValidMemberFlags |= VARMETA_FACTOFFS;
+}
+
+
+
+
+/** Sets the recommended fractional digit count  
+@param nFractDigits Number of recommended fractional digits to be set
+*/
+void CVarRef::CMeta::SetFractDigits (int nFractDigits)
+{
+  m_nFractDigits = nFractDigits;
+  m_dwValidMemberFlags |= VARMETA_FRACTDIGITS;
+}
+
+
+
+
+/** Sets thresholds for predefined states  
+@param dThresholds Array of thresholds. The array size must be SEVERITY_THRESHOLD_COUNT
+*/
+void CVarRef::CMeta::SetThresholds (const double dThresholds[])
+{
+  memcpy (m_dThresholds, dThresholds, sizeof (m_dThresholds));
+  m_dwValidMemberFlags |= VARMETA_THRESHOLDS;
+}
+
+
+
+
+/** sets object URL and mime-type  
+@param pszUrl URL without host name/address where clients can download an object
+ NULL to delete the object URL/mime type
+@param pszMimeType MIME type of object
+*/
+void CVarRef::CMeta::SetObject (const char* pszUrl, const char* pszMimeType)
+{
+  if (pszUrl)
   {
-  if(pszUrl)
-    {
-    assert(pszMimeType); // if url specified, the mime type is mandatory
-    m_dwValidMemberFlags|=(VARMETA_OBJ_URL|VARMETA_OBJ_MIME);
-    m_strObjUrl=pszUrl;
-    m_strObjMime=pszMimeType;
-    }
-  else // shall clear
-    {
-    assert(pszMimeType==NULL); // when clearing the object url, why there is a mime type??
-    m_dwValidMemberFlags&=~(VARMETA_OBJ_URL|VARMETA_OBJ_MIME);
-    m_strObjUrl.clear();
-    m_strObjMime.clear();
-    }
+    assert (pszMimeType); // if url specified, the mime type is mandatory
+    m_dwValidMemberFlags |= (VARMETA_OBJ_URL | VARMETA_OBJ_MIME);
+    m_strObjUrl = pszUrl;
+    m_strObjMime = pszMimeType;
   }
-
-
-//--------------------------------------------------------------------------
-// FormatAsJson()          serializes meta data to JSON stream object
-// --------------
-// Input: joDump = [in] object where to place the meta data to
-// Return: 
-
-void CVarRef::CMeta::FormatAsJson (CJsonStreamObject &joDump) const
+  else // shall clear
   {
+    assert (pszMimeType == NULL); // when clearing the object url, why there is a mime type??
+    m_dwValidMemberFlags &= ~(VARMETA_OBJ_URL | VARMETA_OBJ_MIME);
+    m_strObjUrl.clear ();
+    m_strObjMime.clear ();
+  }
+}
+
+
+
+
+/** sets the value table  
+@param rTable Reference to table to be copied to this object. It may fall out of scope after this method completed
+*/
+void CVarRef::CMeta::SetValueTable (const CValueTable& rTable)
+{
+  m_tblValToText = rTable;
+  m_dwValidMemberFlags |= VARMETA_VALUETABLE;
+}
+
+
+
+
+/** serializes meta data to JSON stream object
+@param joDump object where to place the meta data to
+*/
+void CVarRef::CMeta::FormatAsJson (CJsonStreamObject& joDump) const
+{
   struct
-    {
+  {
     const DWORD dwMask;
-    const char *pszFieldName;
-    const std::string *pString;
-    const double *pDouble;
-    const double *pDblArray;
+    const char* pszFieldName;
+    const std::string* pString;
+    const double* pDouble;
+    const double* pDblArray;
     const int nArrayCount;
-    const int *pInt;
-    } const seritable[]=
+    const int* pInt;
+  } const seritable[] =
   {  // dwMask             pszFieldNamepString                 pString          pDouble         pDblArray      nArrayCount             pInt
     { VARMETA_DISPNAME   , ABK_RSP_VARMETA_DISPNAME          , &m_strDispName,  NULL,           NULL,          0,                      NULL,             },
     { VARMETA_COMMENT    , ABK_RSP_VARMETA_COMMENT           , &m_strComment,   NULL,           NULL,          0,                      NULL,             },
@@ -113,40 +425,46 @@ void CVarRef::CMeta::FormatAsJson (CJsonStreamObject &joDump) const
     { VARMETA_RANGE      , ABK_RSP_VARMETA_RANGEMAX          , NULL,            &m_dRangeMax,   NULL,          0,                      NULL,             },
     { VARMETA_FACTOFFS   , ABK_RSP_VARMETA_FACTOR            , NULL,            &m_dFactor,     NULL,          0,                      NULL,             },
     { VARMETA_FACTOFFS   , ABK_RSP_VARMETA_OFFSET            , NULL,            &m_dOffset,     NULL,          0,                      NULL,             },
-    { VARMETA_THRESHOLDS , ABK_RSP_VARMETA_THRESHOLDS        , NULL,            NULL,           m_dThresholds, _countof(m_dThresholds),NULL,             },
+    { VARMETA_THRESHOLDS , ABK_RSP_VARMETA_THRESHOLDS        , NULL,            NULL,           m_dThresholds, _countof (m_dThresholds),NULL,             },
     { VARMETA_FRACTDIGITS, ABK_RSP_VARMETA_FRACTDIGITS       , NULL,            NULL,           NULL,          0,                      &m_nFractDigits   },
     { VARMETA_OBJ_URL    , ABK_RSP_VARMETA_OBJ_URL           , &m_strObjUrl,    NULL,           NULL,          0,                      NULL              },
     { VARMETA_OBJ_MIME   , ABK_RSP_VARMETA_OBJ_MIME          , &m_strObjMime,   NULL,           NULL,          0,                      NULL              },
   };
-  
-  // serialize the meta data
-  for(int nMember=0;nMember<_countof(seritable);++nMember)
+
+  // serialize the meta data by table
+  for (int nMember = 0; nMember < _countof (seritable); ++nMember)
+  {
+    if (seritable[nMember].dwMask & m_dwValidMemberFlags) // if the appropriate member is valid, serialize it. Otherwise do not place it into the JSON metadata
     {
-    if(seritable[nMember].dwMask & m_dwValidMemberFlags) // if the appropriate member is valid, serialize it. Otherwise do not place it into the JSON metadata
+      if (seritable[nMember].pString)
       {
-      if(seritable[nMember].pString)
-        {
-        joDump.WriteValue(seritable[nMember].pszFieldName,*seritable[nMember].pString);
-        }
-      else if(seritable[nMember].pDouble)
-        {
-        joDump.WriteValue(seritable[nMember].pszFieldName,*seritable[nMember].pDouble);
-        }
-      else if(seritable[nMember].pDblArray)
-        {
-        const int nArrayCount=seritable[nMember].nArrayCount;
-        const char *pszArrayName=seritable[nMember].pszFieldName;
-        CJsonStreamArray jaArray(&joDump,pszArrayName);
-        for(int nArrayMember=0;nArrayMember<nArrayCount;++nArrayMember)
-          jaArray.WriteValue(seritable[nMember].pDblArray[nArrayMember]);
-        }
-      else if(seritable[nMember].pInt)
-        {
-        joDump.WriteValue(seritable[nMember].pszFieldName,*seritable[nMember].pInt);
-        }
+        joDump.WriteValue (seritable[nMember].pszFieldName, *seritable[nMember].pString);
+      }
+      else if (seritable[nMember].pDouble)
+      {
+        joDump.WriteValue (seritable[nMember].pszFieldName, *seritable[nMember].pDouble);
+      }
+      else if (seritable[nMember].pDblArray)
+      {
+        const int nArrayCount = seritable[nMember].nArrayCount;
+        const char* pszArrayName = seritable[nMember].pszFieldName;
+        CJsonStreamArray jaArray (&joDump, pszArrayName);
+        for (int nArrayMember = 0; nArrayMember < nArrayCount; ++nArrayMember)
+          jaArray.WriteValue (seritable[nMember].pDblArray[nArrayMember]);
+      }
+      else if (seritable[nMember].pInt)
+      {
+        joDump.WriteValue (seritable[nMember].pszFieldName, *seritable[nMember].pInt);
       }
     }
   }
+
+  // serialize value table
+  if (m_dwValidMemberFlags & VARMETA_VALUETABLE)
+  {
+    m_tblValToText.FormatAsJson (joDump, ABK_RSP_VARMETA_TEXT);
+  }
+}
 
 
 

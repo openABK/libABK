@@ -233,6 +233,7 @@ void CMyVarRef::SetLocation (CMyFakeLogger *pLogger, bool bMailbox, int nIndex)
     rMetaData.SetFractDigits(pLoggerVar->nFractionalDigits);
     rMetaData.SetThresholds(pLoggerVar->dThresholds);
     rMetaData.SetTags(pLoggerVar->szTags);
+    rMetaData.SetValueTable (pLoggerVar->m_tblValToText);
     
     if(pLoggerVar->pszImageUrl)
       rMetaData.SetObject(pLoggerVar->pszImageUrl,"image/jpeg");

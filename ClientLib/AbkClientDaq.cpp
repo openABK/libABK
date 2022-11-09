@@ -172,51 +172,53 @@ void CAbkClientDaq::DeleteAllVars (void)
   }
 
 
-//--------------------------------------------------------------------------
-// Update()                updates the daq list at the server
-// --------
-// Input: -
-// Return: true on success, false on error
 
+
+/** updates the daq list at the server
+@return true on success, false on error
+*/
 bool CAbkClientDaq::Update (void)
+{
+  bool bSuccess = false;
+  if (m_pOwner)
   {
-  bool bSuccess=false;
-  if(m_pOwner)
-    {
     CJsonFormatter jfDaq;
-    jfDaq.WriteValue(ABK_RSP_DAQLIST_NAME,CT2A(m_strName,CP_UTF8)); // "Name": "DaqList1",
-    if(m_bCycleInvalid)
-      jfDaq.WriteValue(ABK_RSP_DAQLIST_CYCLE,m_nCycleMs); // "Cycle": 500,
-    if(m_bVarlistInvalid) // if variable list must be updated
+    jfDaq.WriteValue (ABK_RSP_DAQLIST_NAME, CT2A (m_strName, CP_UTF8)); // "Name": "DaqList1",
+    if (m_bCycleInvalid)
+      jfDaq.WriteValue (ABK_RSP_DAQLIST_CYCLE, m_nCycleMs); // "Cycle": 500,
+    if (m_bVarlistInvalid) // if variable list must be updated
+    {
+      jfDaq.WriteValue (ABK_RSP_DAQLIST_TEXTTRANSLATION, m_pOwner->TextTranslationByServer ()); // "TextTranslation": true,
+      CJsonStreamArray jaVars (&jfDaq, ABK_RSP_DAQLIST_DAQLIST); // "DaqList": [
+      if (const size_t nCount = m_vectVars.size ())
       {
-      CJsonStreamArray jaVars(&jfDaq,ABK_RSP_DAQLIST_DAQLIST); // "DaqList": [
-      if(const size_t nCount=m_vectVars.size())
+        CAbkClientVar** ppVars = &m_vectVars[0];
+        for (size_t nVar = 0; nVar < nCount; ++nVar, ++ppVars)
         {
-        CAbkClientVar **ppVars=&m_vectVars[0];
-        for(size_t nVar=0;nVar<nCount;++nVar,++ppVars)
-          {
-          CAbkClientVar *pVar=*ppVars;
-          LPCTSTR pszVarNameT=pVar->GetName();
-          jaVars.WriteValue(CT2A(pszVarNameT,CP_UTF8)); // "Var1",
-          }
-        }
-      } // array falls out of scope => "]"
-    jfDaq.Close(); // "}"
-    bSuccess=true;
-    if(!m_vectVars.empty()) // only non-empty daq lists are maintained at the server
-      {
-      CAbkClient::CClientPtrRef pClientAux(m_pOwner->m_pClientAux);
-      bSuccess&=NULL!=pClientAux->NavigatePut(m_strUrl,GetSessionId(),&jfDaq);
-      if(bSuccess)
-        {
-        m_nVarCountAtServer=m_vectVars.size();
-        m_bVarlistInvalid=false;
-        m_bCycleInvalid=false;
+          CAbkClientVar* pVar = *ppVars;
+          LPCTSTR pszVarNameT = pVar->GetName ();
+          jaVars.WriteValue (CT2A (pszVarNameT, CP_UTF8)); // "Var1",
         }
       }
+    } // array falls out of scope => "]"
+    jfDaq.Close (); // "}"
+    bSuccess = true;
+    if (!m_vectVars.empty ()) // only non-empty daq lists are maintained at the server
+    {
+      CAbkClient::CClientPtrRef pClientAux (m_pOwner->m_pClientAux);
+      bSuccess &= NULL != pClientAux->NavigatePut (m_strUrl, GetSessionId (), &jfDaq);
+      if (bSuccess)
+      {
+        m_nVarCountAtServer = m_vectVars.size ();
+        m_bVarlistInvalid = false;
+        m_bCycleInvalid = false;
+      }
     }
-  return bSuccess;
   }
+  return bSuccess;
+}
+
+
 
 
 //--------------------------------------------------------------------------

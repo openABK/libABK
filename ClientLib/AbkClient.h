@@ -215,10 +215,11 @@ namespace Abk
       CAbkMutex m_mutexDaq; // mutex to protect the daq items
       CAbkServerEvent *m_pNextEventData; // when event is received, it will be stored to this location. Will not be deleted on destruction!
       bool m_bSuppressLog; // true suppresses log file output
+      bool m_bTextTranslationByServer; // true requests the server to translate values in text, if applicable. false instructs the server to send non-translated values
 
     // construction/destruction/setup
     public:
-      CAbkClient (bool bSuppressLog = false);
+      CAbkClient (bool bSuppressLog = false, bool bTextTranslationByServer = true);
       virtual ~CAbkClient ();
       bool Create (LPCTSTR pszServerAddress, int nPort, CAbkServerEvent *pEventRxBuffer, LPCTSTR pszClientClass, LPCTSTR pszClientType, LPCTSTR pszClientSerial=NULL); // creates the client and initializes
 
@@ -287,6 +288,7 @@ namespace Abk
       bool SendAudioRecData (int nId, const void *pData, int nBitsPerSample, int nChannels, int nSamplesPerChannel); // sends audio data
       bool SendAudioRecFooter (int nId);
       bool SendAudioRecRejectEvent (int nId); // sends event that user rejected audio recording
+      bool TextTranslationByServer (void) const; // returns whether the server will be instructed to translate values into text representation
 
     // error log
     public:

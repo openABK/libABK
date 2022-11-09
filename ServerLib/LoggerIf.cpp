@@ -791,6 +791,7 @@ void CLoggerInterface::Handle_PostVarMeta (const HTTP_REQUEST &rRequest, HTTP_RE
     rResponse.Set(HTTP_STATUSCODE_BAD_REQUEST,strError); // error response
   else
     rResponse.Set(jfMeta);
+// cout << jfMeta.GetStream ()->str ().c_str () << "\n";
   }
 
 

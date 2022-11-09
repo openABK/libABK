@@ -265,7 +265,7 @@ CMyFakeLogger::CMyFakeLogger (int nVarCount, int nAniCycle)
 
 #if defined (TESTBENCH_ABKBUTTONS)
 #else
-  // Var #0 specialities
+  // Var #0 specialties
   sprintf(m_vars[0].szName,"Tirepressure"); // "Tire.p<r>essure"
   sprintf(m_vars[0].szDisplayName,"Tire-pressure");
   sprintf(m_vars[0].szUnit,"bar");
@@ -278,8 +278,12 @@ CMyFakeLogger::CMyFakeLogger (int nVarCount, int nAniCycle)
   m_vars[0].dThresholds[3]=28;
   m_vars[0].dThresholds[4]=40;
   m_vars[0].nFractionalDigits=2;
+  CVarRef::CMeta::CValueTable tblValToString;
+  m_vars[0].m_tblValToText.Add (22, 23, "Text at 22");
+  m_vars[0].m_tblValToText.Add (23, 24, "Text at 23");
+  m_vars[0].m_tblValToText.SetFallback ("fall-back 0");
 
-  // Var #4, #5 specialities
+  // Var #4, #5 specialties
   m_vars[4].pszImageUrl="abk/jpegs/Clip_480_5sec_6mbps_h264.jpg";
   strcpy(m_vars[4].szTags,"Video JPG");
   m_vars[5].pszImageUrl="abk/jpegs/Video2.jpg";

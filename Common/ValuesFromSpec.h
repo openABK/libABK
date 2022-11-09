@@ -120,7 +120,13 @@
   #define ABK_RSP_VARMETA_FRACTDIGITS       "FractionalDigits"  // number of fractional digits for numeric representation
   #define ABK_RSP_VARMETA_OBJ_URL           "ObjUrl" // url without host name/address where clients can download an object, e.g. an image
   #define ABK_RSP_VARMETA_OBJ_MIME          "ObjMime" // type of object, e.g. image/jpeg
-
+  #define ABK_RSP_VARMETA_TEXT              "Text"  // array with value-to-text items
+  #define ABK_RSP_VARMETA_TEXTFALLBACK      "TextFallback"  // fall-back when no item of the value-to-text table matches
+  #define ABK_RSP_VALTBL_VALUE              "Value" // value-to-text table: Value
+  #define ABK_RSP_VALTBL_TEXT               "Text"  // value-to-text table: Text
+#if defined (EXPERIMENTAL)
+  #define ABK_RSP_VALTBL_VALUE_TO           "To" // value-to-text table: Value upper range (excluded)
+#endif
 
 // daq lists for variables and mailboxes
 #define ABK_REQUESTURL_DAQLISTMEAS         "/abk/variables/daq_list"
@@ -128,6 +134,7 @@
 #define ABK_REQUESTURL_DAQLISTMAILBOX      "/abk/variables/mailbox_daq_list"
   #define ABK_RSP_DAQLIST_NAME              "Name"
   #define ABK_RSP_DAQLIST_CYCLE             "Cycle"
+  #define ABK_RSP_DAQLIST_TEXTTRANSLATION   "TextTranslation"
   #define ABK_RSP_DAQLIST_DAQLIST           "DaqList"
   #define ABK_DEL_DAQLIST_NAME              ABK_RSP_DAQLIST_NAME
 

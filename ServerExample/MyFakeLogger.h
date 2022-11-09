@@ -24,6 +24,7 @@
 #include "CrossPlatform.h"
 #include <map>
 #include <mmreg.h> // for WAVEFORMATEX
+#include "VarRef.h"
 
 #define FAKE_VARCOUNT_MAX 2000 // number of maximum variables in the fake logger
 //#define FAKE_CYCLE_MS 100 // fake animation cycle in ms
@@ -50,6 +51,7 @@ typedef struct tagFAKEVAR
   double dAvg;
   int nFractionalDigits; // desired number of fractional digits
   char *pszImageUrl; // !=NULL, the url to an image
+  Abk::CVarRef::CMeta::CValueTable m_tblValToText;
   CMyVarRef *pVarInterface; // pointer to the variable in the abk http interface
   } FAKEVAR;
 
