@@ -99,7 +99,7 @@ namespace Abk
         const char *NavigatePut (LPCTSTR pszPath, int nSessionId, CJsonFormatter *pPutData); // sends a PUT request
         const char *NavigatePut (LPCTSTR pszPath, int nSessionId, const char *pPutData, int nLen, LPCTSTR pszMimeType); // sends a PUT request
         const char *GetBodySave (void); // returns last response data, empty string on no data
-        int ObtainSessionId (LPCTSTR pszClientClass, LPCTSTR pszClientType, LPCTSTR pszClientSerial=NULL); // generates session at the server
+        int ObtainSessionId (LPCTSTR pszClientClass, LPCTSTR pszClientType, LPCTSTR pszClientSerial, LPCTSTR pszClientFwRev, LPCTSTR pszClientHwRev); // generates session at the server
         bool DeleteSession (int nSessionId); // deletes the actual session
         static bool DecodeDate (LPCTSTR pszDate, CTime *pResult); // decodes date into a CTime
         bool GetLastModified (LPCTSTR pszUrl, CTime *pGet); // returns the last modified date of a file by given url
@@ -202,6 +202,8 @@ namespace Abk
       CString m_strClientClass; // class string of client
       CString m_strClientType; // type string of client
       CString m_strClientSerial; // serial number string of client
+      CString m_strClientFwRev; // firmware revision string
+      CString m_strClientHwRev; // hardware revision string
       int m_nPort; // current used port
       int m_nSessionId; // id of the client session, -1 if no session could be created
       CClientPtr m_pClientAux; // auxiliary client for blocking non-long-polling actions
@@ -221,7 +223,7 @@ namespace Abk
     public:
       CAbkClient (bool bSuppressLog = false, bool bTextTranslationByServer = true);
       virtual ~CAbkClient ();
-      bool Create (LPCTSTR pszServerAddress, int nPort, CAbkServerEvent *pEventRxBuffer, LPCTSTR pszClientClass, LPCTSTR pszClientType, LPCTSTR pszClientSerial=NULL); // creates the client and initializes
+      bool Create (LPCTSTR pszServerAddress, int nPort, CAbkServerEvent *pEventRxBuffer, LPCTSTR pszClientClass, LPCTSTR pszClientType, LPCTSTR pszClientSerial, LPCTSTR pszClientFwRev=NULL, LPCTSTR pszClientHwRev=NULL); // creates the client and initializes
 
     // state and control
     public:

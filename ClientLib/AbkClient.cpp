@@ -156,11 +156,14 @@ CAbkClient::CAbkClient (bool bSuppressLog /*= false*/, bool bTextTranslationBySe
  If NULL, no long polling thread will be created
 @param pszClientClass class name of the client. If NULL or an empty string, no session will be obtained
 @param pszClientType type name of the client. If NULL or an empty string, no session will be obtained
-@param pszClientSerial serial number or id of the client. optional
+@param pszClientSerial serial number or id of the client
+@param pszClientFwRev firmware revision string. NULL if not known
+@param pszClientHwRev hardware revision string. NULL if not known
 @return true on success, false on error
 */
-bool CAbkClient::Create (LPCTSTR pszServerAddress, int nPort, CAbkServerEvent *pEventRxBuffer, LPCTSTR pszClientClass, LPCTSTR pszClientType, LPCTSTR pszClientSerial/*=NULL*/)
+bool CAbkClient::Create (LPCTSTR pszServerAddress, int nPort, CAbkServerEvent *pEventRxBuffer, LPCTSTR pszClientClass, LPCTSTR pszClientType, LPCTSTR pszClientSerial, LPCTSTR pszClientFwRev /*=NULL*/, LPCTSTR pszClientHwRev /*=NULL*/)
 {
+  ASSERT (pszClientSerial && pszClientSerial[0]); // the serial number is mandatory, since this device is identified when saving or loading client states!!
   bool bSuccess = false;
   TidyUp (false);
   m_strServerAddress = pszServerAddress;
@@ -177,6 +180,14 @@ bool CAbkClient::Create (LPCTSTR pszServerAddress, int nPort, CAbkServerEvent *p
     m_strClientSerial = pszClientSerial;
   else
     m_strClientSerial.Empty ();
+  if (pszClientFwRev)
+    m_strClientFwRev = pszClientFwRev;
+  else
+    m_strClientFwRev.Empty ();
+  if (pszClientHwRev)
+    m_strClientHwRev = pszClientHwRev;
+  else
+    m_strClientHwRev.Empty ();
 
   m_pNextEventData = pEventRxBuffer; // events will be stored here. After TidyUp() the long-polling thread is stopped and it is safe to change this pointer
 
@@ -195,7 +206,7 @@ bool CAbkClient::Create (LPCTSTR pszServerAddress, int nPort, CAbkServerEvent *p
     // get a session id
     if (!m_strClientClass.IsEmpty () && !m_strClientType.IsEmpty ())
     {
-      m_nSessionId = pClientAux->ObtainSessionId (m_strClientClass, m_strClientType, m_strClientSerial);
+      m_nSessionId = pClientAux->ObtainSessionId (m_strClientClass, m_strClientType, m_strClientSerial, m_strClientFwRev, m_strClientHwRev);
       if (m_nSessionId >= 0)
       {
         // start the long-polling thread
@@ -326,7 +337,7 @@ void CAbkClient::SetServerAddr (LPCTSTR pszServerAddress, int nPort)
   {
   if((m_nPort!=nPort)||(m_strServerAddress.Compare(pszServerAddress))) // if changes in address or port
     {
-    Create(pszServerAddress,nPort,m_pNextEventData,m_strClientClass,m_strClientType,m_strClientSerial);
+    Create (pszServerAddress, nPort, m_pNextEventData, m_strClientClass, m_strClientType, m_strClientSerial, m_strClientFwRev, m_strClientHwRev);
     }
   }
 
@@ -2389,15 +2400,17 @@ const char *CAbkClient::CBaseAbstraction::GetBodySave (void)
   }
 
 
-//--------------------------------------------------------------------------
-// ObtainSessionId()       generates session at the server
-// -----------------
-// Input: strClientClass = class name of the client
-//        strClientType = type name of the client
-//        strClientSerial = serial number or id of the client. optional
-// Return: session id, -1 on error
 
-int CAbkClient::CBaseAbstraction::ObtainSessionId (LPCTSTR pszClientClass, LPCTSTR pszClientType, LPCTSTR pszClientSerial/*=NULL*/)
+
+/**   
+@param pszClientClass class name of the client
+@param pszClientType type name of the client
+@param pszClientSerial serial number or id of the client. If an empty string, the field will not be encoded
+@param pszClientFwRev Firmware revision of the client. If an empty string, the field will not be encoded
+@param pszClientHwRev Hardware revision of the client. If an empty string, the field will not be encoded
+@return session id, -1 on error
+*/
+int CAbkClient::CBaseAbstraction::ObtainSessionId (LPCTSTR pszClientClass, LPCTSTR pszClientType, LPCTSTR pszClientSerial, LPCTSTR pszClientFwRev, LPCTSTR pszClientHwRev)
   {
   int nSessionId=-1; // result
   assert(pszClientClass);
@@ -2405,8 +2418,12 @@ int CAbkClient::CBaseAbstraction::ObtainSessionId (LPCTSTR pszClientClass, LPCTS
   CJsonFormatter jfPost;
   jfPost.WriteValue(ABK_REQ_SESSIONID_CLASS,CT2A(pszClientClass,CP_UTF8));
   jfPost.WriteValue(ABK_REQ_SESSIONID_TYPE,CT2A(pszClientType,CP_UTF8));
-  if(pszClientSerial)
+  if (pszClientSerial && pszClientSerial[0])
     jfPost.WriteValue(ABK_REQ_SESSIONID_SERIAL,CT2A(pszClientSerial,CP_UTF8));
+  if (pszClientFwRev && pszClientFwRev[0])
+    jfPost.WriteValue(ABK_REQ_SESSIONID_FWVERSION,CT2A(pszClientFwRev,CP_UTF8));
+  if (pszClientHwRev && pszClientHwRev[0])
+    jfPost.WriteValue(ABK_REQ_SESSIONID_HWVERSION,CT2A(pszClientHwRev,CP_UTF8));
 
   const char *pReturn=NavigatePost(_T(ABK_REQUESTURL_SESSIONID),-1,&jfPost);
   if(!pReturn)
@@ -2423,6 +2440,8 @@ int CAbkClient::CBaseAbstraction::ObtainSessionId (LPCTSTR pszClientClass, LPCTS
     }
   return nSessionId;
   }
+
+
 
 
 //--------------------------------------------------------------------------

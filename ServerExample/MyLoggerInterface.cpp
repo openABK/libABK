@@ -763,12 +763,12 @@ void CMyLoggerInterface::PrintAllConnectedClients (void)
 //        strSerial = serial number of the client, empty if not specified
 //        strFwVersion = firmware version of the client, empty if not specified
 //        strHwVersion = hardware version of the client, empty if not specified
-//        nSessionId = id of the new sesson
+//        nSessionId = id of the new session
 // Return: -
 
 /*virtual*/ void CMyLoggerInterface::OnClientConnected (const char *pszClass, const char *pszType, const char *pszSerial, const char *pszFwVersion, const char *pszHwVersion, int nSessionId)
   {
-  cout<<"A client connected ("<<pszClass<<", "<<pszType<<", S/N: " << pszSerial << "). Session Id: "<<nSessionId<<"."<<endl;
+  cout << "A client connected (" << pszClass << ", " << pszType << ", S/N: " << pszSerial << ", HW: " << pszHwVersion << ", FW: " << pszFwVersion << "). Session Id : " << nSessionId << "." << endl;
   // note: you can store the information to a log file or a data base instead
   }
 

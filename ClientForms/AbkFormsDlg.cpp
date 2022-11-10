@@ -32,15 +32,113 @@
 #include "AbkClient.h"
 #include "AbkServerEvent.h"
 #include "DlgAbkForm.h"
+#include "C:\Source\Repos\abk\ClientExample\MyClient.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
 
+
+
+
+/** returns MAC address of the first Ethernet adapter on enumeration  
+@return MAX address in the notation of xx-xx-xx-xx-xx-xx
+*/
+CString GetMacAddress (void)
+{
+  static CString strResult;
+  if (!strResult.IsEmpty ())
+    return strResult;
+
+#ifdef WINCE
+  IP_ADAPTER_INFO info;
+  memset (&info, 0, sizeof (info));
+  IP_ADAPTER_INFO* pInfo = &info;
+  ULONG ulSize = sizeof (IP_ADAPTER_INFO);
+  DWORD dwResult = GetAdaptersInfo (&info, &ulSize);
+  if (dwResult == ERROR_BUFFER_OVERFLOW) // if not sufficient space for adapter info
+  {
+    pInfo = reinterpret_cast<IP_ADAPTER_INFO*>(new BYTE[ulSize]);
+    ASSERT (pInfo);
+    memset (pInfo, 0, ulSize);
+    dwResult = GetAdaptersInfo (pInfo, &ulSize);
+  }
+  if (dwResult == 0) // if successfully
+  {
+    unsigned int nSection;
+    LPCTSTR pszFormat = _T ("%02x");
+    for (nSection = 0; nSection < pInfo->AddressLength; nSection++)
+    {
+      strResult.AppendFormat (strFormat, pInfo->Address[nSection]);
+      strFormat = _T ("-%02x");
+    }
+  }
+  else
+    strResult = _T ("");
+  if (pInfo != &info)
+    delete pInfo;
+  return strResult;
+#else
+  TCHAR strBuffer[20];
+  // unsigned char MACData[6];
+  UUID uuid;
+  UuidCreateSequential (&uuid);    // Ask OS to create UUID
+  int nCol = 0;
+  for (int i = 0; i < 6; i++)  // Bytes 2 through 7 inclusive are MAC address
+  {
+    int nWritten = _stprintf_s (strBuffer + nCol, sizeof (strBuffer) / sizeof (TCHAR) - nCol, _T ("%02X"), (int)uuid.Data4[i + 2]);
+    if (nWritten < 0)
+      return strResult;
+    nCol += nWritten;
+    if (i < 5)
+    {
+      strBuffer[nCol++] = '-';
+      strBuffer[nCol] = '\0';
+    }
+  }
+  strResult = strBuffer;
+  return strResult;
+#endif
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #define MESSAGE_FORM_OPEN   (WM_USER+1232)
 #define MESSAGE_FORM_CLOSE  (WM_USER+1233)
 
+
+
+
+
+
+
+
+
+
+
 using namespace Abk;
+
+
+
+
+
+
+
+
+
 
 // CAboutDlg dialog used for App About
 
@@ -186,7 +284,7 @@ BOOL CAbkFormsDlg::OnInitDialog()
     CString strServerAddress=CA2T(serverUnique.m_strAddress.c_str());
     m_strStatus.Format(_T("Server %s:%d found. Please wait until server requests to open a form!"),(LPCTSTR)strServerAddress,serverUnique.m_nPortHttp);
 
-    m_client.Create(strServerAddress,serverUnique.m_nPortHttp,&m_client.m_bufEvent,_T("Display"),_T("FormDemoWithMFC"));
+    m_client.Create(strServerAddress,serverUnique.m_nPortHttp,&m_client.m_bufEvent,_T("Display"),_T("FormDemoWithMFC"), GetMacAddress ());
 
     }
   else

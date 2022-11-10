@@ -67,7 +67,7 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>..\ClientLib\$(PlatformName)\$(Configuration);..\..\mfc-tools\$(PlatformName)\$(Configuration)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>AbkClientLib.lib;MfcToolsLib.lib</AdditionalDependencies>
+      <AdditionalDependencies>AbkClientLib.lib;MfcToolsLib.lib;comsupp.lib</AdditionalDependencies>
       <AdditionalOptions>/ignore:4254 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <Midl>
@@ -99,7 +99,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalLibraryDirectories>..\ClientLib\$(PlatformName)\$(Configuration);..\..\mfc-tools\$(PlatformName)\$(Configuration)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>AbkClientLib.lib;MfcToolsLib.lib</AdditionalDependencies>
+      <AdditionalDependencies>AbkClientLib.lib;MfcToolsLib.lib;comsupp.lib</AdditionalDependencies>
       <AdditionalOptions>/ignore:4254 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <Midl>
