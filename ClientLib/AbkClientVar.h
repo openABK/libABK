@@ -47,6 +47,7 @@ namespace Abk
         double dRangeLower; // lower end of range, included
         double dRangeUpper; // upper end of range, non-included
         CString strText; // text output if this entity matches a received value
+        bool bTextValid; // false if the text is not valid
         VALUE_TO_TEXT ();
         bool ExtractFromJson (CJsonParser& jpSource); // extracts table entity from JSON parser
       };

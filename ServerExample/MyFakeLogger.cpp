@@ -277,7 +277,7 @@ CMyFakeLogger::CMyFakeLogger (int nVarCount, int nAniCycle)
   m_vars[0].dThresholds[2]=25;
   m_vars[0].dThresholds[3]=28;
   m_vars[0].dThresholds[4]=40;
-  m_vars[0].nFractionalDigits=2;
+  m_vars[0].nFractionalDigits=3;
   CVarRef::CMeta::CValueTable tblValToString;
   m_vars[0].m_tblValToText.Add (22, 23, "Text at 22");
   m_vars[0].m_tblValToText.Add (23, 24, "Text at 23");

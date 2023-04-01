@@ -49,6 +49,7 @@ namespace Abk
   {
     dRangeLower = 0.;
     dRangeUpper = 0.;
+    bTextValid = false;
   }
 
 
@@ -66,7 +67,7 @@ namespace Abk
     double dRangeLowerTemp = 0.;
     bool bRangeUpperSuccess = false;
     double dRangeUpperTemp = 0.;
-    bool bTextSuccess = false;
+    bool bTextValid = false;
     std::string strTextTemp;
     for (++jpSource; !jpSource.IsDone (); ++jpSource)
     {
@@ -74,8 +75,8 @@ namespace Abk
 #if defined (ABK_RSP_VALTBL_VALUE_TO)
       bRangeUpperSuccess |= jpSource.ExtractValue (ABK_RSP_VALTBL_VALUE_TO, &dRangeUpperTemp);
 #endif
-      bTextSuccess |= jpSource.ExtractValue (ABK_RSP_VALTBL_TEXT, &strTextTemp);
-      if (bRangeLowerSuccess && bTextSuccess)
+      bTextValid |= jpSource.ExtractValue (ABK_RSP_VALTBL_TEXT, &strTextTemp);
+      if (bRangeLowerSuccess && bTextValid)
       {
         dRangeLower = dRangeLowerTemp;
         dRangeUpper = nextafter (dRangeLower, dRangeLower + 1); // since we want to get a range, we build the smallest range from dRangeLower
@@ -282,6 +283,7 @@ bool CAbkClientMeta::HasThresholds (void) const
 bool CAbkClientMeta::ExtractFromJson (CJsonParser& jpMeta)
 {
   bool bExtracted = false;
+  bool bTextFallbackExtracted = false;
   std::string strName;
   std::string strDispName;
   std::string strComment;
@@ -306,7 +308,7 @@ bool CAbkClientMeta::ExtractFromJson (CJsonParser& jpMeta)
     bExtracted |= jpMeta.ExtractValue (ABK_RSP_VARMETA_FRACTDIGITS, &m_nFractionalDigits);
     bExtracted |= jpMeta.ExtractValue (ABK_RSP_VARMETA_OBJ_URL, &strObjUrl);
     bExtracted |= jpMeta.ExtractValue (ABK_RSP_VARMETA_OBJ_MIME, &strObjMime);
-    bExtracted |= jpMeta.ExtractValue (ABK_RSP_VARMETA_TEXTFALLBACK, &strTextFallback);
+    bTextFallbackExtracted |= jpMeta.ExtractValue (ABK_RSP_VARMETA_TEXTFALLBACK, &strTextFallback);
     
     if (jpMeta.TestArray (ABK_RSP_VARMETA_THRESHOLDS)) // is there "Thresholds": [
     {
@@ -355,7 +357,11 @@ bool CAbkClientMeta::ExtractFromJson (CJsonParser& jpMeta)
   m_strTags = CA2T (strTags.c_str (), CP_UTF8);
   m_strObjUrl = CA2T (strObjUrl.c_str (), CP_UTF8);
   m_strObjMime = CA2T (strObjMime.c_str (), CP_UTF8);
-  m_tblValToText[-1].strText = CA2T (strTextFallback.c_str (), CP_UTF8);
+  if (bTextFallbackExtracted)
+  {
+    m_tblValToText[-1].strText = CA2T(strTextFallback.c_str(), CP_UTF8);
+    m_tblValToText[-1].bTextValid = true;
+  }
   if (m_strDispName.IsEmpty ()) // use name for the display name, if it was not provided or invalidly provided as empty string
     m_strDispName = m_strName;
   if ((!bExtracted) || (jpMeta.IsError ()))
