@@ -269,7 +269,7 @@ CMyFakeLogger::CMyFakeLogger (int nVarCount, int nAniCycle)
   sprintf(m_vars[0].szName,"Tirepressure"); // "Tire.p<r>essure"
   sprintf(m_vars[0].szDisplayName,"Tire-pressure");
   sprintf(m_vars[0].szUnit,"bar");
-  sprintf(m_vars[0].szComment,"manually generated variable");
+  sprintf(m_vars[0].szComment,"{en}manually generated variable{de}manuell erstellte Variable");
   m_vars[0].dFactor=0.01;
   m_vars[0].dOffset=1.8;
   m_vars[0].dThresholds[0]=15;
@@ -282,6 +282,9 @@ CMyFakeLogger::CMyFakeLogger (int nVarCount, int nAniCycle)
   m_vars[0].m_tblValToText.Add (22, 23, "Text at 22");
   m_vars[0].m_tblValToText.Add (23, 24, "Text at 23");
   m_vars[0].m_tblValToText.SetFallback ("fall-back 0");
+
+  // Var #3 specialties
+  // m_vars[3].nFractionalDigits = 4;
 
   // Var #4, #5 specialties
   m_vars[4].pszImageUrl="abk/jpegs/Clip_480_5sec_6mbps_h264.jpg";

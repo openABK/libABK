@@ -70,6 +70,9 @@
       <AdditionalDependencies>AbkServerLib.lib;HttpServerLib.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>..\ServerLib\$(PlatformName)\$(Configuration);..\HttpServerLib\$(PlatformName)\$(Configuration)</AdditionalLibraryDirectories>
       <AdditionalOptions>/ignore:4254 %(AdditionalOptions)</AdditionalOptions>
+      <StackCommitSize>
+      </StackCommitSize>
+      <StackReserveSize>4194304</StackReserveSize>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -92,6 +95,9 @@
       <AdditionalDependencies>AbkServerLib.lib;HttpServerLib.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>..\ServerLib\$(PlatformName)\$(Configuration);..\HttpServerLib\$(PlatformName)\$(Configuration)</AdditionalLibraryDirectories>
       <AdditionalOptions>/ignore:4254 %(AdditionalOptions)</AdditionalOptions>
+      <StackCommitSize>
+      </StackCommitSize>
+      <StackReserveSize>4194304</StackReserveSize>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>

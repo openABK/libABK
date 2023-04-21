@@ -416,29 +416,6 @@ void CAbkClientMeta::ApplyFactorAndOffset (void)
 
 
 
-//--------------------------------------------------------------------------
-// CAbkClientVar()         Constructor of CAbkClientVar
-// ---------------
-// Input: pDaq = daq the variable belongs to
-// Return: 
-
-CAbkClientVar::CAbkClientVar (CAbkClientDaq *pDaq)
-  {
-  m_pDaq=pDaq;
-  }
-
-
-//--------------------------------------------------------------------------
-// ~CAbkClientVar()        Destructor of CAbkClientVar
-// ----------------
-// Input: -
-// Return: 
-
-/*virtual*/ CAbkClientVar::~CAbkClientVar ()
-  {
-  }
-
-
 
 }// namespace
 

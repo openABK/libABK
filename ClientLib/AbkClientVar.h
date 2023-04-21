@@ -128,29 +128,5 @@ namespace Abk
 
 
 
-  class CAbkClientVar
-    {
-    // data members
-    protected:
-      CAbkClientDaq *m_pDaq; // owning daq
-
-    // construction/destruction/setup
-    public:
-      CAbkClientVar (CAbkClientDaq *pDaq);
-      virtual ~CAbkClientVar ();
-
-    // methods and properties
-    public:
-
-    // overrideables
-    public:
-      virtual LPCTSTR GetName (void) const=0; // returns the name of the variable
-      virtual void OnValueFromServer (const CJsonParserAtl *pSource)=0; // called when data arrived from server
-      virtual void OnMinAvgMaxFromServer (CJsonParserAtl *pSource)=0; // called when min, avg, max arrived from server
-    
-    // implementation
-    protected:
-
-    };
 
   } // namespace

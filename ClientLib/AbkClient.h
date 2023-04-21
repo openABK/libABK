@@ -53,7 +53,6 @@ namespace Abk
   {
 
   class CAbkClientMeta;
-  class CAbkClientVar;
   class CAbkClient;
   class CAbkClientDaq;
   class CAbkServerEvent;
@@ -312,7 +311,6 @@ namespace Abk
       bool AddDaq (CAbkClientDaq *pAdd); // adds a daq list
       bool DeleteDaq (LPCTSTR pszDaqName); // deletes a daq list
       bool DeleteDaq (CAbkClientDaq *pDelete); // deletes a daq list
-      bool SetDaqCycle (LPCTSTR pszDaqName, int nCycle); // sets the cycle for an existent DAQ list
       CAbkClientDaq *FindDaq (LPCTSTR pszDaqName); // searches for a DAQ
 
     // implementation
