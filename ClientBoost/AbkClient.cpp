@@ -508,6 +508,7 @@ bool CAbkClient::CBaseAbstraction::NavigatePut(LPCTSTR pszPath, int nSessionId, 
 			}
 			catch (AbkNetworkException &e)
 			{
+        boost::ignore_unused(e);
 				LogErr() << "Failed to reconnect" << std::endl;
 			}
 		}
@@ -1034,7 +1035,7 @@ bool CAbkClient::GetCurrentServerTime(time_t *pGet)
 	@param pGet
 		List receiving the available mailbox names
 */
-bool CAbkClient::GetMailboxList(std::list<CString> *pGet)
+bool CAbkClient::GetMailboxList(std::vector<CString> *pGet)
 {
 	CClientPtrRef pClientAux(m_pClientAux);
 	assert(pClientAux.IsValid());
@@ -1045,25 +1046,25 @@ bool CAbkClient::GetMailboxList(std::list<CString> *pGet)
 
 /** Requests metadata of a variable
 
-	@param lstVarNames
+	@param vectVarNames
 		List with mailbox names to retrieve metadata for
 	@param pGet
 		Pointer to list to store metadata in
 	@return
 		true on success, false on error
 */
-bool CAbkClient::GetMailboxMeta(const std::list<LPCTSTR>& lstMailboxNames, std::list<CAbkClientMeta>* pGet)
+bool CAbkClient::GetMailboxMeta(const std::vector<LPCTSTR>& vectMailboxNames, std::vector<CAbkClientMeta>* pGet)
 {
 	CClientPtrRef pClientAux(m_pClientAux);
 	assert(pClientAux.IsValid());
 	if (!pClientAux.IsValid())
 		return false;
-	return pClientAux->GetVarOrMailboxMeta(lstMailboxNames, pGet, true);
+	return pClientAux->GetVarOrMailboxMeta(vectMailboxNames, pGet, true);
 }
 
 /** Requests metadata of a mailbox
 
-	@param lstVarNames
+	@param vectVarNames
 		List with mailbox names to retrieve metadata for
 	@param pGet
 		Pointer to element to store metadata in
@@ -1072,33 +1073,33 @@ bool CAbkClient::GetMailboxMeta(const std::list<LPCTSTR>& lstMailboxNames, std::
 */
 bool CAbkClient::GetMailboxMeta(LPCTSTR pszMailboxName, CAbkClientMeta *pGet)
 {
-	std::list<LPCTSTR> lstVarNames;
-	std::list<CAbkClientMeta> lstMeta;
-	lstVarNames.push_back(pszMailboxName); // compose a list with one entity
-	bool bSuccess = GetMailboxMeta(lstVarNames, &lstMeta); // request the meta data
-	assert(lstMeta.size() == 1);
+	std::vector<LPCTSTR> vectVarNames;
+	std::vector<CAbkClientMeta> vectMeta;
+	vectVarNames.push_back(pszMailboxName); // compose a list with one entity
+	bool bSuccess = GetMailboxMeta(vectVarNames, &vectMeta); // request the meta data
+	assert(vectMeta.size() == 1);
 	if (bSuccess)
-		*pGet = *lstMeta.begin();
+		*pGet = *vectMeta.begin();
 	return bSuccess;
 }
 
 
 /** Requests metadata of a variable
 
-	@param lstVarNames
+	@param vectVarNames
 		List with variable names
 	@param pGet
 		Pointer to return the meta
 	@return
 		true on success, false on error
 */
-bool CAbkClient::GetVarMeta(const std::list<LPCTSTR> &lstVarNames, std::list<CAbkClientMeta> *pGet)
+bool CAbkClient::GetVarMeta(const std::vector<LPCTSTR> &vectVarNames, std::vector<CAbkClientMeta> *pGet)
 {
 	bool bSuccess = false;
 	CClientPtrRef pClientAux(m_pClientAux);
 	assert(pClientAux.IsValid());
 	if (pClientAux.IsValid())
-		bSuccess = pClientAux->GetVarOrMailboxMeta(lstVarNames, pGet, false);
+		bSuccess = pClientAux->GetVarOrMailboxMeta(vectVarNames, pGet, false);
 	return bSuccess;
 }
 
@@ -1114,13 +1115,13 @@ bool CAbkClient::GetVarMeta(const std::list<LPCTSTR> &lstVarNames, std::list<CAb
 */
 bool CAbkClient::GetVarMeta(LPCTSTR pszVarName, CAbkClientMeta *pGet)
 {
-	std::list<LPCTSTR> lstVarNames;
-	std::list<CAbkClientMeta> lstMeta;
-	lstVarNames.push_back(pszVarName); // compose a list with one entity
-	bool bSuccess = GetVarMeta(lstVarNames, &lstMeta); // request the meta data
-	assert(lstMeta.size() == 1);
+	std::vector<LPCTSTR> vectVarNames;
+	std::vector<CAbkClientMeta> vectMeta;
+	vectVarNames.push_back(pszVarName); // compose a list with one entity
+	bool bSuccess = GetVarMeta(vectVarNames, &vectMeta); // request the meta data
+	assert(vectMeta.size() == 1);
 	if (bSuccess)
-		*pGet = *lstMeta.begin();
+		*pGet = *vectMeta.begin();
 	return bSuccess;
 }
 
@@ -1129,11 +1130,11 @@ bool CAbkClient::GetVarMeta(LPCTSTR pszVarName, CAbkClientMeta *pGet)
 
 	@param pszFormName
 		Name of form to be sent
-	@param lstSend
+	@param vectSend
 		List of elements to be sent.
 		Only the m_varValue with the corresponding names are set
 */
-bool CAbkClient::SendForm(LPCTSTR pszFormName, const std::list<CFormElement>& lstSend)
+bool CAbkClient::SendForm(LPCTSTR pszFormName, const std::vector<CFormElement>& vectSend)
 {
 	ASSERT(pszFormName);
 	// assert(m_pClientAux);
@@ -1146,8 +1147,8 @@ bool CAbkClient::SendForm(LPCTSTR pszFormName, const std::list<CFormElement>& ls
 	}
 	bool bSuccess = true;
 	CJsonFormatter jfForm;  // {
-	std::list<CFormElement>::const_iterator iterElement;
-	for (iterElement = lstSend.begin(); iterElement != lstSend.end(); ++iterElement)
+	std::vector<CFormElement>::const_iterator iterElement;
+	for (iterElement = vectSend.begin(); iterElement != vectSend.end(); ++iterElement)
 	{
 		const CFormElement *pElement = &*iterElement;
 		switch (pElement->m_varValue.vt)
@@ -1610,7 +1611,7 @@ bool CAbkClient::SetClientState(const char * pConfigString, LPCTSTR pszFileExten
 }
 
 
-bool CAbkClient::CBaseAbstraction::GetVarOrMailboxList(LPCTSTR pszPath, std::list<CString> *pGet)
+bool CAbkClient::CBaseAbstraction::GetVarOrMailboxList(LPCTSTR pszPath, std::vector<CString> *pGet)
 {
 	bool bSuccess = false;
 	std::string response = NavigateGet(pszPath, -1);
@@ -1635,7 +1636,7 @@ bool CAbkClient::CBaseAbstraction::GetVarOrMailboxList(LPCTSTR pszPath, std::lis
 	return bSuccess;
 }
 
-bool CAbkClient::CBaseAbstraction::GetVarOrMailboxMeta(const std::list<LPCTSTR>& lstVarNames, std::list<CAbkClientMeta>* pGet, bool bMailboxFlag)
+bool CAbkClient::CBaseAbstraction::GetVarOrMailboxMeta(const std::vector<LPCTSTR>& vectVarNames, std::vector<CAbkClientMeta>* pGet, bool bMailboxFlag)
 {
 	bool bSuccess = false;
 	LPCTSTR pszPath;
@@ -1646,8 +1647,8 @@ bool CAbkClient::CBaseAbstraction::GetVarOrMailboxMeta(const std::list<LPCTSTR>&
 	CJsonFormatter jfRequest;
 	{
 		CJsonStreamArray jaVarList(&jfRequest, ABK_REQ_VARMETA_VARLIST); // "VarList": [
-		std::list<LPCTSTR>::const_iterator iterVarNames;
-		for (iterVarNames = lstVarNames.begin(); iterVarNames != lstVarNames.end(); ++iterVarNames)
+		std::vector<LPCTSTR>::const_iterator iterVarNames;
+		for (iterVarNames = vectVarNames.begin(); iterVarNames != vectVarNames.end(); ++iterVarNames)
 		{
 			LPCTSTR pszVarName = *iterVarNames;
 			jaVarList.WriteValue(CT2A(pszVarName, CP_UTF8)); // "Var1",
@@ -1682,7 +1683,7 @@ bool CAbkClient::CBaseAbstraction::GetVarOrMailboxMeta(const std::list<LPCTSTR>&
 	return bSuccess;
 }
 
-bool CAbkClient::GetVarList(std::list<CString> *pGet)
+bool CAbkClient::GetVarList(std::vector<CString> *pGet)
 {
 	CClientPtrRef pClientAux(m_pClientAux);
 	assert(pClientAux.IsValid());
@@ -1691,13 +1692,13 @@ bool CAbkClient::GetVarList(std::list<CString> *pGet)
 	return pClientAux->GetVarOrMailboxList(_T(ABK_REQUESTURL_VARLIST), pGet);
 }
 
-bool CAbkClient::GetClientFirmwareInfo(std::list<CFirmwareInfo>& lstGet, LPCTSTR pszClientType)
+bool CAbkClient::GetClientFirmwareInfo(std::vector<CFirmwareInfo>& vectGet, LPCTSTR pszClientType)
 {
 	CClientPtrRef pClientAux(m_pClientAux);
 	if (!pClientAux.IsValid())
 		return false;
 	bool bSuccess = true;
-	lstGet.clear();
+	vectGet.clear();
 
 	// compose and send request
 	if (!pszClientType) // if no client type name specified, use the stored one
@@ -1731,7 +1732,7 @@ bool CAbkClient::GetClientFirmwareInfo(std::list<CFirmwareInfo>& lstGet, LPCTSTR
 				bAnyVersionOmitted = true;
 			if (bUrlDecoded && bMd5Decoded) // at least the server has to fill in these fields
 			{
-				lstGet.push_back(fwi);
+				vectGet.push_back(fwi);
 			}
 			else
 			{
@@ -1744,13 +1745,13 @@ bool CAbkClient::GetClientFirmwareInfo(std::list<CFirmwareInfo>& lstGet, LPCTSTR
 			jpResp.SkipItem();
 		}
 	}
-	if (bAnyVersionOmitted && lstGet.size() > 1) // if more than one entity returned and a version field was omitted
+	if (bAnyVersionOmitted && vectGet.size() > 1) // if more than one entity returned and a version field was omitted
 	{
 		AddLog(LOGSEVERITY_ERROR, _T("GetClientFwInfo: Firmware info response: Version field is missing while returning multiple entities"));
 		bSuccess = FALSE;
 	}
 	if (!bSuccess)
-		lstGet.clear(); // discard decoded content if an error occured
+		vectGet.clear(); // discard decoded content if an error occured
 	return bSuccess;
 }
 
@@ -1914,7 +1915,7 @@ bool CAbkClient::GetClientConfigInfo(CString &strUrl, CString &strMd5, LPCTSTR p
 	return true;
 }
 
-bool CAbkClient::GetForm(LPCTSTR pszFormName, std::list<CFormElement>& lstGet, CString & strCaptionGet, int & nPersitenceMs)
+bool CAbkClient::GetForm(LPCTSTR pszFormName, std::vector<CFormElement>& vectGet, CString & strCaptionGet, int & nPersitenceMs)
 {
 	CClientPtrRef pClientAux(m_pClientAux);
 	assert(pClientAux.IsValid());
@@ -1939,7 +1940,7 @@ bool CAbkClient::GetForm(LPCTSTR pszFormName, std::list<CFormElement>& lstGet, C
 				CFormElement elGet;
 				if (!elGet.DecodeJson(jpForm)) // decode the element
 					return false; // error in element
-				lstGet.push_back(elGet);
+				vectGet.push_back(elGet);
 			}
 		}
 		jpForm.SkipItem();
@@ -1995,7 +1996,7 @@ bool CAbkClient::CFormElement::DecodeJson(CJsonParserAtl &jpElement)
 	bool bTypeSent = false;
 	bool bValueSent = false;
 	CString strType;
-	m_lstOptions.clear(); // empty the option list
+	m_vectOptions.clear(); // empty the option list
 	m_nMaxLen = 0;
 	m_nFlags = 0;
 	m_nType = TYPE_INVALID;
@@ -2013,7 +2014,7 @@ bool CAbkClient::CFormElement::DecodeJson(CJsonParserAtl &jpElement)
 			for (++jpElement; !jpElement.IsDone(); ++jpElement) // each option
 			{
 				jpElement.ExtractValueAtl(strOption);
-				m_lstOptions.push_back(strOption);
+				m_vectOptions.push_back(strOption);
 			}
 		}
 

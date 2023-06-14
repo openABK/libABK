@@ -133,8 +133,8 @@ namespace Abk {
 				return NavigatePut(pszPath, -1, &jfRequest);
 			}
 
-			bool GetVarOrMailboxList(LPCTSTR pszPath, std::list<CString> *pGet);
-			bool GetVarOrMailboxMeta(const std::list<LPCTSTR> &lstVarNames, std::list<CAbkClientMeta> *pGet, bool bMailboxFlag);
+			bool GetVarOrMailboxList(LPCTSTR pszPath, std::vector<CString> *pGet);
+			bool GetVarOrMailboxMeta(const std::vector<LPCTSTR> &vectVarNames, std::vector<CAbkClientMeta> *pGet, bool bMailboxFlag);
 			int ObtainSessionId(LPCTSTR pszClientClass, LPCTSTR pszClientType, LPCTSTR pszClientSerial /*=NULL*/);
 
 
@@ -177,7 +177,7 @@ namespace Abk {
 			TYPE m_nType; // type of form element
 			CString m_strName; // name of the entity
 			CString m_strCaption; // caption of the entity
-			std::list<CString> m_lstOptions; // options for list/combo
+			std::vector<CString> m_vectOptions; // options for list/combo
 			_variant_t m_varValue; // value of the element
 			int m_nMaxLen; // maximum length for edit type. 0 if no limitation desired
 			UINT m_nFlags; // attribute-flags
@@ -317,7 +317,7 @@ namespace Abk {
 		bool SendEvent(const char * pszEventType, CJsonFormatter & jfString, double dParam1, double dParam2, bool bPrivate);
 
 		bool GetClientConfigInfo(CString &strUrl, CString &strMd5, LPCTSTR pszClientType/*=NULL*/);
-		bool GetForm(LPCTSTR pszFormName, std::list<CFormElement> &lstGet, CString &strCaptionGet, int &nPersitenceMs);
+		bool GetForm(LPCTSTR pszFormName, std::vector<CFormElement> &vectGet, CString &strCaptionGet, int &nPersitenceMs);
 
 
 
@@ -334,15 +334,15 @@ namespace Abk {
 		bool SetMailboxValue(LPCTSTR pszMailboxName, bool bSet); // sets a mailbox value
 
 		bool GetCurrentServerTime(time_t *pGet);
-		bool GetMailboxList(std::list<CString> *pGet);
-		bool GetMailboxMeta(const std::list<LPCTSTR> &lstMailboxNames, std::list<CAbkClientMeta> *pGet);
+		bool GetMailboxList(std::vector<CString> *pGet);
+		bool GetMailboxMeta(const std::vector<LPCTSTR> &vectMailboxNames, std::vector<CAbkClientMeta> *pGet);
 		bool GetMailboxMeta(LPCTSTR pszMailboxName, CAbkClientMeta *pGet);
 
-		bool GetVarMeta(const std::list<LPCTSTR> &lstVarNames, std::list<CAbkClientMeta> *pGet);
+		bool GetVarMeta(const std::vector<LPCTSTR> &vectVarNames, std::vector<CAbkClientMeta> *pGet);
 		bool GetVarMeta(LPCTSTR pszVarName, CAbkClientMeta *pGet);
 
 
-		bool SendForm(LPCTSTR pszFormName, const std::list<CFormElement> &lstSend);
+		bool SendForm(LPCTSTR pszFormName, const std::vector<CFormElement> &vectSend);
 		bool SendAudioRecHeader(int nId, int nSampleRateHz, int nBitsPerSample, int nChannels);
 		bool SendAudioRecData(int nId, const void *pData, int nBitsPerSample, int nChannels, int nSamplesPerChannel);
 		bool SendAudioRecFooter(int nId);
@@ -366,9 +366,9 @@ namespace Abk {
 
 		virtual DWORD OnLongPollErrorResponse(int nHttpStatusCode, int nSessionId);
 
-		bool GetVarList(std::list<CString> *pGet);
+		bool GetVarList(std::vector<CString> *pGet);
 
-		bool GetClientFirmwareInfo(std::list<CFirmwareInfo> &lstGet, LPCTSTR pszClientType = NULL); // queries the available client firmware information
+		bool GetClientFirmwareInfo(std::vector<CFirmwareInfo> &vectGet, LPCTSTR pszClientType = NULL); // queries the available client firmware information
 
 		bool DownloadFile(LPCTSTR pszUrl, std::ostream & out, PFNSTATUSCALLBACK pfnReadCallback = NULL, DWORD_PTR dwCookie = 0);
 		bool DownloadFile(LPCTSTR pszUrl, LPCTSTR pszStorePath, PFNSTATUSCALLBACK pfnReadCallback = NULL, DWORD_PTR dwCookie = 0);
