@@ -630,10 +630,12 @@ int CAbkClient::CBaseAbstraction::ObtainSessionId(LPCTSTR pszClientClass, LPCTST
 	return nSessionId;
 }
 
-CAbkClient::CAbkClient()
+CAbkClient::CAbkClient(bool bSuppressLog /*= false*/, bool bTextTranslationByServer /*=true*/)
 {
 	m_bTerminateLongPoll = false;
 	m_pNextEventData = NULL;
+	m_bSuppressLog = bSuppressLog;
+	m_bTextTranslationByServer = bTextTranslationByServer;
 }
 
 
@@ -1326,6 +1328,15 @@ bool CAbkClient::SendAudioRecFooter(int nId)
 bool CAbkClient::SendAudioRecRejectEvent(int nId)
 {
 	return SendEvent(ABK_CLIENTEVENT_AUDIOREC_REJECT, _T(""), (double)nId, 0, false);
+}
+
+/** returns whether the server will be instructed to translate values into text representation
+@return true, if the server is instructed to translate values into text representation
+ false, if the server is instructed to send non-translated values and the client shall translate them by value-text tables, if applicable
+*/
+bool CAbkClient::TextTranslationByServer (void) const
+{
+  return m_bTextTranslationByServer;
 }
 
 
