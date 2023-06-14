@@ -97,7 +97,7 @@ namespace Abk {
 // implementation
 		protected:
 			void SetServerAddr(const std::string &pszServerAddress, int nPort); // re-assigns the server address and port
-			int GetPort(void) const { return m_nPort; } // returns port
+			int GetServerPort(void) const { return m_nPort; } // returns port
 			bool DeleteSession(int nSessionId); // deletes the actual session
 
 			// TODO: MIME type
@@ -308,7 +308,7 @@ namespace Abk {
 		void TidyUp(bool bLostConnection); // cleans object
 		void SetServerAddr(LPCTSTR pszServerAddress, int nPort); // re-assigns the server address and port
 		const CString GetServerAddr(void) const { return (CString)m_strServerAddress.c_str(); } // returns server address string
-		int GetPort(void) const; // returns port of server connection
+		int GetServerPort(void) const; // returns port of server connection
 		int GetSessionId(void);
 
 		// sends a client event to the server

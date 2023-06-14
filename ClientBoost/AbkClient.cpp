@@ -1852,7 +1852,7 @@ void CAbkClient::SetServerAddr(LPCTSTR pszServerAddress, int nPort)
 	}
 }
 
-int CAbkClient::GetPort(void) const
+int CAbkClient::GetServerPort(void) const
 {
 	return m_nPort;
 }
