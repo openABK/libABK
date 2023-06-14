@@ -14,6 +14,8 @@
 
 using boost::asio::ip::tcp;
 
+#define ABK_AUX_MAXRESPONSE_MS 2000 // response timeout for aux requests (30th June 2021: 500 ms turned out to be too short to query meta data)
+
 namespace Abk {
 
 	class CAbkClientMeta;
