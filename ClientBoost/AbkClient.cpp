@@ -603,7 +603,15 @@ void CAbkClient::AddLog(CAbkClient::LOGSEVERITY nSeverity, LPCTSTR pszMessage, .
 	va_end(args);
 }
 
-int CAbkClient::CBaseAbstraction::ObtainSessionId(LPCTSTR pszClientClass, LPCTSTR pszClientType, LPCTSTR pszClientSerial)
+/**   
+ @param pszClientClass class name of the client
+ @param pszClientType type name of the client
+ @param pszClientSerial serial number or id of the client. If an empty string, the field will not be encoded
+ @param pszClientFwRev Firmware revision of the client. If an empty string, the field will not be encoded
+ @param pszClientHwRev Hardware revision of the client. If an empty string, the field will not be encoded
+ @return session id, -1 on error
+*/
+int CAbkClient::CBaseAbstraction::ObtainSessionId(LPCTSTR pszClientClass, LPCTSTR pszClientType, LPCTSTR pszClientSerial, LPCTSTR pszClientFwRev, LPCTSTR pszClientHwRev)
 {
 	int nSessionId = -1; // result
 	assert(pszClientClass);
@@ -611,8 +619,13 @@ int CAbkClient::CBaseAbstraction::ObtainSessionId(LPCTSTR pszClientClass, LPCTST
 	CJsonFormatter jfPost;
 	jfPost.WriteValue(ABK_REQ_SESSIONID_CLASS, CT2A(pszClientClass));
 	jfPost.WriteValue(ABK_REQ_SESSIONID_TYPE, CT2A(pszClientType));
-	if (pszClientSerial)
+
+	if (pszClientSerial && pszClientSerial[0])
 		jfPost.WriteValue(ABK_REQ_SESSIONID_SERIAL, CT2A(pszClientSerial));
+	if (pszClientFwRev && pszClientFwRev[0])
+		jfPost.WriteValue(ABK_REQ_SESSIONID_FWVERSION, CT2A(pszClientFwRev));
+	if (pszClientHwRev && pszClientHwRev[0])
+		jfPost.WriteValue(ABK_REQ_SESSIONID_HWVERSION, CT2A(pszClientHwRev));
 
 	std::string pReturn = NavigatePost(_T(ABK_REQUESTURL_SESSIONID), -1, &jfPost);
 	if (pReturn.empty())
@@ -644,8 +657,9 @@ CAbkClient::CAbkClient(bool bSuppressLog /*= false*/, bool bTextTranslationBySer
 	TidyUp(false);
 }
 
-bool CAbkClient::Create(LPCTSTR pszServerAddress, int nPort, CAbkServerEvent *pEventRxBuffer, LPCTSTR pszClientClass, LPCTSTR pszClientType, LPCTSTR pszClientSerial)
+bool CAbkClient::Create(LPCTSTR pszServerAddress, int nPort, CAbkServerEvent *pEventRxBuffer, LPCTSTR pszClientClass, LPCTSTR pszClientType, LPCTSTR pszClientSerial, LPCTSTR pszClientFwRev /*=NULL*/, LPCTSTR pszClientHwRev /*=NULL*/)
 {
+	ASSERT (pszClientSerial && pszClientSerial[0]); // the serial number is mandatory, since this device is identified when saving or loading client states!!
 	bool bSuccess = false;
 	std::stringstream sstream;
 
@@ -653,6 +667,12 @@ bool CAbkClient::Create(LPCTSTR pszServerAddress, int nPort, CAbkServerEvent *pE
 	m_strClientType = CT2A(pszClientType); // regular client type, except when querying firmware info
 	if (pszClientSerial)
 		m_strClientSerial = CT2A(pszClientSerial);
+
+	if (pszClientFwRev)
+		m_strClientFwRev = CT2A(pszClientFwRev);
+
+	if (pszClientHwRev)
+		m_strClientHwRev = CT2A(pszClientHwRev);
 
 	sstream << nPort;
 	m_strPort = std::string(sstream.str());
@@ -680,7 +700,7 @@ bool CAbkClient::Create(LPCTSTR pszServerAddress, int nPort, CAbkServerEvent *pE
 		pClientEvent->EnsureConnection();
 
 		// Connect and obtain session id
-		m_nSessionId = pClientAux->ObtainSessionId(pszClientClass, pszClientType, pszClientSerial);
+		m_nSessionId = pClientAux->ObtainSessionId(pszClientClass, pszClientType, pszClientSerial, pszClientFwRev, pszClientHwRev);
 		if (m_nSessionId >= 0)
 		{
 			// Start long-polling thread
@@ -1859,7 +1879,7 @@ void CAbkClient::SetServerAddr(LPCTSTR pszServerAddress, int nPort)
 	if ((m_nPort != nPort) || (boost::equals(pszServerAddress, m_strServerAddress))) // if changes in address or port
 	{
 		// TODO:
-		Create(pszServerAddress, nPort, m_pNextEventData, CA2T(m_strClientClass.c_str()), CA2T(m_strClientType.c_str()), CA2T(m_strClientSerial.c_str()));
+		Create(pszServerAddress, nPort, m_pNextEventData, CA2T(m_strClientClass.c_str()), CA2T(m_strClientType.c_str()), CA2T(m_strClientSerial.c_str()), CA2T(m_strClientFwRev.c_str()), CA2T(m_strClientHwRev.c_str()));
 	}
 }
 

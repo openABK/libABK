@@ -137,7 +137,7 @@ namespace Abk {
 
 			bool GetVarOrMailboxList(LPCTSTR pszPath, std::vector<CString> *pGet);
 			bool GetVarOrMailboxMeta(const std::vector<LPCTSTR> &vectVarNames, std::vector<CAbkClientMeta> *pGet, bool bMailboxFlag);
-			int ObtainSessionId(LPCTSTR pszClientClass, LPCTSTR pszClientType, LPCTSTR pszClientSerial /*=NULL*/);
+			int ObtainSessionId(LPCTSTR pszClientClass, LPCTSTR pszClientType, LPCTSTR pszClientSerial /*=NULL*/, LPCTSTR pszClientFwRev, LPCTSTR pszClientHwRev);
 
 
 
@@ -266,8 +266,10 @@ namespace Abk {
 		std::string m_strClientClass; // class string of client
 		std::string m_strClientType; // type string of client
 		std::string m_strClientSerial; // serial number string of client
-		int m_nPort;
-		int m_nSessionId;
+    std::string m_strClientFwRev;      // firmware revision string
+    std::string m_strClientHwRev;      // hardware revision string
+    int m_nPort;
+    int m_nSessionId;
 
 		CAbkMutex m_mutexDaq; // mutex to protect the daq items
 		CAbkServerEvent *m_pNextEventData; // when event is received, it will be stored to this location. Will not be deleted on destruction!
@@ -282,7 +284,7 @@ namespace Abk {
 	public:
 		CAbkClient(bool bSuppressLog = false, bool bTextTranslationByServer = true);
 		virtual ~CAbkClient();
-		bool Create(LPCTSTR pszServerAddress, int nPort, CAbkServerEvent *pEventRxBuffer, LPCTSTR pszClientClass, LPCTSTR pszClientType, LPCTSTR pszClientSerial = NULL); // creates the client and initializes
+		bool Create(LPCTSTR pszServerAddress, int nPort, CAbkServerEvent *pEventRxBuffer, LPCTSTR pszClientClass, LPCTSTR pszClientType, LPCTSTR pszClientSerial = NULL, LPCTSTR pszClientFwRev = NULL, LPCTSTR pszClientHwRev = NULL); // creates the client and initializes
 
 		/** Called when server sent an event.
 
