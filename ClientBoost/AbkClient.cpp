@@ -508,8 +508,10 @@ bool CAbkClient::CBaseAbstraction::NavigatePut(LPCTSTR pszPath, int nSessionId, 
 			}
 			catch (AbkNetworkException &e)
 			{
-        boost::ignore_unused(e);
+				boost::ignore_unused(e);
+#ifdef LOG_BOOST_ABK
 				LogErr() << "Failed to reconnect" << std::endl;
+#endif
 			}
 		}
 
@@ -825,7 +827,7 @@ bool CAbkClient::SendAlertConfirmEvent(LPCTSTR pszAlertClassName, int nSeverity,
 	assert(this);
 	assert((!bSuppressed) || (bSuppressed && !bTimeout)); // if suppressed, timeout must not be set! Please check how you call the function
 	CJsonFormatter jfSend;
-	std::string strClassA = CT2A(pszAlertClassName, CP_UTF8);
+	std::string strClassA(CT2A(pszAlertClassName, CP_UTF8));
 	jfSend.WriteValue(ABK_ALERTCONFIRM_CLASS, strClassA.c_str()); // "Class": "KickDown"
 	jfSend.WriteValue(ABK_ALERTCONFIRM_SEVERITY, nSeverity); // "Severity": 3
 	jfSend.WriteValue(ABK_ALERTCONFIRM_COUNT, nMerged); // "Merged": 5
@@ -926,7 +928,7 @@ bool CAbkClient::SetVarValue(LPCTSTR pszVarName, const CString &strSet)
 	assert(pClientAux.IsValid());
 	if (!pClientAux.IsValid())
 		return false;
-	std::string strValue = CT2A(strSet);
+	const std::string strValue((CT2A(strSet)));
 	return pClientAux->SetVarOrMailboxValue(_T(ABK_REQUESTURL_VARVALUE), CT2A(pszVarName, CP_UTF8), &strValue);
 }
 
@@ -979,7 +981,7 @@ bool CAbkClient::SetMailboxValue(LPCTSTR pszMailboxName, const CString &strSet)
 	assert(pClientAux.IsValid());
 	if (!pClientAux.IsValid())
 		return false;
-	std::string strValue = CT2A(strSet);
+	const std::string strValue((CT2A(strSet)));
 	return pClientAux->SetVarOrMailboxValue(_T(ABK_REQUESTURL_MAILBOXVALUE), CT2A(pszMailboxName, CP_UTF8), &strValue);
 }
 
@@ -1542,7 +1544,7 @@ bool CAbkClient::AddDaq(CAbkClientDaq *pAdd)
 	{
 		CAbkSingleLock lockDaq(&m_mutexDaq, true, DAQ_TIMEOUT);
 		assert(m_mutexDaq.IsLocked());
-		std::string strDaqNameA = CT2A(pAdd->m_strName, CP_UTF8);
+		std::string strDaqNameA(CT2A(pAdd->m_strName, CP_UTF8));
 		if (!FindDaq(strDaqNameA))
 		{
 			std::pair<std::map<std::string, CAbkClientDaq *>::iterator, bool> iterInsert; // result of the insert operation
@@ -1610,7 +1612,10 @@ std::string CAbkClient::GetClientState(LPCTSTR pszFileExtension)
 	assert(pszFileExtension);
 	assert(pszFileExtension[0] != '\0'); // please no empty extension
 	assert(pszFileExtension[0] == '.'); // extension must start with delimiter dot
-	strUrl.Format(_T("%s/%s_%s_%s%s"), _T(ABK_SERVICE_CLIENTSTATES), CString(m_strClientClass.c_str()), CString(m_strClientType.c_str()), CString(m_strClientSerial.c_str()), pszFileExtension);
+	LPCTSTR strClientClass = CA2T(m_strClientClass.c_str());
+	LPCTSTR strClientType = CA2T(m_strClientType.c_str());
+	LPCTSTR strClientSerial = CA2T(m_strClientSerial.c_str());
+	strUrl.Format(_T("%s/%s_%s_%s%s"), _T(ABK_SERVICE_CLIENTSTATES), strClientClass, strClientType, strClientSerial, pszFileExtension);
 	std::string strResponse = pClientAux->NavigateGet(strUrl, -1); // read data
 	int nStatus = pClientAux->GetStatus();
 	if (nStatus != 200) // if not responded with OK (200)..
@@ -1628,7 +1633,10 @@ bool CAbkClient::SetClientState(const char * pConfigString, LPCTSTR pszFileExten
 		assert(pszFileExtension);
 		assert(pszFileExtension[0] != '\0'); // please no empty extension
 		assert(pszFileExtension[0] == '.'); // extension must start with delimiter dot
-		strUrl.Format(_T("%s/%s_%s_%s%s"), _T(ABK_SERVICE_CLIENTSTATES), CString(m_strClientClass.c_str()), CString(m_strClientType.c_str()), CString(m_strClientSerial.c_str()), pszFileExtension);
+		LPCTSTR strClientClass = CA2T(m_strClientClass.c_str());
+		LPCTSTR strClientType = CA2T(m_strClientType.c_str());
+		LPCTSTR strClientSerial = CA2T(m_strClientSerial.c_str());
+		strUrl.Format(_T("%s/%s_%s_%s%s"), _T(ABK_SERVICE_CLIENTSTATES), strClientClass, strClientType, strClientSerial, pszFileExtension);
 		std::string response = pClientAux->NavigatePut(strUrl, -1, std::string(pConfigString) /*, _T(MIME_TYPE_TEXT)*/);
 		bool bSuccess = !response.empty();
 		if (bSuccess)
