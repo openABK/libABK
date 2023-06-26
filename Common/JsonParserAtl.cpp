@@ -23,7 +23,9 @@
 #include "JsonParserAtl.h"
 #include <assert.h>
 //#include <afxdisp.h>
+#ifdef WIN32
 #include <comutil.h>
+#endif
 
 //--------------------------------------------------------------------------
 // CJsonParserAtl()        Constructor of CJsonParserAtl

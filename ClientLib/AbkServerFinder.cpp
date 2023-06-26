@@ -141,7 +141,7 @@ int AbkFindServers (const char *pszClassName, const char *pszDeviceName, const c
         {
         if(FD_ISSET(pSockTx,&fdRecv))
           {
-          int nSockAddrInSize=sizeof(sockaddr_in);
+          unsigned int nSockAddrInSize=sizeof(sockaddr_in);
           int nreceived=recvfrom(pSockTx,cRxBuf,sizeof(cRxBuf)-1,0,(sockaddr*)&sadrRx,&nSockAddrInSize);
           if(nreceived>=0)
             {

@@ -77,9 +77,10 @@ typedef boost::condition_variable ABK_EVENT;
 
 
 #ifdef LINUX
-#define _T(x) ## x // feeding-trouhg text as we do not have to convert it to UTF-16
-typedef char TCHAR;   // native character type
-typedef const char * LPCTSTR; // pointer to null-terminated const c-style string
+// Ensure that afxwrapper from MFC tools is used
+#ifndef _T
+#error "_T undefined"
+#endif
 #endif
 
 #elif defined(_WIN32)

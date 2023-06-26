@@ -22,7 +22,6 @@
 #pragma once
 
 #include <CrossPlatform.h>
-#include <comutil.h>
 
 
 class CJsonParserAtl;

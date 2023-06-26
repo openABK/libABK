@@ -886,9 +886,9 @@ bool CJsonParser::ScanDate (const char *pszDate, size_t nLen, time_t *pReturn) c
       char cTemp=const_cast<char *>(pszDate)[nLen];
       const_cast<char *>(pszDate)[nLen]='\0';
 #if defined WIN32 && !defined(WINCE)
-      nConverted=        _snscanf_s(pszDate,  nLen  ,"%20s %20s %d %d:%d:%d %8s %d",strDay,20,strMonth,20,&tmScan.tm_mday,&tmScan.tm_hour,&tmScan.tm_min,&tmScan.tm_sec,&strUtc,20,&tmScan.tm_year);
+      nConverted=        _snscanf_s(pszDate,  nLen  ,"%20s %20s %d %d:%d:%d %8s %d",strDay,20,strMonth,20,&tmScan.tm_mday,&tmScan.tm_hour,&tmScan.tm_min,&tmScan.tm_sec,strUtc,20,&tmScan.tm_year);
 #else
-      nConverted=/*_snscanf*/sscanf(pszDate/*,nLen*/,"%20s %20s %d %d:%d:%d %8s %d",strDay,strMonth,&tmScan.tm_mday,&tmScan.tm_hour,&tmScan.tm_min,&tmScan.tm_sec,&strUtc,&tmScan.tm_year);
+      nConverted=/*_snscanf*/sscanf(pszDate/*,nLen*/,"%20s %20s %d %d:%d:%d %8s %d",strDay,strMonth,&tmScan.tm_mday,&tmScan.tm_hour,&tmScan.tm_min,&tmScan.tm_sec,strUtc,&tmScan.tm_year);
 #endif
       const_cast<char *>(pszDate)[nLen]=cTemp;
       if(nConverted==8)

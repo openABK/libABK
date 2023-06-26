@@ -426,7 +426,7 @@ std::string CAbkClient::CBaseAbstraction::NavigatePut(LPCTSTR pszPath, int nSess
 	CAbkSingleLock lockDaq(&m_mutex, true);
 
 	if (!EnsureConnection())
-		return false;
+		return response;
 
 	try
 	{
@@ -731,9 +731,9 @@ bool CAbkClient::GetServerInfo(CString & strProtocolVersion, CString & strInterf
 	CClientPtrRef pClientAux(m_pClientAux);
 	assert(pClientAux.IsValid()); // no connection with the aux http client established
 	if (!pClientAux.IsValid())
-		return NULL;
+		return false;
 	if (!IsConnected())
-		return NULL;
+		return false;
 	return !(pClientAux->NavigateGet(_T(ABK_REQUESTURL_SERVERINFO), -1)).empty();
 }
 
@@ -790,7 +790,7 @@ bool CAbkClient::SendEvent(const char *pszEventType, LPCTSTR pszStringParam, dou
 	jfEvent.Close();
 	CStopwatch watch;
 	watch.Start();
-	bool bSuccess = NULL != pClientAux->NavigatePut(_T(ABK_REQUESTURL_CLIENTEVENT), -1, &jfEvent);
+	bool bSuccess = pClientAux->NavigatePut(_T(ABK_REQUESTURL_CLIENTEVENT), -1, &jfEvent);
 	watch.Stop();
 	watch.OutputDebugTimeMs(_T("SendEvent"));
 	return bSuccess;
@@ -819,7 +819,7 @@ bool CAbkClient::SendEvent(const char *pszEventType, CJsonFormatter &jfString, d
 	jfEvent.WriteValue(ABK_RSP_SERVEREVENT_PARAM2, dParam2);
 	jfEvent.WriteValue(ABK_RSP_CLIENTEVENT_PRIVATE, bPrivate);
 	jfEvent.Close();
-	return NULL != pClientAux->NavigatePut(_T(ABK_REQUESTURL_CLIENTEVENT), -1, &jfEvent);
+	return pClientAux->NavigatePut(_T(ABK_REQUESTURL_CLIENTEVENT), -1, &jfEvent);
 }
 
 bool CAbkClient::SendAlertConfirmEvent(LPCTSTR pszAlertClassName, int nSeverity, int nMerged, bool bPermanent, bool bSuppressed, bool bTimeout)
@@ -1190,7 +1190,7 @@ bool CAbkClient::SendForm(LPCTSTR pszFormName, const std::vector<CFormElement>& 
 			jfForm.WriteValue(CT2A(pElement->m_strName, CP_UTF8), pElement->m_varValue.dblVal); // "Elementname":1.23
 			break;
 		case VT_BSTR:
-			jfForm.WriteValue(CT2A(pElement->m_strName, CP_UTF8), (char *)(CW2A(pElement->m_varValue.bstrVal, CP_UTF8))); // "Elementname":"string"
+			jfForm.WriteValue(CT2A(pElement->m_strName, CP_UTF8), (char *)(CT2A(pElement->m_varValue.bstrVal, CP_UTF8))); // "Elementname":"string"
 			break;
 		case VT_BOOL:
 			jfForm.WriteValue(CT2A(pElement->m_strName, CP_UTF8), (bool)(pElement->m_varValue.boolVal != 0)); // "Elementname":true
@@ -1244,7 +1244,7 @@ bool CAbkClient::SendAudioRecHeader(int nId, int nSampleRateHz, int nBitsPerSamp
 		jfHeader.WriteValue(ABK_AUDIOREC_CHANNELS, nChannels);
 		jfHeader.WriteValue(ABK_AUDIOREC_BITSPERSAMPLE, nBitsPerSample);
 		jfHeader.Close();
-		bSuccess = NULL != pClientAux->NavigatePut(_T(ABK_REQUESTURL_AUDIOREC_HEADER), -1, &jfHeader);
+		bSuccess = pClientAux->NavigatePut(_T(ABK_REQUESTURL_AUDIOREC_HEADER), -1, &jfHeader);
 	}
 	return bSuccess;
 }
@@ -1313,7 +1313,7 @@ bool CAbkClient::SendAudioRecData(int nId, const void *pData, int nBitsPerSample
 		jaData.Close();
 
 		jfData.Close();
-		bSuccess = NULL != pClientAux->NavigatePut(_T(ABK_REQUESTURL_AUDIOREC_DATA), -1, &jfData);
+		bSuccess = pClientAux->NavigatePut(_T(ABK_REQUESTURL_AUDIOREC_DATA), -1, &jfData);
 	}
 	return bSuccess;
 }
@@ -1336,7 +1336,7 @@ bool CAbkClient::SendAudioRecFooter(int nId)
 		CJsonFormatter jfFooter; // header data formatted in json
 		jfFooter.WriteValue(ABK_AUDIOREC_ID, nId);
 		jfFooter.Close();
-		bSuccess = NULL != pClientAux->NavigatePut(_T(ABK_REQUESTURL_AUDIOREC_FOOTER), -1, &jfFooter);
+		bSuccess = pClientAux->NavigatePut(_T(ABK_REQUESTURL_AUDIOREC_FOOTER), -1, &jfFooter);
 	}
 	return bSuccess;
 }
