@@ -60,7 +60,7 @@
 #include <sstream>
 
 
-#if !defined(NO_WINDOWS) && !defined(__WINDOWS__)
+#if defined(_WIN32) && !defined(__WINDOWS__)
 // This combination is used for detecting Winelib builds
 #define WINELIB
 #endif
