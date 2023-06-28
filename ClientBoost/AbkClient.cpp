@@ -1190,7 +1190,7 @@ bool CAbkClient::SendForm(LPCTSTR pszFormName, const std::vector<CFormElement>& 
 			jfForm.WriteValue(CT2A(pElement->m_strName, CP_UTF8), pElement->m_varValue.dblVal); // "Elementname":1.23
 			break;
 		case VT_BSTR:
-			jfForm.WriteValue(CT2A(pElement->m_strName, CP_UTF8), (char *)(CT2A(pElement->m_varValue.bstrVal, CP_UTF8))); // "Elementname":"string"
+			jfForm.WriteValue(CT2A(pElement->m_strName, CP_UTF8), (char *)(CW2A(pElement->m_varValue.bstrVal, CP_UTF8))); // "Elementname":"string"
 			break;
 		case VT_BOOL:
 			jfForm.WriteValue(CT2A(pElement->m_strName, CP_UTF8), (bool)(pElement->m_varValue.boolVal != 0)); // "Elementname":true
