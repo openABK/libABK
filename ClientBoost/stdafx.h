@@ -59,6 +59,21 @@
 
 #include <sstream>
 
+
+#if !defined(NO_WINDOWS) && !defined(__WINDOWS__)
+// This combination is used for detecting Winelib builds
+#define WINELIB
+#endif
+
+// Boost should not include Windows headers on Linux
+// Make sure to unset all Windows defines before including Boost
+#ifdef WINELIB
+#undef WIN32
+#undef _WIN32
+#undef __WIN32__
+#undef BOOST_USE_WINDOWS_H
+#endif
+
 #include <boost/asio.hpp>
 #include <boost/atomic.hpp>
 #include <boost/algorithm/string.hpp>
@@ -72,6 +87,13 @@
 #include <boost/test/unit_test.hpp>
 #include <boost/unordered_map.hpp>
 #include <boost/thread.hpp>
+
+#ifdef WINELIB
+#define WIN32
+#define _WIN32
+#define __WIN32__
+#define BOOST_USE_WINDOWS_H
+#endif
 
 
 #ifdef NO_ATL
