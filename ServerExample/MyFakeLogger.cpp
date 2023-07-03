@@ -448,8 +448,7 @@ bool CMyFakeLogger::Sleep (int nTimeMs)
     // animate the values
     CAbkSingleLock guard(&pThis->m_mutexVars,true,FAKE_VARMUTEX_TIMEOUT); // gain access to the variables etc.
 #if defined (TESTBENCH_ABKBUTTONS)
-    int nVar;
-    for(nVar=0;nVar<pThis->m_nVarCount;nVar++)
+    for(int nVar=0;nVar<pThis->m_nVarCount;nVar++)
       {
       FAKEVAR *pLoggerVar=&pThis->m_vars[nVar];
       pLoggerVar->dValue=(double)(((int)(pLoggerVar->dValue)+1)%16);
@@ -458,8 +457,7 @@ bool CMyFakeLogger::Sleep (int nTimeMs)
       //  pVarInterface->FeedTrend();
       }
 #else
-    int nVar;
-    for(nVar=0;nVar<pThis->m_nVarCount;nVar++)
+    for(int nVar=0;nVar<pThis->m_nVarCount;nVar++)
       {
       FAKEVAR *pLoggerVar=&pThis->m_vars[nVar];
       pLoggerVar->dValue++;
@@ -476,9 +474,10 @@ bool CMyFakeLogger::Sleep (int nTimeMs)
 
   //  if(GetKeyState(VK_SHIFT)&0x8000)
       pThis->m_vars[3].dValue=(double)0x113F17; //####
+    pThis->m_vars[8].dValue = pThis->m_vars[0].dValue + 1000;
 
     // maintain min/average/max
-    for(nVar=0;nVar<pThis->m_nVarCount;nVar++)
+    for(int nVar=0;nVar<pThis->m_nVarCount;nVar++)
       {
       FAKEVAR *pLoggerVar=&pThis->m_vars[nVar];
       if(pLoggerVar->dValue>pLoggerVar->dMaxOccured)

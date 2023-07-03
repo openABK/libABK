@@ -76,6 +76,41 @@ namespace Abk
 
 
 
+  /** Thread which requests in order to generate a little traffic  
+  @param vpThis Pointer to the temporary connection object
+  @return always 0
+  */
+  /*static*/ DWORD WINAPI CAbkClient::CTempConnection::RequestThreadS(void* vpThis)
+  {
+    CTempConnection* pThis = static_cast<CTempConnection*>(vpThis);
+    for (size_t nRequest = 0; nRequest < REQUEST_COUNT; ++nRequest)
+    {
+      pThis->m_pClient->NavigateGet(_T(ABK_REQUESTURL_CURRENTTIME), -1);
+    }
+    pThis->m_hThread = NULL;
+    return 0;
+  }
+
+  /** Constructor  
+  @param pClient http client used to send the requests
+  */
+  CAbkClient::CTempConnection::CTempConnection(CBaseAbstraction* pClient)
+    : m_hThread(NULL)
+    , m_pClient(pClient)
+  {
+    m_hThread = CreateThread(NULL, 0, RequestThreadS, this, 0, NULL);
+  }
+
+  /** dtor
+  */
+  CAbkClient::CTempConnection::~CTempConnection()
+  {
+    while (m_hThread)
+      Sleep(1);
+  }
+
+
+
 
 
 //--------------------------------------------------------------------------
@@ -90,7 +125,7 @@ BOOL CAbkClient::CClientPtr::Delete (void)
   if(!m_pClient)
     return TRUE; // successfully deleted nothing
   BOOL bSuccess=FALSE;
-  for(int nRetry=0;nRetry<100;nRetry++)
+  for(int nRetry=0;nRetry<300;nRetry++)
     {
     CLockMyCriticalSection lock(m_csUsage,_T("Abk::CAbkClient::CClientPtr::Delete()"));
     if(m_nUsage==0)
@@ -102,6 +137,7 @@ BOOL CAbkClient::CClientPtr::Delete (void)
       }
     Sleep(10);
     }
+  ASSERT(m_nUsage==0);
   return bSuccess;
   }
 
@@ -201,11 +237,21 @@ bool CAbkClient::Create (LPCTSTR pszServerAddress, int nPort, CAbkServerEvent *p
     pClientAux->SetServerAddr (m_strServerAddress, nPort);
     pClientEvent->SetServerAddr (m_strServerAddress, nPort);
     pClientAux->SetTimeout (ABK_AUX_MAXRESPONSE_MS);
-    pClientEvent->SetTimeout (ABK_LONGPOLL_MAXRESPONSE_MS);
+    pClientEvent->SetTimeout (ABK_LONGPOLL_MAXRESPONSE_MS + (ABK_LONGPOLL_MAXRESPONSE_MS / 2)); // + ABK_LONGPOLL_MAXRESPONSE_MS / 2 as reserve
 
     // get a session id
     if (!m_strClientClass.IsEmpty () && !m_strClientType.IsEmpty ())
     {
+      // tentative
+      if(1)
+      {
+        for (size_t nTemp = 0; nTemp < 2; ++nTemp)
+        {
+          CBaseAbstraction *pClient = m_pClientAux.GetPtr();
+          CTempConnection connTemp[3] = { CTempConnection(pClient), CTempConnection(pClient), CTempConnection(pClient) };
+        }
+      }
+
       m_nSessionId = pClientAux->ObtainSessionId (m_strClientClass, m_strClientType, m_strClientSerial, m_strClientFwRev, m_strClientHwRev);
       if (m_nSessionId >= 0)
       {

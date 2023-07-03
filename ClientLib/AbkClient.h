@@ -152,7 +152,7 @@ namespace Abk
 
         public:
         CClientPtr () :m_csUsage(LOCK_HIER_ABK_CLIENTPTR,_T("Abk::CAbkClient::CClientPtr")) {m_pClient=NULL; m_nUsage=0;}
-        ~CClientPtr () {}
+        ~CClientPtr () {Delete();}
         CBaseAbstraction *GetPtr (void) {return m_pClient;}
         //BOOL IsValid (void) const {return m_pClient!=NULL;}
         CClientPtr & operator =(CBaseAbstraction *pSet) {ASSERT(m_pClient==NULL); m_pClient=pSet; return *this;}
@@ -193,6 +193,26 @@ namespace Abk
         LOGSEVERITY_ERROR   =CLogQueue<TCHAR>::LOGSEVERITY_ERROR
         };
 
+      /** temporary connection used to allocate ephemeral ports for the regular operation
+      @note When disgracefully disconnecting the client from the server, the server starts to retry on the lost connection.
+       Later, when the client restarts, it tries to establish connection(s) with the same ephemeral ports of the previous run.
+       This leads to an error with an http time-out.
+      @note In order to avoid using general retries, the temporary connection will be used to switch to the next ephemeral ports,
+       hence allowing the connection of the normal operation to succeed immediately.
+      */
+      class CTempConnection
+      {
+        enum
+        {
+          REQUEST_COUNT = 3
+        };
+        HANDLE m_hThread;
+        CAbkClient::CBaseAbstraction* m_pClient;
+        static DWORD WINAPI RequestThreadS(void* vpThis);
+      public:
+        CTempConnection(CBaseAbstraction* pClient);
+        ~CTempConnection();
+      };
 
     // data members
     private:
