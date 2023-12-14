@@ -1616,10 +1616,7 @@ std::string CAbkClient::GetClientState(LPCTSTR pszFileExtension)
 	assert(pszFileExtension);
 	assert(pszFileExtension[0] != '\0'); // please no empty extension
 	assert(pszFileExtension[0] == '.'); // extension must start with delimiter dot
-	LPCTSTR strClientClass = CA2T(m_strClientClass.c_str());
-	LPCTSTR strClientType = CA2T(m_strClientType.c_str());
-	LPCTSTR strClientSerial = CA2T(m_strClientSerial.c_str());
-	strUrl.Format(_T("%s/%s_%s_%s%s"), _T(ABK_SERVICE_CLIENTSTATES), strClientClass, strClientType, strClientSerial, pszFileExtension);
+	strUrl.Format(_T("%s/%s_%s_%s%s"), _T(ABK_SERVICE_CLIENTSTATES), (LPCTSTR)CA2T(m_strClientClass.c_str()), (LPCTSTR)CA2T(m_strClientType.c_str()), (LPCTSTR)CA2T(m_strClientSerial.c_str()), pszFileExtension);
 	std::string strResponse = pClientAux->NavigateGet(strUrl, -1); // read data
 	int nStatus = pClientAux->GetStatus();
 	if (nStatus != 200) // if not responded with OK (200)..
@@ -1637,10 +1634,7 @@ bool CAbkClient::SetClientState(const char * pConfigString, LPCTSTR pszFileExten
 		assert(pszFileExtension);
 		assert(pszFileExtension[0] != '\0'); // please no empty extension
 		assert(pszFileExtension[0] == '.'); // extension must start with delimiter dot
-		LPCTSTR strClientClass = CA2T(m_strClientClass.c_str());
-		LPCTSTR strClientType = CA2T(m_strClientType.c_str());
-		LPCTSTR strClientSerial = CA2T(m_strClientSerial.c_str());
-		strUrl.Format(_T("%s/%s_%s_%s%s"), _T(ABK_SERVICE_CLIENTSTATES), strClientClass, strClientType, strClientSerial, pszFileExtension);
+		strUrl.Format(_T("%s/%s_%s_%s%s"), _T(ABK_SERVICE_CLIENTSTATES), (LPCTSTR)CA2T(m_strClientClass.c_str()), (LPCTSTR)CA2T(m_strClientType.c_str()), (LPCTSTR)CA2T(m_strClientSerial.c_str()), pszFileExtension);
 		std::string response = pClientAux->NavigatePut(strUrl, -1, std::string(pConfigString) /*, _T(MIME_TYPE_TEXT)*/);
 		bool bSuccess = !response.empty();
 		if (bSuccess)
@@ -1743,9 +1737,11 @@ bool CAbkClient::GetClientFirmwareInfo(std::vector<CFirmwareInfo>& vectGet, LPCT
 	bool bSuccess = true;
 	vectGet.clear();
 
+	CA2T strType(m_strClientType.c_str());
+
 	// compose and send request
 	if (!pszClientType) // if no client type name specified, use the stored one
-		pszClientType = CA2T(m_strClientType.c_str());
+		pszClientType = strType;
 	CJsonFormatter jfReq;
 	jfReq.WriteValue(ABK_REQ_FIRMWARE_CLASS, m_strClientClass);
 	jfReq.WriteValue(ABK_REQ_FIRMWARE_TYPE, CT2A(pszClientType, CP_UTF8));
