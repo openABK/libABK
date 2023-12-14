@@ -137,7 +137,7 @@ int AbkFindServers (const char *pszClassName, const char *pszDeviceName, const c
       tmvRecv.tv_usec=DELAY_PER_RX*1000;
       FD_ZERO(&fdRecv);
       FD_SET(pSockTx,&fdRecv);
-      if(select(0/*NFDS?, ignored by Winsocks*/,&fdRecv,NULL,NULL,&tmvRecv)>0) // read with timeout if no answer received
+      if(select(pSockTx+1,&fdRecv,NULL,NULL,&tmvRecv)>0) // read with timeout if no answer received
         {
         if(FD_ISSET(pSockTx,&fdRecv))
           {
