@@ -108,7 +108,11 @@ typedef uintptr_t ABK_THREAD_HANDLE;
 
 typedef ABK_MUTEX& ABK_MUTEX_REF;
 
+#if defined(_WIN32)
 #define THREAD_CALLCONV __stdcall
+#else
+#define THREAD_CALLCONV
+#endif
 typedef unsigned int (THREAD_CALLCONV *PFN_THREAD)(void *);
 
 
