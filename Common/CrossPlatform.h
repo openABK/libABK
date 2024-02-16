@@ -53,7 +53,7 @@
 #include <boost/thread.hpp>
 #elif defined(_WIN32)
 //#include <windows.h>
-#ifndef WINCE
+#if !defined(WINCE) && !defined(__WINE__)
 #include <process.h>
 #endif
 #include <winsock2.h>
@@ -95,7 +95,9 @@ typedef boost::condition_variable ABK_EVENT;
   typedef HANDLE ABK_MUTEX;
 #endif
 typedef HANDLE ABK_EVENT;
+#ifndef __WINE__
 typedef int socklen_t;
+#endif
 #define ABKMUTEX_INFINITE INFINITE
 typedef uintptr_t ABK_THREAD_HANDLE;
 #define ABK_INVALID_THREAD_HANDLE NULL
