@@ -541,7 +541,7 @@ bool CAbkEvent::Wait (int nTimeoutMs)
 
 	{
 		boost::unique_lock<boost::mutex> lock(m_eventMutex);
-		bool bSuccess = false;
+		bool bSuccess = true;
 		// Make sure last event was sleep event
 		while (!(m_eventCond))
 		{
@@ -549,7 +549,6 @@ bool CAbkEvent::Wait (int nTimeoutMs)
 			if (m_event.timed_wait<boost::posix_time::milliseconds>(lock, duration))
 			{
 				bSuccess = true;
-				m_eventCond = false;
 				break;
 			}
 			else
