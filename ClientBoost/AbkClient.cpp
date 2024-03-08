@@ -788,11 +788,8 @@ bool CAbkClient::SendEvent(const char *pszEventType, LPCTSTR pszStringParam, dou
 	jfEvent.WriteValue(ABK_RSP_SERVEREVENT_PARAM2, dParam2);
 	jfEvent.WriteValue(ABK_RSP_CLIENTEVENT_PRIVATE, bPrivate);
 	jfEvent.Close();
-	CStopwatch watch;
-	watch.Start();
+  STOPWATCH_GUARD_NAME(SendEvent);
 	bool bSuccess = pClientAux->NavigatePut(_T(ABK_REQUESTURL_CLIENTEVENT), -1, &jfEvent);
-	watch.Stop();
-	watch.OutputDebugTimeMs(_T("SendEvent"));
 	return bSuccess;
 }
 
