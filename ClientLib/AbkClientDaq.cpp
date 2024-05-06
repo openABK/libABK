@@ -206,7 +206,7 @@ bool CAbkClientDaq::Update (void)
     if (!m_vectVars.empty ()) // only non-empty daq lists are maintained at the server
     {
       CAbkClient::CClientPtrRef pClientAux (m_pOwner->m_pClientAux);
-      bSuccess &= NULL != pClientAux->NavigatePut (m_strUrl, GetSessionId (), &jfDaq);
+      bSuccess &= pClientAux->NavigatePut (m_strUrl, GetSessionId (), &jfDaq);
       if (bSuccess)
       {
         m_nVarCountAtServer = m_vectVars.size ();
