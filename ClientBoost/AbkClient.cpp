@@ -486,7 +486,7 @@ bool CAbkClient::CBaseAbstraction::NavigatePut(LPCTSTR pszPath, int nSessionId, 
 			response.clear();
 		}
 
-		bool bNeedReconnect = false;
+		int nRetryCount = 0;
 		try
 		{
 			ReadFromSocket(response);
@@ -494,17 +494,30 @@ bool CAbkClient::CBaseAbstraction::NavigatePut(LPCTSTR pszPath, int nSessionId, 
 		catch (AbkNetworkException &e) // probably lost connection, retry
 		{
 			boost::ignore_unused(e);
-			bNeedReconnect = true;
+			nRetryCount = 10;
 		}
 
-		if (bNeedReconnect)
+		while (nRetryCount)
 		{
 			try
 			{
 				if (!EnsureConnection())
-					return false;
+					nRetryCount--;
+
+				if (nSessionId >= 0)
+				{
+					CString strPathAndQuery;
+					strPathAndQuery.Format(_T("%s?") _T(ABK_QRY_SESSIONID) _T("=%d"), pszPath, nSessionId);
+					WriteToSocket(std::string(CT2A(strPathAndQuery)), strPutData, E_HTTP_PUT);
+				}
+				else
+				{
+					WriteToSocket(std::string(CT2A(pszPath)), strPutData, E_HTTP_PUT);
+				}
 
 				ReadFromSocket(response);
+				// Read was successful, get out of the loop
+				break;
 			}
 			catch (AbkNetworkException &e)
 			{
@@ -512,6 +525,7 @@ bool CAbkClient::CBaseAbstraction::NavigatePut(LPCTSTR pszPath, int nSessionId, 
 #ifdef LOG_BOOST_ABK
 				LogErr() << "Failed to reconnect" << std::endl;
 #endif
+				nRetryCount--;
 			}
 		}
 
@@ -1180,9 +1194,11 @@ bool CAbkClient::SendForm(LPCTSTR pszFormName, const std::vector<CFormElement>& 
 		case VT_I4:
 			jfForm.WriteValue(CT2A(pElement->m_strName, CP_UTF8), (int)pElement->m_varValue.lVal); // "Elementname":123
 			break;
+#ifdef ALL_VT
 		case VT_INT:
 			jfForm.WriteValue(CT2A(pElement->m_strName, CP_UTF8), (int)pElement->m_varValue.intVal); // "Elementname":123
 			break;
+#endif
 		case VT_R8:
 			jfForm.WriteValue(CT2A(pElement->m_strName, CP_UTF8), pElement->m_varValue.dblVal); // "Elementname":1.23
 			break;
