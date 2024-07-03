@@ -27,7 +27,9 @@
 #include <assert.h>
 #include <iostream>
 
-
+#ifndef _WIN32
+#include <ifaddrs.h>
+#endif
 
 
 namespace Abk
@@ -114,6 +116,7 @@ const std::string &AbkGetOwnIpAddress (void)
 
   if(strIpAddr.empty()) // if not yet retrieved
     {
+#ifdef _WIN32
     do
       {
       if(::gethostname(ac, sizeof(ac)) == SOCKET_ERROR)
@@ -137,6 +140,27 @@ const std::string &AbkGetOwnIpAddress (void)
         // cout << "Address " << i << ": " << inet_ntoa(addr) << endl;
         }
       } while(0);
+#else
+    struct ifaddrs *ifaddr;
+    if (getifaddrs(&ifaddr) == -1)
+      return strIpAddr;
+
+    for (struct ifaddrs *ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next)
+    {
+      // If address is NULL or if loopback device skip
+      if (ifa->ifa_addr == NULL || strcmp(ifa->ifa_name, "lo") == 0)
+        continue;
+
+      if (ifa->ifa_addr->sa_family == AF_INET)
+      {
+        struct sockaddr_in *s = (struct sockaddr_in*)ifa->ifa_addr;
+        strIpAddr = inet_ntoa(s->sin_addr);
+        if (strIpAddr.substr(0, 3) != "127")
+          break;
+      }
+    }
+    freeifaddrs(ifaddr);
+#endif
     }
   return strIpAddr;
   }
