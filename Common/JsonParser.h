@@ -93,6 +93,7 @@ class CJsonParser
     bool IsObject (void); // returns true if currently parsing an object
     bool SkipItem (const char *pszItemName=NULL); // skips the item (array or object)
     void Restart (const char *pStartOfExpression); // restarts the parser
+    int GetNestingLevel (void) const {return m_nNestingLevel;} // returns the current nesting level
   
   // implementation
   protected:
