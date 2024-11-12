@@ -544,34 +544,39 @@ std::string CAbkClient::CBaseAbstraction::NavigateGet(LPCTSTR pszPath, int nSess
 
 	CAbkSingleLock lockDaq(&m_mutex, true);
 
-	if (!EnsureConnection())
-		return response;
 
-	try
-	{
-		if (nSessionId >= 0)
-		{
-			CString strPathAndQuery;
-			strPathAndQuery.Format(_T("%s?") _T(ABK_QRY_SESSIONID) _T("=%d"), pszPath, nSessionId);
-			WriteToSocket(std::string(CT2A(strPathAndQuery)), E_HTTP_GET);
-		}
-		else
-		{
-			WriteToSocket(std::string(CT2A(pszPath)), E_HTTP_GET);
-		}
-		ReadFromSocket(response);
-	}
-	catch (AbkNetworkException &e)
-	{
-		// ReadFromSocket can fail, if the socket got forcibly close by TidyUp
-		boost::ignore_unused(e);
+  bool bSuccess = false;
+  for (int retries = 0; !bSuccess && retries < 10; retries++)
+  {
+    if (!EnsureConnection())
+		  return response;
+    try
+    {
+      if (nSessionId >= 0)
+      {
+        CString strPathAndQuery;
+        strPathAndQuery.Format(_T("%s?") _T(ABK_QRY_SESSIONID) _T("=%d"), pszPath, nSessionId);
+        WriteToSocket(std::string(CT2A(strPathAndQuery)), E_HTTP_GET);
+      }
+      else
+      {
+        WriteToSocket(std::string(CT2A(pszPath)), E_HTTP_GET);
+      }
+      ReadFromSocket(response);
+      bSuccess = true;
+    }
+    catch (AbkNetworkException &e)
+    {
+      // ReadFromSocket can fail, if the socket got forcibly close by TidyUp
+      boost::ignore_unused(e);
 #ifdef LOG_BOOST_ABK
-		LogErr() << "Failed to navigate GET due to Network exception" << std::endl;
+      LogErr() << "Failed to navigate GET due to Network exception" << std::endl;
 #endif
-		response.clear();
-	}
+      response.clear();
+    }
+  }
 
-	return response;
+  return response;
 }
 
 bool CAbkClient::CBaseAbstraction::NavigateGet(LPCTSTR pszPath, int nSessionId, std::ostream &out)
