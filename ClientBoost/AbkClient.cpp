@@ -585,33 +585,37 @@ bool CAbkClient::CBaseAbstraction::NavigateGet(LPCTSTR pszPath, int nSessionId, 
 
 	CAbkSingleLock lockDaq(&m_mutex, true);
 
-	if (!EnsureConnection())
-		return false;
+  bool bSuccess = false;
+  for (int retries = 0; !bSuccess && retries < 10; retries++)
+  {
+    if (!EnsureConnection())
+      return false;
 
-	try
-	{
-		if (nSessionId >= 0)
-		{
-			CString strPathAndQuery;
-			strPathAndQuery.Format(_T("%s?") _T(ABK_QRY_SESSIONID) _T("=%d"), pszPath, nSessionId);
-			WriteToSocket(std::string(CT2A(strPathAndQuery)), E_HTTP_GET);
-		}
-		else
-		{
-			WriteToSocket(std::string(CT2A(pszPath)), E_HTTP_GET);
-		}
-		ReadFromSocket(out);
-		return true;
-	}
-	catch (AbkNetworkException &e)
-	{
-		boost::ignore_unused(e);
-#ifdef LOG_BOOST_ABK
-		LogErr() << "Failed to navigate GET due to Network exception" << std::endl;
-#endif
-	}
+    try
+    {
+      if (nSessionId >= 0)
+      {
+        CString strPathAndQuery;
+        strPathAndQuery.Format(_T("%s?") _T(ABK_QRY_SESSIONID) _T("=%d"), pszPath, nSessionId);
+        WriteToSocket(std::string(CT2A(strPathAndQuery)), E_HTTP_GET);
+      }
+      else
+      {
+        WriteToSocket(std::string(CT2A(pszPath)), E_HTTP_GET);
+      }
+      ReadFromSocket(out);
+      bSuccess = true;
+    }
+    catch (AbkNetworkException &e)
+    {
+      boost::ignore_unused(e);
+  #ifdef LOG_BOOST_ABK
+      LogErr() << "Failed to navigate GET due to Network exception" << std::endl;
+  #endif
+    }
+  }
 
-	return false;
+	return bSuccess;
 }
 
 void CAbkClient::AddLog(CAbkClient::LOGSEVERITY nSeverity, LPCTSTR pszMessage, ...)
