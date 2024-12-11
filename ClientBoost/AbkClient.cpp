@@ -533,8 +533,8 @@ bool CAbkClient::CBaseAbstraction::NavigatePut(LPCTSTR pszPath, int nSessionId, 
 		LogErr() << "Response was: " << response << std::endl;
 #endif
 
-
-	return (m_uStatus == 201);
+  // According to MDN, "OK", "Created" and "No Content" are valid responses
+	return (m_uStatus == 200 || m_uStatus == 201 || m_uStatus == 204);
 }
 
 std::string CAbkClient::CBaseAbstraction::NavigateGet(LPCTSTR pszPath, int nSessionId)
