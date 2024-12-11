@@ -163,7 +163,7 @@ namespace Abk {
 			boost::asio::io_context io_context;
 			tcp::resolver resolver /*(io_context)*/;
 			std::unique_ptr<tcp::socket> socket /*(io_context)*/;
-			bool m_bConnected;
+			std::atomic<bool> m_bConnected;
 		};
 
 // End of CBaseAbstraction--------------------------------------------------------------------------------------
