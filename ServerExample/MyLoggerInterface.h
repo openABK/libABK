@@ -47,7 +47,6 @@ class CMyDiscoveryServer : public CDiscoveryServer
     SOCKET m_sockRTx; // socket to make the UDP work
     sockaddr_in m_sadrFrom; // who has sent the last request
     static LPFN_WSARECVMSG WSARecvMsg; // pointer to WSARecvMsg() function
-    MIB_IPADDRTABLE *m_pIpAddrTable; // table translating adapter index to its ipV4 address
 
   // construction/destruction
   public:

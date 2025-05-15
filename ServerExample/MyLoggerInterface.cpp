@@ -1272,21 +1272,6 @@ CMyDiscoveryServer::CMyDiscoveryServer (const CMyLoggerInterface *pLoggerIf)
     closesocket(sockDummy);
     ASSERT(WSARecvMsg!=NULL);
     }
-
-  // populate the adapter index to addresses. RESTRICTION: Since the map is created once at startup, the adapter configuration must not be changed (no adapters must be inserted nor removed)
-  if(1)
-    {
-    DWORD dwIpAddrSize=0;
-    MIB_IPADDRTABLE mibtblDummy;
-    GetIpAddrTable(&mibtblDummy,&dwIpAddrSize,FALSE); // first call to get the required size
-    m_pIpAddrTable=(MIB_IPADDRTABLE *)malloc(dwIpAddrSize);
-    if(GetIpAddrTable(m_pIpAddrTable,&dwIpAddrSize,FALSE)!=NO_ERROR)
-      {
-      free(m_pIpAddrTable);
-      m_pIpAddrTable=NULL;
-      }
-    }
-
   }
 
 
@@ -1298,8 +1283,7 @@ CMyDiscoveryServer::CMyDiscoveryServer (const CMyLoggerInterface *pLoggerIf)
 
 CMyDiscoveryServer::~CMyDiscoveryServer ()
   {
-  if(m_pIpAddrTable)
-    free(m_pIpAddrTable);
+
   }
 
 //--------------------------------------------------------------------------
@@ -1355,7 +1339,7 @@ CMyDiscoveryServer::~CMyDiscoveryServer ()
   bool bSuccess=false;
   int nEnable=1;
   m_sockRTx=socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP);
-  setsockopt(m_sockRTx,IPPROTO_IP,IP_RECVIF,(char*)&nEnable,sizeof(nEnable)); // obtain additional information with WSARecvMsg() or recvmsg()
+  setsockopt(m_sockRTx,IPPROTO_IP,IP_PKTINFO,(char*)&nEnable,sizeof(nEnable)); // obtain additional information with WSARecvMsg() or recvmsg()
   setsockopt(m_sockRTx,SOL_SOCKET,SO_REUSEADDR,(char*)&nEnable,sizeof(nEnable)); // allow reusing the address
   sockaddr_in sadrRx;
   sadrRx.sin_family = AF_INET;
@@ -1382,7 +1366,7 @@ CMyDiscoveryServer::~CMyDiscoveryServer ()
   // on other platforms, you may use recvmsg() instead of WSARecvMsg()
   // If the target system has only one interface, you may use recvfrom() and populate strLocalIpOfRequest with the adapters address, see also AbkGetOwnIpAddress().
   bool bSuccess=false;
-  if(WSARecvMsg && m_pIpAddrTable) // do only if the required prerequisites are available
+  if(WSARecvMsg) // do only if the required prerequisites are available
     {
     ZeroMemory(pRxBuf,nBufLen);
     fd_set fds;
@@ -1411,46 +1395,11 @@ CMyDiscoveryServer::~CMyDiscoveryServer ()
         WSACMSGHDR *pCMsgHdr=NULL;
         while(pCMsgHdr=WSA_CMSG_NXTHDR(&wsaMsg,pCMsgHdr))
           {
-          if(pCMsgHdr->cmsg_type==IP_RECVIF)
+          if(pCMsgHdr->cmsg_type==IP_PKTINFO)
             {
-            ULONG *pPktInfo;
-            pPktInfo=(ULONG *)WSA_CMSG_DATA(pCMsgHdr);
-            int nAdapterIndex=*pPktInfo; // this is the index of the adapter the UDP message came in
-            //char cIfName[IF_NAMESIZE];
-            //char *pIfName=if_indextoname(*pPktInfo,cIfName);
-            // check for local request
-            BOOL bLocalHost=FALSE;
-            for(int nEntity=0;nEntity<(int)m_pIpAddrTable->dwNumEntries;++nEntity)
-              {
-              MIB_IPADDRROW *pEntity=&m_pIpAddrTable->table[nEntity];
-              if(m_sadrFrom.sin_addr.S_un.S_addr==pEntity->dwAddr) // if the request came from one of the local adapters
-                {
-                bLocalHost=TRUE;
-                in_addr addrInbound;
-                addrInbound.S_un.S_addr=htonl(INADDR_LOOPBACK);
-                strLocalIpOfRequest=inet_ntoa(addrInbound);
-                bSuccess=TRUE;
-                break;
-                }
-              }
-            if(!bLocalHost)
-              {
-              for(int nEntity=0;nEntity<(int)m_pIpAddrTable->dwNumEntries;++nEntity)
-                {
-                MIB_IPADDRROW *pEntity=&m_pIpAddrTable->table[nEntity];
-                if(pEntity->dwIndex==nAdapterIndex)
-                  {
-                  in_addr addrInbound;
-                  addrInbound.S_un.S_addr=pEntity->dwAddr;
-                  if(IsSamePrivateNet(m_sadrFrom.sin_addr,addrInbound))
-                    strLocalIpOfRequest=inet_ntoa(addrInbound);
-                  else
-                    pRxBuf[0]='\0';
-                  break;
-                  }
-                }
-              }
-            break;
+              pPktInfo = (struct in_pktinfo *)WSA_CMSG_DATA(cmsg);
+              strLocalIpOfRequest = inet_ntoa(pPktInfo->ipi_addr);
+              break;
             }
           } // while
 #ifdef DISCOVERY_TRACE_RX
