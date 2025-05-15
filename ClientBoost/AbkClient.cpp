@@ -322,13 +322,27 @@ bool CAbkClient::CBaseAbstraction::EnsureConnection()
 	{
 		if (!IsSocketOpen())
 		{
-			boost::system::error_code ec;
-			tcp::resolver::results_type endpoints = resolver.resolve(m_strServerAddress, m_strPort, ec);
-			boost::asio::connect(*socket, endpoints, ec);
-			if (!ec)
-				m_bConnected = true;
-			else
-				m_bConnected = false;
+      boost::system::error_code ec;
+      tcp::resolver::results_type endpoints = resolver.resolve(m_strServerAddress, m_strPort, ec);
+      if (!ec)
+      {
+        boost::asio::steady_timer timer(io_context);
+        timer.expires_after(std::chrono::milliseconds(500));
+
+        boost::asio::async_connect(*socket, endpoints, [&ec](const boost::system::error_code& error, const tcp::endpoint&) {
+          ec = error;
+        });
+
+        io_context.run_one_for(std::chrono::milliseconds(500));
+        if (!ec)
+          m_bConnected = true;
+        else
+          m_bConnected = false;
+      }
+      else
+      {
+        m_bConnected = false;
+      }
 		}
 
 		return IsSocketOpen();
