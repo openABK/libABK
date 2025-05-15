@@ -123,6 +123,8 @@ int AbkFindServers (const char *pszClassName, const char *pszDeviceName, const c
       size_t nSent=sendto(pSockTx,strRequest.c_str(),(int)strRequest.length(),0,(sockaddr*)&sadrTx,sizeof(sadrTx));
       if(nSent!=strRequest.length())
         {
+        const char *pError = strerror(errno);
+        std::cerr << "Failed to broadcast UDP: " << pError;
         closesocket(pSockTx);
         return -1;
         }
