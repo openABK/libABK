@@ -120,7 +120,7 @@ int AbkFindServers (const char *pszClassName, const char *pszDeviceName, const c
     int nAttempts;
     for(nAttempts=0;nAttempts<ABK_DISCOVERY_ATTEMPTS;nAttempts++)
       {
-      size_t nSent=sendto(pSockTx,strRequest.c_str(),(int)strRequest.length(),0,(sockaddr*)&sadrTx,sizeof(sadrTx));
+      ssize_t nSent=sendto(pSockTx,strRequest.c_str(),(int)strRequest.length(),0,(sockaddr*)&sadrTx,sizeof(sadrTx));
       if(nSent!=strRequest.length())
         {
         const char *pError = strerror(errno);
