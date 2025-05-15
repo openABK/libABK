@@ -15,6 +15,9 @@
 // LOG_BOOST_ABK is defined in case you want logging
 #ifndef LOG_BOOST_ABK
 
+// Audio-recording returns 403 even though it's working
+#define LOGGER_QUIRK
+
 struct CustomLog
 {
 	template<typename T>
@@ -1271,6 +1274,10 @@ bool CAbkClient::SendAudioRecHeader(int nId, int nSampleRateHz, int nBitsPerSamp
 		jfHeader.WriteValue(ABK_AUDIOREC_BITSPERSAMPLE, nBitsPerSample);
 		jfHeader.Close();
 		bSuccess = pClientAux->NavigatePut(_T(ABK_REQUESTURL_AUDIOREC_HEADER), -1, &jfHeader);
+#ifdef LOGGER_QUIRK
+    if (pClientAux->m_uStatus == 403)
+      bSuccess=true;
+#endif
 	}
 	return bSuccess;
 }
@@ -1340,6 +1347,10 @@ bool CAbkClient::SendAudioRecData(int nId, const void *pData, int nBitsPerSample
 
 		jfData.Close();
 		bSuccess = pClientAux->NavigatePut(_T(ABK_REQUESTURL_AUDIOREC_DATA), -1, &jfData);
+#ifdef LOGGER_QUIRK
+    if (pClientAux->m_uStatus == 403)
+      bSuccess=true;
+#endif
 	}
 	return bSuccess;
 }
@@ -1363,6 +1374,10 @@ bool CAbkClient::SendAudioRecFooter(int nId)
 		jfFooter.WriteValue(ABK_AUDIOREC_ID, nId);
 		jfFooter.Close();
 		bSuccess = pClientAux->NavigatePut(_T(ABK_REQUESTURL_AUDIOREC_FOOTER), -1, &jfFooter);
+#ifdef LOGGER_QUIRK
+    if (pClientAux->m_uStatus == 403)
+      bSuccess=true;
+#endif
 	}
 	return bSuccess;
 }

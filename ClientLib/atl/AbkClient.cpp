@@ -1390,6 +1390,9 @@ bool CAbkClient::SendAudioRecHeader (int nId, int nSampleRateHz, int nBitsPerSam
     jfHeader.WriteValue(ABK_AUDIOREC_BITSPERSAMPLE,nBitsPerSample);
     jfHeader.Close();
     bSuccess=NULL!=pClientAux->NavigatePut(_T(ABK_REQUESTURL_AUDIOREC_HEADER),-1,&jfHeader);
+#ifdef LOGGER_QUIRK
+    bSuccess=true;
+#endif
     }
   return bSuccess;
   }
@@ -1453,6 +1456,9 @@ bool CAbkClient::SendAudioRecData (int nId, const void *pData, int nBitsPerSampl
 
     jfData.Close();
     bSuccess=NULL!=pClientAux->NavigatePut(_T(ABK_REQUESTURL_AUDIOREC_DATA),-1,&jfData);
+#ifdef LOGGER_QUIRK
+    bSuccess=true;
+#endif
     }
   return bSuccess;
   }
@@ -1475,6 +1481,9 @@ bool CAbkClient::SendAudioRecFooter (int nId)
     jfFooter.WriteValue(ABK_AUDIOREC_ID,nId);
     jfFooter.Close();
     bSuccess=NULL!=pClientAux->NavigatePut(_T(ABK_REQUESTURL_AUDIOREC_FOOTER),-1,&jfFooter);
+#ifdef LOGGER_QUIRK
+    bSuccess=true;
+#endif
     }
   return bSuccess;
   }
