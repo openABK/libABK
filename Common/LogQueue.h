@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include <CrossPlatform.h>
+#include "CrossPlatform.h"
 #include <string>
 #include <list>
 

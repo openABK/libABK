@@ -23,7 +23,7 @@
 
 
 #include "stdafx.h"
-#include <CrossPlatform.h>
+#include "CrossPlatform.h"
 #include <assert.h>
 #include <iostream>
 
