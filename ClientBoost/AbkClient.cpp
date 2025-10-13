@@ -18,6 +18,9 @@
 // Audio-recording returns 403 even though it's working
 #define LOGGER_QUIRK
 
+// Allow other translation units to configure for 8-bit only audio
+bool g_bForce8BitAudioAbk = false;
+
 struct CustomLog
 {
 	template<typename T>
@@ -1285,7 +1288,10 @@ bool CAbkClient::SendAudioRecHeader(int nId, int nSampleRateHz, int nBitsPerSamp
 		jfHeader.WriteValue(ABK_AUDIOREC_ID, nId);
 		jfHeader.WriteValue(ABK_AUDIOREC_SAMPLERATE_HZ, nSampleRateHz);
 		jfHeader.WriteValue(ABK_AUDIOREC_CHANNELS, nChannels);
-		jfHeader.WriteValue(ABK_AUDIOREC_BITSPERSAMPLE, nBitsPerSample);
+    if (g_bForce8BitAudioAbk)
+      jfHeader.WriteValue(ABK_AUDIOREC_BITSPERSAMPLE, 8);
+    else
+		  jfHeader.WriteValue(ABK_AUDIOREC_BITSPERSAMPLE, nBitsPerSample);
 		jfHeader.Close();
 		bSuccess = pClientAux->NavigatePut(_T(ABK_REQUESTURL_AUDIOREC_HEADER), -1, &jfHeader);
 #ifdef LOGGER_QUIRK
@@ -1343,12 +1349,23 @@ bool CAbkClient::SendAudioRecData(int nId, const void *pData, int nBitsPerSample
 		}
 		else if (nBitsPerSample == 16)
 		{
-			const WORD *pData16 = (const WORD *)pData;
+			const int16_t *pData16 = (const int16_t *)pData;
 			for (int nSample = 0; nSample < nSamplesPerChannel; ++nSample)
 			{
 				for (int nChannel = 0; nChannel < nChannels; ++nChannel)
 				{
-					jaData.WriteValue((int)(*pData16));
+          if (g_bForce8BitAudioAbk)
+          {
+            // Convert S16 to U8
+            int nVal = *pData16 / 256 + 128;
+            if (nVal < 0) nVal = 0;
+            if (nVal > 255) nVal = 255;
+            jaData.WriteValue(nVal);
+          }
+          else
+          {
+					  jaData.WriteValue((int)(*pData16));
+          }
 					++pData16;
 				}
 			}
