@@ -11,7 +11,7 @@ if(MINGW_COMPATIBLE AND NOT USE_BOOST_ABK)
 	message(SEND_ERROR "No AbkClient implementation possible")
 endif()
 
-get_native_precompiled_header(LibAbkClient)
+## Prefer modern precompiled headers via add_pch() helper
 if(NOT MINGW_COMPATIBLE)
 	message(STATUS "Adding LibAbkClient")
 	file(GLOB LIB_ABK_SRC_COMMON ${CMAKE_CURRENT_SOURCE_DIR}/Common/*.cpp)
@@ -50,10 +50,10 @@ set(LIB_ABK_SRC ${LIB_ABK_SRC_COMMON} ${LIB_ABK_SRC_LIB} ${LIB_ABK_BOOST_SRC})
 add_library(LibAbkClient ${LIB_ABK_SRC})
 
 if(USE_BOOST_ABK)
-	target_compile_definitions(LibAbkClient PUBLIC -DBOOST_ABK)
-	add_native_precompiled_header(LibAbkClient "${CMAKE_CURRENT_SOURCE_DIR}/ClientBoost/stdafx.h")
+  target_compile_definitions(LibAbkClient PUBLIC -DBOOST_ABK)
+  target_precompile_headers(LibAbkClient PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/ClientBoost/stdafx.h>")
 else()
-	add_native_precompiled_header(LibAbkClient "${CMAKE_CURRENT_SOURCE_DIR}/ClientLib/stdafx.h")
+	target_precompile_headers(LibAbkClient PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/ClientLib/stdafx.h>")
 endif()
 
 
