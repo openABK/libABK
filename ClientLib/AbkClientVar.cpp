@@ -36,6 +36,7 @@
 #include <math.h>
 #endif
 
+
 #define DEFAULT_FRACTIONAL_DIGITS 2 // number of fractional digits when abk server does not specify em
 
 namespace Abk
@@ -222,11 +223,11 @@ CAbkClientMeta::CAbkClientMeta ()
   //for(nThreshold=0;nThreshold<ABK_VALUE_THRESHOLD_COUNT;nThreshold++)
   //  m_dThresholds[nThreshold]=std::numeric_limits<double>::quiet_NaN();
   assert(ABK_VALUE_THRESHOLD_COUNT==5); // the following code expects this number of thresholds
-  m_dThresholds[0]=-DBL_MAX; // std::numeric_limits<double>::lowest();
-  m_dThresholds[1]=-DBL_MAX; // std::numeric_limits<double>::lowest();
+  m_dThresholds[0]=std::numeric_limits<double>::lowest();
+  m_dThresholds[1]=std::numeric_limits<double>::lowest();
   m_dThresholds[2]=0.;
-  m_dThresholds[3]=DBL_MAX; // std::numeric_limits<double>::max();
-  m_dThresholds[4]=DBL_MAX; // std::numeric_limits<double>::max();
+  m_dThresholds[3]=std::numeric_limits<double>::max();
+  m_dThresholds[4]=std::numeric_limits<double>::max();
 
   m_bHasThresholds=FALSE;
   m_bIsMailbox=FALSE;
