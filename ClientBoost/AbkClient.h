@@ -253,9 +253,29 @@ namespace Abk {
 			LOGSEVERITY_ERROR = CLogQueue<TCHAR>::LOGSEVERITY_ERROR
 		};
 
+    /** temporary connection used to allocate ephemeral ports for the regular operation
+    @note When disgracefully disconnecting the client from the server, the server starts to retry on the lost connection.
+     Later, when the client restarts, it tries to establish connection(s) with the same ephemeral ports of the previous run.
+     This leads to an error with an http time-out.
+    @note In order to avoid using general retries, the temporary connection will be used to switch to the next ephemeral ports,
+     hence allowing the connection of the normal operation to succeed immediately.
+    */
+    class CTempConnection
+    {
+      enum
+      {
+        REQUEST_COUNT = 3
+      };
+      CThreadLauncher m_thread;
+      CAbkClient::CBaseAbstraction *m_pClient;
+      static DWORD WINAPI RequestThreadS(void *vpThis);
 
+    public:
+      CTempConnection(CBaseAbstraction *pClient);
+      ~CTempConnection();
+    };
 
-	// data members
+  // data members
 	private:
 		bool m_bTerminateLongPoll; // true if long-polling thread shall terminate
 		CClientPtr m_pClientAux; // auxiliary client for blocking non-long-polling actions
@@ -278,6 +298,7 @@ namespace Abk {
 
 		boost::thread m_longPollThread;
 
+  public:
 		void AddLog(LOGSEVERITY nSeverity, LPCTSTR pszMessage, ...);
 
 	// construction/destruction/setup

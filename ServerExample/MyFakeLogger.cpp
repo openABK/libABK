@@ -269,7 +269,7 @@ CMyFakeLogger::CMyFakeLogger (int nVarCount, int nAniCycle)
   sprintf(m_vars[0].szName,"Tirepressure"); // "Tire.p<r>essure"
   sprintf(m_vars[0].szDisplayName,"Tire-pressure");
   sprintf(m_vars[0].szUnit,"bar");
-  sprintf(m_vars[0].szComment,"manually generated variable");
+  sprintf(m_vars[0].szComment,"{en}manually generated variable{de}manuell erstellte Variable");
   m_vars[0].dFactor=0.01;
   m_vars[0].dOffset=1.8;
   m_vars[0].dThresholds[0]=15;
@@ -277,11 +277,14 @@ CMyFakeLogger::CMyFakeLogger (int nVarCount, int nAniCycle)
   m_vars[0].dThresholds[2]=25;
   m_vars[0].dThresholds[3]=28;
   m_vars[0].dThresholds[4]=40;
-  m_vars[0].nFractionalDigits=2;
+  m_vars[0].nFractionalDigits=3;
   CVarRef::CMeta::CValueTable tblValToString;
   m_vars[0].m_tblValToText.Add (22, 23, "Text at 22");
   m_vars[0].m_tblValToText.Add (23, 24, "Text at 23");
   m_vars[0].m_tblValToText.SetFallback ("fall-back 0");
+
+  // Var #3 specialties
+  // m_vars[3].nFractionalDigits = 4;
 
   // Var #4, #5 specialties
   m_vars[4].pszImageUrl="abk/jpegs/Clip_480_5sec_6mbps_h264.jpg";
@@ -445,8 +448,7 @@ bool CMyFakeLogger::Sleep (int nTimeMs)
     // animate the values
     CAbkSingleLock guard(&pThis->m_mutexVars,true,FAKE_VARMUTEX_TIMEOUT); // gain access to the variables etc.
 #if defined (TESTBENCH_ABKBUTTONS)
-    int nVar;
-    for(nVar=0;nVar<pThis->m_nVarCount;nVar++)
+    for(int nVar=0;nVar<pThis->m_nVarCount;nVar++)
       {
       FAKEVAR *pLoggerVar=&pThis->m_vars[nVar];
       pLoggerVar->dValue=(double)(((int)(pLoggerVar->dValue)+1)%16);
@@ -455,8 +457,7 @@ bool CMyFakeLogger::Sleep (int nTimeMs)
       //  pVarInterface->FeedTrend();
       }
 #else
-    int nVar;
-    for(nVar=0;nVar<pThis->m_nVarCount;nVar++)
+    for(int nVar=0;nVar<pThis->m_nVarCount;nVar++)
       {
       FAKEVAR *pLoggerVar=&pThis->m_vars[nVar];
       pLoggerVar->dValue++;
@@ -473,9 +474,10 @@ bool CMyFakeLogger::Sleep (int nTimeMs)
 
   //  if(GetKeyState(VK_SHIFT)&0x8000)
       pThis->m_vars[3].dValue=(double)0x113F17; //####
+    pThis->m_vars[8].dValue = pThis->m_vars[0].dValue + 1000;
 
     // maintain min/average/max
-    for(nVar=0;nVar<pThis->m_nVarCount;nVar++)
+    for(int nVar=0;nVar<pThis->m_nVarCount;nVar++)
       {
       FAKEVAR *pLoggerVar=&pThis->m_vars[nVar];
       if(pLoggerVar->dValue>pLoggerVar->dMaxOccured)

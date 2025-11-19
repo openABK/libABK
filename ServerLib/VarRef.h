@@ -75,6 +75,7 @@ namespace Abk
       struct VALUE_TO_TEXT ///< table entity for translating a value into a text
       {
         std::string strText; // text output if this entity matches a received value
+        bool bTextValid; // true, if the text is valid. Used to qualify the fall-back item
         double dRangeLower; // lower end of range, included
         double dRangeUpper; // upper end of range, non-included
         VALUE_TO_TEXT ();

@@ -69,6 +69,39 @@ static inline std::ostream& LogErr()
 namespace Abk
 {
 
+
+/** Thread which requests in order to generate a little traffic
+@param vpThis Pointer to the temporary connection object
+@return always 0
+*/
+/*static*/ DWORD WINAPI CAbkClient::CTempConnection::RequestThreadS(void *vpThis)
+{
+	CTempConnection *pThis = static_cast<CTempConnection *>(vpThis);
+	for (size_t nRequest = 0; nRequest < REQUEST_COUNT; ++nRequest)
+	{
+		pThis->m_pClient->NavigateGet(_T(ABK_REQUESTURL_CURRENTTIME), -1);
+	}
+	pThis->m_thread.Stop();
+	return 0;
+}
+
+/** Constructor
+@param pClient http client used to send the requests
+*/
+CAbkClient::CTempConnection::CTempConnection(CBaseAbstraction *pClient)
+		: m_thread(RequestThreadS, this) ,m_pClient(pClient)
+{
+
+}
+
+/** dtor
+ */
+CAbkClient::CTempConnection::~CTempConnection()
+{
+	while (m_thread.IsRunning())
+		Sleep(1);
+}
+
 //----------------------------------------------------------------------
 
 CAbkClient::CBaseAbstraction::CBaseAbstraction(CAbkClient *pOwner): 
@@ -743,6 +776,16 @@ bool CAbkClient::Create(LPCTSTR pszServerAddress, int nPort, CAbkServerEvent *pE
 
 		pClientAux->EnsureConnection();
 		pClientEvent->EnsureConnection();
+
+		// tentative
+		if (1)
+		{
+			for (size_t nTemp = 0; nTemp < 2; ++nTemp)
+			{
+				CBaseAbstraction *pClient = m_pClientAux.GetPtr();
+				CTempConnection connTemp[3] = {CTempConnection(pClient), CTempConnection(pClient), CTempConnection(pClient)};
+			}
+		}
 
 		// Connect and obtain session id
 		m_nSessionId = pClientAux->ObtainSessionId(pszClientClass, pszClientType, pszClientSerial, pszClientFwRev, pszClientHwRev);
@@ -1517,33 +1560,8 @@ int CAbkClient::LongPollThread(void)
 							CAbkClientDaq *pDaq = FindDaq(strDaqName); // get the client-side daq list
 							if (pDaq)
 							{
-								bool bNotifyVars; // false if callback wishes the variables not to be updated
-								bNotifyVars = pDaq->OnBeginDataFromServer();
-								if (bNotifyVars)
-								{
-									if (const size_t nVarCount = pDaq->m_vectVars.size())
-									{
-										CAbkClientVar **ppVars = &pDaq->m_vectVars[0];
-										size_t nVar = 0;
-										for (++jpEvent; !jpEvent.IsDone(); ++jpEvent) // each value
-										{
-											if (nVar >= nVarCount) // if the returned data from server contains more data than our daq list specifies..
-											{ //.. it is an error
-												AddLog(LOGSEVERITY_ERROR, _T("The returned data from server in daq \"%s\" contains more data than the daq list specifies"), (LPCTSTR)pDaq->m_strName);
-												break;
-											}
-											CAbkClientVar *pVar = ppVars[nVar]; // this variable gets the new data
-											assert(pVar);
-											pDaq->OnValueFromServer(pVar, &jpEvent);
-											++nVar;
-										}
-									}
-								}
-								else // no variable update
-								{
-									for (++jpEvent; !jpEvent.IsDone(); ++jpEvent); // skip each value
-								}
-								pDaq->OnEndDataFromServer(); // notify the derived class that variable updates are done
+								if (!pDaq->OnDataFromServer(jpEvent)) // here, data gets dispatched to the destination
+									CAbkClientDaq::DiscardJson(jpEvent);
 							}
 						} // end of data array
 						jpEvent.SkipItem(); // skip unexpected items
@@ -1623,7 +1641,7 @@ bool CAbkClient::AddDaq(CAbkClientDaq *pAdd)
 			iterInsert = m_mapDaq.insert(std::pair<std::string, CAbkClientDaq *>(strDaqNameA, pAdd));
 			assert(iterInsert.second); // error inserting the daq?
 			pAdd->m_pOwner = this;
-			bSuccess = pAdd->Update(); // send it to server
+			bSuccess = true;
 		}
 		else
 			AddLog(LOGSEVERITY_ERROR, _T("Tried to add a DAQ while another DAQ with same name exists: \"%s\""), (LPCTSTR)pAdd->m_strName);
@@ -1764,6 +1782,9 @@ bool CAbkClient::CBaseAbstraction::GetVarOrMailboxMeta(const std::vector<LPCTSTR
 	std::string strResponse = NavigatePost(pszPath, -1, &jfRequest);
 	if (!strResponse.empty())
 	{
+		size_t nReserve = pGet->size() + vectVarNames.size();
+		if (nReserve > pGet->capacity())
+			pGet->reserve(nReserve);
 		CJsonParser jpMeta(strResponse.c_str());
 		for (; !jpMeta.IsDone(); ++jpMeta)
 		{
@@ -2168,7 +2189,7 @@ BOOL CAbkClient::CClientPtr::Delete(void)
 	if (!m_pClient)
 		return TRUE; // successfully deleted nothing
 	BOOL bSuccess = FALSE;
-	for (int nRetry = 0; nRetry < 100; nRetry++)
+	for (int nRetry = 0; nRetry < 300; nRetry++)
 	{
 		if (m_nUsage.load(boost::memory_order_acquire) == 0)
 		{
@@ -2179,6 +2200,7 @@ BOOL CAbkClient::CClientPtr::Delete(void)
 		}
 		Sleep(10);
 	}
+  assert(m_nUsage==0);
 	return bSuccess;
 }
 

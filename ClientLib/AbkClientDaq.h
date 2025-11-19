@@ -35,16 +35,13 @@ namespace Abk
   class CAbkClientDaq
     {
     friend class CAbkClient;
+
     // data members
     protected:
       CString m_strName; // name of the DAQ list
       CString m_strUrl; // url to maintain DAQ list at the server (either variables or mailbox url)
       CAbkClient *m_pOwner; // owning abk http client
-      std::vector<CAbkClientVar *> m_vectVars; // list of variables in the daq
-      int m_nCycleMs; // update cycle in ms
       size_t m_nVarCountAtServer; // backup of number of vars recently put to the server
-      bool m_bCycleInvalid; // true if cycle is to be updated at the server
-      bool m_bVarlistInvalid; // true if the variable list is to be updated at the server
 
     // construction/destruction/setup
     public:
@@ -53,18 +50,12 @@ namespace Abk
 
     // methods and properties
     public:
-      void SetCycle (int nCycleMs); // sets the cycle w/o sending it to server
-      int GetCycle (void); // returns the cycle of the DAQ
-      bool AddVar (CAbkClientVar *pVar); // adds a variable
-      void DeleteAllVars (void); // deletes and removes all variables of this DAQ
-      CAbkClientVar *FindVar (LPCTSTR pszName); // searches for a variable by name
-      bool Update (void); // updates the daq list at the server
+      bool Update(const std::vector<LPCTSTR>& vectVarNames, int nCycleMs); // updates the daq list at the server
+      static void DiscardJson(CJsonParserAtl& jpSkip); // skips the complete DAQ in the JSON parser
 
     // overrideables
     protected:
-      virtual bool OnBeginDataFromServer (void); // called before the variables OnValueFromServer() calls for this DAQ start
-      virtual void OnEndDataFromServer (void); // called when calls to variables OnValueFromServer() for this DAQ are done
-      virtual bool OnValueFromServer (CAbkClientVar *pVarTarget, CJsonParserAtl *pSource) const=0; // called when value from server arrived
+      virtual bool OnDataFromServer(CJsonParserAtl& jpEvent) const = 0; // called when data arrived
     
     // implementation
     protected:

@@ -76,6 +76,41 @@ namespace Abk
 
 
 
+  /** Thread which requests in order to generate a little traffic  
+  @param vpThis Pointer to the temporary connection object
+  @return always 0
+  */
+  /*static*/ DWORD WINAPI CAbkClient::CTempConnection::RequestThreadS(void* vpThis)
+  {
+    CTempConnection* pThis = static_cast<CTempConnection*>(vpThis);
+    for (size_t nRequest = 0; nRequest < REQUEST_COUNT; ++nRequest)
+    {
+      pThis->m_pClient->NavigateGet(_T(ABK_REQUESTURL_CURRENTTIME), -1);
+    }
+    pThis->m_hThread = NULL;
+    return 0;
+  }
+
+  /** Constructor  
+  @param pClient http client used to send the requests
+  */
+  CAbkClient::CTempConnection::CTempConnection(CBaseAbstraction* pClient)
+    : m_hThread(NULL)
+    , m_pClient(pClient)
+  {
+    m_hThread = CreateThread(NULL, 0, RequestThreadS, this, 0, NULL);
+  }
+
+  /** dtor
+  */
+  CAbkClient::CTempConnection::~CTempConnection()
+  {
+    while (m_hThread)
+      Sleep(1);
+  }
+
+
+
 
 
 //--------------------------------------------------------------------------
@@ -90,7 +125,7 @@ BOOL CAbkClient::CClientPtr::Delete (void)
   if(!m_pClient)
     return TRUE; // successfully deleted nothing
   BOOL bSuccess=FALSE;
-  for(int nRetry=0;nRetry<100;nRetry++)
+  for(int nRetry=0;nRetry<300;nRetry++)
     {
 #ifndef USE_BOOST_REF_COUNT
     CLockMyCriticalSection lock(m_csUsage,_T("Abk::CAbkClient::CClientPtr::Delete()"));
@@ -106,6 +141,7 @@ BOOL CAbkClient::CClientPtr::Delete (void)
       }
     Sleep(10);
     }
+  ASSERT(m_nUsage==0);
   return bSuccess;
   }
 
@@ -205,11 +241,21 @@ bool CAbkClient::Create (LPCTSTR pszServerAddress, int nPort, CAbkServerEvent *p
     pClientAux->SetServerAddr (m_strServerAddress, nPort);
     pClientEvent->SetServerAddr (m_strServerAddress, nPort);
     pClientAux->SetTimeout (ABK_AUX_MAXRESPONSE_MS);
-    pClientEvent->SetTimeout (ABK_LONGPOLL_MAXRESPONSE_MS);
+    pClientEvent->SetTimeout (ABK_LONGPOLL_MAXRESPONSE_MS + (ABK_LONGPOLL_MAXRESPONSE_MS / 2)); // + ABK_LONGPOLL_MAXRESPONSE_MS / 2 as reserve
 
     // get a session id
     if (!m_strClientClass.IsEmpty () && !m_strClientType.IsEmpty ())
     {
+      // tentative
+      if(1)
+      {
+        for (size_t nTemp = 0; nTemp < 2; ++nTemp)
+        {
+          CBaseAbstraction *pClient = m_pClientAux.GetPtr();
+          CTempConnection connTemp[3] = { CTempConnection(pClient), CTempConnection(pClient), CTempConnection(pClient) };
+        }
+      }
+
       m_nSessionId = pClientAux->ObtainSessionId (m_strClientClass, m_strClientType, m_strClientSerial, m_strClientFwRev, m_strClientHwRev);
       if (m_nSessionId >= 0)
       {
@@ -843,13 +889,13 @@ bool CAbkClient::SetMailboxValue (LPCTSTR pszMailboxName, const CTime &tmSet)
   }
 
 
-//--------------------------------------------------------------------------
-// GetVarMeta()            requests meta data of a variable
-// ------------
-// Input: vectVarNames = list with variable names
-//        pGet = pointer to return the meta data
-// Return: true on success, false on error
 
+
+/** requests meta data of variables
+@param vectVarNames list with variable names
+@param pGet[out] pointer to return the meta data.Data will be appended rather than overwritten
+@return true on success, false on error
+*/
 bool CAbkClient::GetVarMeta (const std::vector<LPCTSTR> &vectVarNames, std::vector<CAbkClientMeta> *pGet)
   {
   bool bSuccess=false;
@@ -859,6 +905,7 @@ bool CAbkClient::GetVarMeta (const std::vector<LPCTSTR> &vectVarNames, std::vect
     bSuccess=pClientAux->GetVarOrMailboxMeta(vectVarNames,pGet,false);
   return bSuccess;
   }
+
 
 
 //--------------------------------------------------------------------------
@@ -881,13 +928,13 @@ bool CAbkClient::GetVarMeta (LPCTSTR pszVarName, CAbkClientMeta *pGet)
   }
 
 
-//--------------------------------------------------------------------------
-// GetMailboxMeta()        requests meta data of a mailbox
-// ----------------
-// Input: vectVarNames = list with mailbox names
-//        pGet = pointer to return the meta data
-// Return: true on success, false on error
 
+
+/** requests meta data of mailboxes
+@param vectVarNames list with variable names
+@param pGet[out] pointer to return the meta data.Data will be appended rather than overwritten
+@return true on success, false on error
+*/
 bool CAbkClient::GetMailboxMeta (const std::vector<LPCTSTR> &vectMailboxNames, std::vector<CAbkClientMeta> *pGet)
   {
   CClientPtrRef pClientAux(m_pClientAux);
@@ -1630,33 +1677,8 @@ int CAbkClient::LongPollThread (void)
               CAbkClientDaq *pDaq=FindDaq(strDaqName); // get the client-side daq list
               if(pDaq)
               {
-                bool bNotifyVars; // false if callback wishes the variables not to be updated
-                bNotifyVars=pDaq->OnBeginDataFromServer();
-                if(bNotifyVars)
-                {
-                  if(const size_t nVarCount=pDaq->m_vectVars.size())
-                  {
-                    CAbkClientVar **ppVars=&pDaq->m_vectVars[0];
-                    size_t nVar=0;
-                    for(++jpEvent;!jpEvent.IsDone();++jpEvent) // each value
-                    {
-                      if(nVar>=nVarCount) // if the returned data from server contains more data than our daq list specifies..
-                      { //.. it is an error
-                        AddLog(LOGSEVERITY_ERROR,_T("The returned data from server in daq \"%s\" contains more data than the daq list specifies"),(LPCTSTR)pDaq->m_strName);
-                        break;
-                      }
-                      CAbkClientVar *pVar=ppVars[nVar]; // this variable gets the new data
-                      assert(pVar);
-                      pDaq->OnValueFromServer(pVar,&jpEvent);
-                      ++nVar;
-                    }
-                  }
-                }
-                else // no variable update
-                {
-                  for(++jpEvent;!jpEvent.IsDone();++jpEvent); // skip each value
-                }
-                pDaq->OnEndDataFromServer(); // notify the derived class that variable updates are done
+                if (!pDaq->OnDataFromServer(jpEvent)) // here, data gets dispatched to the destination
+                  CAbkClientDaq::DiscardJson(jpEvent);
               }
             } // end of data array
             jpEvent.SkipItem(); // skip unexpected items
@@ -1754,7 +1776,7 @@ CAbkClientDaq *CAbkClient::FindDaq (LPCTSTR pszDaqName)
 
 
 //--------------------------------------------------------------------------
-// AddDaq()                adds a daq list and sends it to the server
+// AddDaq()                adds a daq list. It needs to be updated afterwards
 // --------
 // Input: pAdd = pointer to daq to be added. this daq will be deleted
 //               with the DeleteDaq() method or on destruction
@@ -1775,7 +1797,7 @@ bool CAbkClient::AddDaq (CAbkClientDaq *pAdd)
       iterInsert=m_mapDaq.insert(pair<std::string,CAbkClientDaq *>(strDaqNameA,pAdd));
       assert(iterInsert.second); // error inserting the daq?
       pAdd->m_pOwner=this;
-      bSuccess=pAdd->Update(); // send it to server
+      bSuccess = true;
       }
     else
       AddLog(LOGSEVERITY_ERROR,_T("Tried to add a DAQ while another DAQ with same name exists: \"%s\""),(LPCTSTR)pAdd->m_strName);
@@ -1815,28 +1837,6 @@ bool CAbkClient::DeleteDaq (CAbkClientDaq *pDelete)
   return DeleteDaq(pDelete->m_strName);
   }
 
-
-//--------------------------------------------------------------------------
-// SetDaqCycle()           sets the cycle for an existent DAQ list
-// -------------
-// Input: strDaqName = name of the daq to be updated
-//        nCycle = new cycle in ms to be set
-// Return: true on success, false on error
-
-bool CAbkClient::SetDaqCycle (LPCTSTR pszDaqName, int nCycle)
-  {
-  CAbkSingleLock lockDaq(&m_mutexDaq,true,DAQ_TIMEOUT);
-  assert(m_mutexDaq.IsLocked());
-  CAbkClientDaq *pDaq=FindDaq(pszDaqName);
-  if(!pDaq)
-    {
-    AddLog(LOGSEVERITY_ERROR,_T("Tried to set a daq cycle for a non-existing DAQ: \"%s\""),pszDaqName);
-    return false; // not found
-    }
-  pDaq->SetCycle(nCycle);
-  pDaq->Update();
-  return true;
-  }
 
 
 
@@ -2675,7 +2675,7 @@ bool CAbkClient::CBaseAbstraction::SetVarOrMailboxValue (LPCTSTR pszPath, const 
 
 /** requests meta data of a variables or mailboxes
 @param vectVarNames[in] list of variable names
-@param pGet[out] pointer to return the meta data
+@param pGet[out] pointer to return the meta data. Data will be appended rather than overwritten
 @param bMailboxFlag[in] mailbox-flag for the meta data entity
 @return true on success, false on error
 */
@@ -2697,7 +2697,9 @@ bool CAbkClient::CBaseAbstraction::GetVarOrMailboxMeta (const std::vector<LPCTST
 
   if(const char *pszResponse=NavigatePost(pszPath,-1,&jfRequest))
   {
-    pGet->reserve(vectVarNames.size());
+    size_t nReserve = pGet->size() + vectVarNames.size();
+    if (nReserve > pGet->capacity())
+      pGet->reserve(nReserve);
     CJsonParser jpMeta(pszResponse);
     for(;!jpMeta.IsDone();++jpMeta)
     {

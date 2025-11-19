@@ -26,7 +26,7 @@
 #include <mmreg.h> // for WAVEFORMATEX
 #include "VarRef.h"
 
-#define FAKE_VARCOUNT_MAX 2000 // number of maximum variables in the fake logger
+#define FAKE_VARCOUNT_MAX 4000 // number of maximum variables in the fake logger
 //#define FAKE_CYCLE_MS 100 // fake animation cycle in ms
 #define FAKE_VARMUTEX_TIMEOUT 1000 // timeout when giving up waiting for variable access
 

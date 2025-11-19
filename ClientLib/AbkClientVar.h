@@ -47,6 +47,7 @@ namespace Abk
         double dRangeLower; // lower end of range, included
         double dRangeUpper; // upper end of range, non-included
         CString strText; // text output if this entity matches a received value
+        bool bTextValid; // false if the text is not valid
         VALUE_TO_TEXT ();
         bool ExtractFromJson (CJsonParser& jpSource); // extracts table entity from JSON parser
       };
@@ -127,29 +128,5 @@ namespace Abk
 
 
 
-  class CAbkClientVar
-    {
-    // data members
-    protected:
-      CAbkClientDaq *m_pDaq; // owning daq
-
-    // construction/destruction/setup
-    public:
-      CAbkClientVar (CAbkClientDaq *pDaq);
-      virtual ~CAbkClientVar ();
-
-    // methods and properties
-    public:
-
-    // overrideables
-    public:
-      virtual LPCTSTR GetName (void) const=0; // returns the name of the variable
-      virtual void OnValueFromServer (const CJsonParserAtl *pSource)=0; // called when data arrived from server
-      virtual void OnMinAvgMaxFromServer (CJsonParserAtl *pSource)=0; // called when min, avg, max arrived from server
-    
-    // implementation
-    protected:
-
-    };
 
   } // namespace

@@ -46,6 +46,7 @@ namespace Abk {
   {
     dRangeLower = 0.;
     dRangeUpper = 0.;
+    bTextValid = false;
   }
 
 
@@ -60,7 +61,8 @@ namespace Abk {
 #if defined(ABK_RSP_VALTBL_VALUE_TO)
     joDump.WriteValue (ABK_RSP_VALTBL_VALUE_TO, dRangeUpper);
 #endif
-    joDump.WriteValue (ABK_RSP_VALTBL_TEXT,strText);
+    if (bTextValid)
+      joDump.WriteValue(ABK_RSP_VALTBL_TEXT, strText);
   }
 
 
@@ -148,6 +150,7 @@ namespace Abk {
     entNew.dRangeLower = dRangeLower;
     entNew.dRangeUpper = dRangeUpper;
     entNew.strText = pszText;
+    entNew.bTextValid = true;
     Add (entNew);
   }
 
@@ -187,6 +190,7 @@ namespace Abk {
   {
     m_entFallback.strText = pszFallbackText;
     m_entFallback.strText = pszFallbackText; // 05th Nov. 2022, D. Burger: needed to do it twice due to an error in the lib??
+    m_entFallback.bTextValid = true;
   }
 
 
@@ -210,7 +214,8 @@ namespace Abk {
       }
     }
     jaTable.Close ();
-    joDump.WriteValue (ABK_RSP_VARMETA_TEXTFALLBACK, m_entFallback.strText);
+    if (m_entFallback.bTextValid)
+      joDump.WriteValue(ABK_RSP_VARMETA_TEXTFALLBACK, m_entFallback.strText);
   }
 
 
