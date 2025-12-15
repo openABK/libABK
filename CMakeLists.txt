@@ -24,6 +24,12 @@ if(NOT MINGW_COMPATIBLE)
 endif()
 
 if(USE_BOOST_ABK)
+  message(STATUS "Soup include dir (abk): ${SOUP_INCLUDE_DIR}")
+  if (NOT SOUP_INCLUDE_DIR)
+    message(SEND_ERROR "Soup include dir not found")
+  endif()
+
+
 	message(STATUS "Adding LibAbkClientBoost")
 	file(GLOB LIB_ABK_BOOST_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/Common/JsonFormatter.cpp
@@ -36,6 +42,7 @@ if(USE_BOOST_ABK)
 	${CMAKE_CURRENT_SOURCE_DIR}/Common/JsonParserAtl.cpp
 
 	${CMAKE_CURRENT_SOURCE_DIR}/ClientBoost/AbkClient.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/ClientBoost/AbkClientSoup.cpp
 	)
 
 	# Prefer our stdafx when possible (source files in ClientLib will still use theirs)
@@ -51,6 +58,8 @@ add_library(LibAbkClient ${LIB_ABK_SRC})
 
 if(USE_BOOST_ABK)
   target_compile_definitions(LibAbkClient PUBLIC -DBOOST_ABK)
+  target_include_directories(LibAbkClient PRIVATE ${SOUP_INCLUDE_DIR})
+  target_link_libraries(LibAbkClient PRIVATE ${SOUP_LIBRARY})
   target_precompile_headers(LibAbkClient PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/ClientBoost/stdafx.h>")
 else()
 	target_precompile_headers(LibAbkClient PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/ClientLib/stdafx.h>")

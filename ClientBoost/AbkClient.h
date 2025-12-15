@@ -38,135 +38,6 @@ namespace Abk {
 	class CAbkClient
 	{
 		friend class CAbkClientDaq;
-		friend class CAbkClient;
-// CBaseAbstraction begin -----------------------------------------------------------
-	public:
-// HTTP client class
-		class CBaseAbstraction
-		{
-			friend class CAbkClientDaq;
-			friend class CAbkClient;
-
-// Definitions
-		private:
-			enum eHttpRequestType {
-				E_HTTP_GET,
-				E_HTTP_POST,
-				E_HTTP_PUT,
-				E_HTTP_DELETE
-			};
-
-
-			enum eHttpHeaders {
-				E_HEADER_INVALID,
-				E_HEADER_CONTENT_LENGTH,
-				E_HEADER_CONNECTION
-			};
-
-			/** Converts a string to lower case before comparing */
-			struct insensitive_hash {
-				std::size_t operator ()(const std::string &value) const;
-			};
-
-
-			typedef boost::unordered_map<std::string, eHttpHeaders, insensitive_hash> HashMap;
-
-			// Maps a string to enum values
-			const HashMap m_HashMap = {
-				{"Content-Length", E_HEADER_CONTENT_LENGTH},
-				{"Connection", E_HEADER_CONNECTION}
-			};
-
-// data members
-		private:
-			std::string m_strServerAddress; // c-string of the server address
-			std::string m_strPort;
-			int m_nPort; // port at the server. it is used to initialize the CAtlNavigateData
-			CAbkClient *m_pOwner; // pointer to owning container object
-			// CAtlNavigateData m_nav; // navigation information
-			//CMyCriticalSection m_csNavigate; // prevent Navigate() from beeing called in different contexts
-			CAbkMutex m_mutex;
-		// construction/destruction/setup
-			CJsonFormatter formatter;
-
-			unsigned int m_uStatus;
-		public:
-			CBaseAbstraction(CAbkClient *pOwner);
-			virtual ~CBaseAbstraction();
-			// methods
-		public:
-
-// implementation
-		protected:
-			void SetServerAddr(const std::string &pszServerAddress, int nPort); // re-assigns the server address and port
-			int GetServerPort(void) const { return m_nPort; } // returns port
-			bool DeleteSession(int nSessionId); // deletes the actual session
-
-			// TODO: MIME type
-			std::string NavigatePut(LPCTSTR pszPath, int nSessionId, const std::string &strData);
-			bool NavigatePut(LPCTSTR pszPath, int nSessionId, CJsonFormatter *pPutData);
-			/** Used to retrieve a string at a certain path
-				@param pszPath
-					Path on the server
-				@param nSessionId
-					Session ID to use in query, set to -1 to query without
-				@return
-					Response string
-			 */
-			std::string NavigateGet(LPCTSTR pszPath, int nSessionId);
-			bool        NavigateGet(LPCTSTR pszPath, int nSessionId, std::ostream & out);
-			std::string NavigatePost(LPCTSTR pszPath, int nSessionId, CJsonFormatter *pPostData);
-
-			bool        NavigateDelete(LPCTSTR pszPath, int nSessionId, CJsonFormatter *pPostData);
-
-			template <typename U>
-			bool SetVarOrMailboxValue(LPCTSTR pszPath, const char *pszName, const U *pSet)
-			{
-				CJsonFormatter jfRequest;
-				{
-					CJsonStreamArray jaGetList(&jfRequest, ABK_REQ_VARVALUE_PUTLIST);
-					{
-						CJsonStreamObject joVarPut(&jaGetList);
-						joVarPut.WriteValue(ABK_REQ_VARVALUE_NAME, pszName);
-						joVarPut.WriteValue(ABK_REQ_VARVALUE_VALUE, *pSet);
-					}
-				} // let array object fall out of scope
-				jfRequest.Close();
-				return NavigatePut(pszPath, -1, &jfRequest);
-			}
-
-			bool GetVarOrMailboxList(LPCTSTR pszPath, std::vector<CString> *pGet);
-			bool GetVarOrMailboxMeta(const std::vector<LPCTSTR> &vectVarNames, std::vector<CAbkClientMeta> *pGet, bool bMailboxFlag);
-			int ObtainSessionId(LPCTSTR pszClientClass, LPCTSTR pszClientType, LPCTSTR pszClientSerial /*=NULL*/, LPCTSTR pszClientFwRev, LPCTSTR pszClientHwRev);
-
-
-
-		protected:
-// functions similar to ATL
-			void Close();
-
-// internal functions
-			bool EnsureConnection();
-
-			eHttpHeaders GetEnumFromString(const std::string &str) const;
-
-			size_t WriteToSocket(const std::string & a_Path, eHttpRequestType a_Type);
-			size_t WriteToSocket(const std::string & a_Path, const std::string & a_Message, eHttpRequestType a_Type);
-
-			size_t ReadFromSocket(std::string & a_Message);
-			size_t ReadFromSocket(std::ostream & sstream);
-
-			bool IsSocketOpen() const;
-			unsigned int GetStatus() { return m_uStatus; }
-
-		public:
-			boost::asio::io_context io_context;
-			tcp::resolver resolver /*(io_context)*/;
-			std::unique_ptr<tcp::socket> socket /*(io_context)*/;
-			std::atomic<bool> m_bConnected;
-		};
-
-// End of CBaseAbstraction--------------------------------------------------------------------------------------
 
 	public:
 		class CFormElement // one element of a form
@@ -206,7 +77,7 @@ namespace Abk {
 		{
 			//class CClientPtrRef;
 			//friend class CClientPtrRef;
-			CBaseAbstraction *m_pClient;
+			class CBaseAbstraction *m_pClient;
 		public:
 			boost::atomic<int> m_nUsage; // usage counter
 
@@ -267,11 +138,11 @@ namespace Abk {
         REQUEST_COUNT = 3
       };
       CThreadLauncher m_thread;
-      CAbkClient::CBaseAbstraction *m_pClient;
+      class CBaseAbstraction *m_pClient;
       static DWORD WINAPI RequestThreadS(void *vpThis);
 
     public:
-      CTempConnection(CBaseAbstraction *pClient);
+      CTempConnection(class CBaseAbstraction *pClient);
       ~CTempConnection();
     };
 

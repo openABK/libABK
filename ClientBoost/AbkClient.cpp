@@ -5,6 +5,9 @@
 #include "JsonParserAtl.h"
 #include "StopWatch.h"
 
+#include <libsoup/soup.h>
+#include "AbkClientAbstraction.h"
+
 #define DAQ_TIMEOUT 10000 // mutex timeout in ms
 #define MIME_TYPE_TEXT "text/plain"
 
@@ -102,573 +105,12 @@ CAbkClient::CTempConnection::~CTempConnection()
 		Sleep(1);
 }
 
-//----------------------------------------------------------------------
-
-CAbkClient::CBaseAbstraction::CBaseAbstraction(CAbkClient *pOwner): 
-	resolver(io_context), socket(boost::make_unique<tcp::socket>(io_context))
-{
-	m_pOwner = pOwner;
-	m_nPort = 0;
-	m_bConnected = false;
-}
-
-CAbkClient::CBaseAbstraction::~CBaseAbstraction()
-{
-}
-
-void CAbkClient::CBaseAbstraction::SetServerAddr(const std::string &strServerAddress, int nPort)
-{
-	m_strServerAddress = strServerAddress;
-	m_nPort = nPort;
-
-	std::stringstream sstream;
-	sstream << nPort;
-	m_strPort = sstream.str();
-}
-
-//------------------------------------------------------------------------------------------------
-
-size_t CAbkClient::CBaseAbstraction::WriteToSocket(const std::string &a_Path, CAbkClient::CBaseAbstraction::eHttpRequestType a_Type)
-{
-	try
-	{
-		boost::asio::streambuf request;
-		std::ostream request_stream(&request);
-
-		assert(a_Type == E_HTTP_GET);
-
-		request_stream << "GET ";
-		request_stream << a_Path;
-		request_stream << " HTTP/1.1\r\n";
-
-		request_stream << "Host: " << m_strServerAddress << "\r\n";
-		request_stream << "User-Agent: AbkClientBoost\r\n";
-		request_stream << "Connection: keep-alive\r\n\r\n";
-
-		return boost::asio::write(*socket, request);
-	}
-	catch (std::exception &e)
-	{
-		boost::ignore_unused(e);
-		m_bConnected = false;
-		throw AbkNetworkException();
-	}
-}
-
-size_t CAbkClient::CBaseAbstraction::WriteToSocket(const std::string &a_Path, const std::string &a_Message, CAbkClient::CBaseAbstraction::eHttpRequestType a_Type)
-{
-	try
-	{
-		boost::asio::streambuf request;
-		std::ostream request_stream(&request);
-
-		switch (a_Type)
-		{
-		case E_HTTP_GET:
-			request_stream << "GET ";
-			// There's no reason why you would like to use GET with a message
-			assert(false);
-			break;
-		case E_HTTP_POST:
-			request_stream << "POST ";
-			break;
-		case E_HTTP_PUT:
-			request_stream << "PUT ";
-			break;
-		case E_HTTP_DELETE:
-			request_stream << "DELETE ";
-			break;
-		default:
-			request_stream << "POST ";
-			break;
-		}
-
-		request_stream << a_Path;
-		request_stream << " HTTP/1.1\r\n";
-
-		request_stream << "Host: " << m_strServerAddress << "\r\n";
-		request_stream << "User-Agent: AbkClientBoost\r\n";
-		request_stream << "Connection: keep-alive\r\n";
-
-		request_stream << "Content-Length: " << a_Message.size() << "\r\n";
-		request_stream << "Content-Type: application/json\r\n";
-		request_stream << "\r\n";
-		request_stream << a_Message;
-
-		boost::system::error_code ec;
-		size_t bytes = boost::asio::write(*socket, request, ec);
-
-		return bytes;
-	}
-	catch (std::exception &e)
-	{
-		boost::ignore_unused(e);
-		m_bConnected = false;
-		socket->close();
-		throw AbkNetworkException();
-	}
-}
-
-CAbkClient::CBaseAbstraction::eHttpHeaders CAbkClient::CBaseAbstraction::GetEnumFromString(const std::string &str) const
-{
-	eHttpHeaders returnValue = E_HEADER_INVALID;
-	HashMap::const_iterator search = m_HashMap.find(str);
-	if (search != m_HashMap.end())
-	{
-		returnValue = search->second;
-	}
-	return returnValue;
-}
-
-size_t CAbkClient::CBaseAbstraction::ReadFromSocket(std::string &a_Message)
-{
-	std::stringstream sstream;
-	size_t bytes = ReadFromSocket(sstream);
-	a_Message = sstream.str();
-	return bytes;
-}
-
-size_t CAbkClient::CBaseAbstraction::ReadFromSocket(std::ostream &sstream)
-{
-	try
-	{
-		// Read the response status line. The response streambuf will automatically
-		// grow to accommodate the entire line. The growth may be limited by passing
-		// a maximum size to the streambuf constructor.
-		boost::asio::streambuf response;
-		boost::asio::read_until(*socket, response, "\r\n");
-
-		// Check that response is OK.
-		std::istream response_stream(&response);
-		std::string http_version;
-		response_stream >> http_version;
-		response_stream >> m_uStatus;
-
-		std::string status_message;
-		std::getline(response_stream, status_message);
-		if (!response_stream || http_version.substr(0, 5) != "HTTP/")
-		{
-#ifdef LOG_BOOST_ABK
-			Log() << "Invalid response\n";
-#endif
-			return -1;
-		}
-		// We still want to receive error messages
-		if (!(m_uStatus == 200 || (m_uStatus >= 400 && m_uStatus <= 499)))
-		{
-#ifdef LOG_BOOST_ABK
-			Log() << "Response returned with status code " << m_uStatus << "\n";
-#endif
-			return -1;
-		}
-
-		// Read the response headers, which are terminated by a blank line.
-		boost::asio::read_until(*socket, response, "\r\n\r\n");
-
-		size_t responseBytesExpected;
-
-		// Process the response headers.
-		std::string header;
-		while (std::getline(response_stream, header) && header != "\r")
-		{
-#ifdef LOG_BOOST_ABK
-			Log() << header << "\n";
-#endif
-
-			std::vector<std::string> header_tokens;
-			// TODO: if a value potentially has a space, this breaks
-			// Consider transforming this to std::find
-			boost::split(header_tokens, header, boost::is_any_of(": \r"), boost::token_compress_on);
-			eHttpHeaders headerType = GetEnumFromString(header_tokens[0]);
-			if (headerType == E_HEADER_CONTENT_LENGTH)
-			{
-				if (!boost::conversion::try_lexical_convert<size_t, std::string>(header_tokens[1], responseBytesExpected))
-					responseBytesExpected = -1;
-			}
-		}
-
-#ifdef LOG_BOOST_ABK
-		Log() << "\n";
-#endif
-
-		// Inspect remaining size
-		size_t responseBytesRead = response.size();
-		if (responseBytesRead > 0)
-			sstream << &response;
-
-		// Not enough bytes available, read more lines
-		size_t bytesLeftToRead = responseBytesExpected - responseBytesRead;
-
-		while ((responseBytesRead < responseBytesExpected) && bytesLeftToRead)
-		{ 
-			responseBytesRead += boost::asio::read(*socket, response,
-				boost::asio::transfer_at_least(bytesLeftToRead));
-			sstream << &response;
-		}
-
-	
-
-		assert(responseBytesExpected == responseBytesRead);
-
-		// eof means end of transmission and is being emitted when the connection is closed
-		//if (error != boost::asio::error::eof)
-		//	throw boost::system::system_error(error);
-
-		return responseBytesExpected;
-	}
-	catch (std::exception &e)
-	{
-		boost::ignore_unused(e);
-		//std::cerr << "Failed to read from socket: " << e.what() << std::endl;
-		m_bConnected = false;
-		socket->close();
-		// TODO: If we have move this works
-#if defined(BOOST_ASIO_HAS_MOVE)
-		socket = boost::make_unique<tcp::socket>(io_context);
-#else
-#error "C++11 required for socket to work properly"
-#endif
-		throw AbkNetworkException();
-	}
-	return 0;
-}
-
-bool CAbkClient::CBaseAbstraction::IsSocketOpen() const
-{
-	return m_bConnected && socket->is_open();
-}
-
 bool CAbkClient::IsConnected() const
 {
 	CClientPtrRefConst a(m_pClientAux);
 	CClientPtrRefConst e(m_pClientEvent);
 
-	return ((m_nPort > 0) && a.IsValid() && e.IsValid() && e->IsSocketOpen() && a->IsSocketOpen());
-}
-
-void Abk::CAbkClient::CBaseAbstraction::Close()
-{
-// TODO: Consider shutdown
-	socket->close();
-}
-
-bool CAbkClient::CBaseAbstraction::EnsureConnection()
-{
-	try
-	{
-		if (!IsSocketOpen())
-		{
-      boost::system::error_code ec;
-      tcp::resolver::results_type endpoints = resolver.resolve(m_strServerAddress, m_strPort, ec);
-      if (!ec)
-      {
-        boost::asio::steady_timer timer(io_context);
-        timer.expires_after(std::chrono::milliseconds(500));
-
-        boost::asio::async_connect(*socket, endpoints, [&ec](const boost::system::error_code& error, const tcp::endpoint&) {
-          ec = error;
-        });
-
-        io_context.run_one_for(std::chrono::milliseconds(500));
-        if (!ec)
-          m_bConnected = true;
-        else
-          m_bConnected = false;
-      }
-      else
-      {
-        m_bConnected = false;
-      }
-		}
-
-		return IsSocketOpen();
-	}
-	catch (boost::exception &e)
-	{
-		boost::ignore_unused(e);
-#ifdef LOG_BOOST_ABK
-		LogErr() << "Failed to connect due to exception" << std::endl;
-#endif
-		return false;
-	}
-}
-
-std::string CAbkClient::CBaseAbstraction::NavigatePost(LPCTSTR pszPath, int nSessionId, CJsonFormatter *pPostData)
-{
-	assert(pPostData);
-	assert(pszPath);
-	assert(!m_strServerAddress.empty());
-	//assert(pPostData->GetStream());
-	//assert(pPostData->GetStream()->rdbuf()->in_avail > 0);
-	std::string strPostData = pPostData->GetStream()->str();
-	std::string response;
-
-	CAbkSingleLock lockDaq(&m_mutex, true);
-
-	if (!EnsureConnection())
-		return response;
-
-	try
-	{
-		WriteToSocket(std::string(CT2A(pszPath)), strPostData, E_HTTP_POST);
-		ReadFromSocket(response);
-
-#ifdef LOG_BOOST_ABK
-		LogErr() << "Response was: " << response << std::endl;
-#endif
-	}
-	catch (AbkNetworkException &e)
-	{
-		boost::ignore_unused(e);
-#ifdef LOG_BOOST_ABK
-		LogErr() << "Failed to navigate POST due to Network exception" << std::endl;
-#endif
-		response.clear();
-	}
-	return response;
-}
-
-bool CAbkClient::CBaseAbstraction::NavigateDelete(LPCTSTR pszPath, int nSessionId, CJsonFormatter * pPostData)
-{
-	assert(pPostData);
-	assert(pszPath);
-	assert(!m_strServerAddress.empty());
-	std::string strPostData = pPostData->GetStream()->str();
-	std::string response;
-
-	CAbkSingleLock lockDaq(&m_mutex, true);
-
-	if (!EnsureConnection())
-		return false;
-
-	try
-	{
-		WriteToSocket(std::string(CT2A(pszPath)), strPostData, E_HTTP_DELETE);
-		ReadFromSocket(response);
-
-#ifdef LOG_BOOST_ABK
-		LogErr() << "Response was: " << response << std::endl;
-#endif
-		return true;
-	}
-	catch (AbkNetworkException &e)
-	{
-		boost::ignore_unused(e);
-#ifdef LOG_BOOST_ABK
-		LogErr() << "Failed to navigate DELETE due to Network exception" << std::endl;
-#endif
-		response.clear();
-	}
-	return false;
-}
-
-bool CAbkClient::CBaseAbstraction::DeleteSession(int nSessionId)
-{
-	CJsonFormatter jfSend;
-	return NavigateDelete(_T(ABK_REQUESTURL_SESSIONID), nSessionId, &jfSend);
-}
-
-std::string CAbkClient::CBaseAbstraction::NavigatePut(LPCTSTR pszPath, int nSessionId, const std::string &strData)
-{
-	assert(pszPath);
-	assert(!m_strServerAddress.empty());
-	//assert(pPostData->GetStream());
-	//assert(pPostData->GetStream()->rdbuf()->in_avail > 0);
-	std::string response;
-
-	CAbkSingleLock lockDaq(&m_mutex, true);
-
-	if (!EnsureConnection())
-		return response;
-
-	try
-	{
-		WriteToSocket(std::string(CT2A(pszPath)), strData, E_HTTP_PUT);
-		ReadFromSocket(response);
-
-#ifdef LOG_BOOST_ABK
-		LogErr() << "Response was: " << response << std::endl;
-#endif
-	}
-	catch (AbkNetworkException &e)
-	{
-		boost::ignore_unused(e);
-#ifdef LOG_BOOST_ABK
-		LogErr() << "Failed to navigate POST due to Network exception" << std::endl;
-#endif
-		response.clear();
-	}
-	return response;
-}
-
-bool CAbkClient::CBaseAbstraction::NavigatePut(LPCTSTR pszPath, int nSessionId, CJsonFormatter *pPutData)
-{
-	assert(pPutData);
-	assert(pszPath);
-	assert(!m_strServerAddress.empty());
-	//assert(pPostData->GetStream());
-	//assert(pPostData->GetStream()->rdbuf()->in_avail > 0);
-	std::string strPutData = pPutData->GetStream()->str();
-	std::string response;
-
-	CAbkSingleLock lockDaq(&m_mutex, true);
-
-
-		if (!EnsureConnection())
-			return false;
-
-		try
-		{
-			if (nSessionId >= 0)
-			{
-				CString strPathAndQuery;
-				strPathAndQuery.Format(_T("%s?") _T(ABK_QRY_SESSIONID) _T("=%d"), pszPath, nSessionId);
-				WriteToSocket(std::string(CT2A(strPathAndQuery)), strPutData, E_HTTP_PUT);
-			}
-			else
-			{
-				WriteToSocket(std::string(CT2A(pszPath)), strPutData, E_HTTP_PUT);
-			}
-		}
-		catch (AbkNetworkException &e)
-		{
-			boost::ignore_unused(e);
-#ifdef LOG_BOOST_ABK
-			LogErr() << "Failed to navigate POST due to Network exception" << std::endl;
-#endif
-			response.clear();
-		}
-
-		int nRetryCount = 0;
-		try
-		{
-			ReadFromSocket(response);
-		}
-		catch (AbkNetworkException &e) // probably lost connection, retry
-		{
-			boost::ignore_unused(e);
-			nRetryCount = 10;
-		}
-
-		while (nRetryCount)
-		{
-			try
-			{
-				if (!EnsureConnection())
-					nRetryCount--;
-
-				if (nSessionId >= 0)
-				{
-					CString strPathAndQuery;
-					strPathAndQuery.Format(_T("%s?") _T(ABK_QRY_SESSIONID) _T("=%d"), pszPath, nSessionId);
-					WriteToSocket(std::string(CT2A(strPathAndQuery)), strPutData, E_HTTP_PUT);
-				}
-				else
-				{
-					WriteToSocket(std::string(CT2A(pszPath)), strPutData, E_HTTP_PUT);
-				}
-
-				ReadFromSocket(response);
-				// Read was successful, get out of the loop
-				break;
-			}
-			catch (AbkNetworkException &e)
-			{
-				boost::ignore_unused(e);
-#ifdef LOG_BOOST_ABK
-				LogErr() << "Failed to reconnect" << std::endl;
-#endif
-				nRetryCount--;
-			}
-		}
-
-#ifdef LOG_BOOST_ABK
-		LogErr() << "Response was: " << response << std::endl;
-#endif
-
-  // According to MDN, "OK", "Created" and "No Content" are valid responses
-	return (m_uStatus == 200 || m_uStatus == 201 || m_uStatus == 204);
-}
-
-std::string CAbkClient::CBaseAbstraction::NavigateGet(LPCTSTR pszPath, int nSessionId)
-{
-	assert(pszPath);
-	std::string response;
-
-	CAbkSingleLock lockDaq(&m_mutex, true);
-
-
-  bool bSuccess = false;
-  for (int retries = 0; !bSuccess && retries < 10; retries++)
-  {
-    if (!EnsureConnection())
-		  return response;
-    try
-    {
-      if (nSessionId >= 0)
-      {
-        CString strPathAndQuery;
-        strPathAndQuery.Format(_T("%s?") _T(ABK_QRY_SESSIONID) _T("=%d"), pszPath, nSessionId);
-        WriteToSocket(std::string(CT2A(strPathAndQuery)), E_HTTP_GET);
-      }
-      else
-      {
-        WriteToSocket(std::string(CT2A(pszPath)), E_HTTP_GET);
-      }
-      ReadFromSocket(response);
-      bSuccess = true;
-    }
-    catch (AbkNetworkException &e)
-    {
-      // ReadFromSocket can fail, if the socket got forcibly close by TidyUp
-      boost::ignore_unused(e);
-#ifdef LOG_BOOST_ABK
-      LogErr() << "Failed to navigate GET due to Network exception" << std::endl;
-#endif
-      response.clear();
-    }
-  }
-
-  return response;
-}
-
-bool CAbkClient::CBaseAbstraction::NavigateGet(LPCTSTR pszPath, int nSessionId, std::ostream &out)
-{
-	assert(pszPath);
-
-	CAbkSingleLock lockDaq(&m_mutex, true);
-
-  bool bSuccess = false;
-  for (int retries = 0; !bSuccess && retries < 10; retries++)
-  {
-    if (!EnsureConnection())
-      return false;
-
-    try
-    {
-      if (nSessionId >= 0)
-      {
-        CString strPathAndQuery;
-        strPathAndQuery.Format(_T("%s?") _T(ABK_QRY_SESSIONID) _T("=%d"), pszPath, nSessionId);
-        WriteToSocket(std::string(CT2A(strPathAndQuery)), E_HTTP_GET);
-      }
-      else
-      {
-        WriteToSocket(std::string(CT2A(pszPath)), E_HTTP_GET);
-      }
-      ReadFromSocket(out);
-      bSuccess = true;
-    }
-    catch (AbkNetworkException &e)
-    {
-      boost::ignore_unused(e);
-  #ifdef LOG_BOOST_ABK
-      LogErr() << "Failed to navigate GET due to Network exception" << std::endl;
-  #endif
-    }
-  }
-
-	return bSuccess;
+	return ((m_nPort > 0) && a.IsValid() && e.IsValid() && e->IsConnected() && a->IsConnected());
 }
 
 void CAbkClient::AddLog(CAbkClient::LOGSEVERITY nSeverity, LPCTSTR pszMessage, ...)
@@ -679,46 +121,6 @@ void CAbkClient::AddLog(CAbkClient::LOGSEVERITY nSeverity, LPCTSTR pszMessage, .
 	vprintf(CT2A(pszMessage), args);
 	putc('\n', stdout);
 	va_end(args);
-}
-
-/**   
- @param pszClientClass class name of the client
- @param pszClientType type name of the client
- @param pszClientSerial serial number or id of the client. If an empty string, the field will not be encoded
- @param pszClientFwRev Firmware revision of the client. If an empty string, the field will not be encoded
- @param pszClientHwRev Hardware revision of the client. If an empty string, the field will not be encoded
- @return session id, -1 on error
-*/
-int CAbkClient::CBaseAbstraction::ObtainSessionId(LPCTSTR pszClientClass, LPCTSTR pszClientType, LPCTSTR pszClientSerial, LPCTSTR pszClientFwRev, LPCTSTR pszClientHwRev)
-{
-	int nSessionId = -1; // result
-	assert(pszClientClass);
-	assert(pszClientType);
-	CJsonFormatter jfPost;
-	jfPost.WriteValue(ABK_REQ_SESSIONID_CLASS, CT2A(pszClientClass));
-	jfPost.WriteValue(ABK_REQ_SESSIONID_TYPE, CT2A(pszClientType));
-
-	if (pszClientSerial && pszClientSerial[0])
-		jfPost.WriteValue(ABK_REQ_SESSIONID_SERIAL, CT2A(pszClientSerial));
-	if (pszClientFwRev && pszClientFwRev[0])
-		jfPost.WriteValue(ABK_REQ_SESSIONID_FWVERSION, CT2A(pszClientFwRev));
-	if (pszClientHwRev && pszClientHwRev[0])
-		jfPost.WriteValue(ABK_REQ_SESSIONID_HWVERSION, CT2A(pszClientHwRev));
-
-	std::string pReturn = NavigatePost(_T(ABK_REQUESTURL_SESSIONID), -1, &jfPost);
-	if (pReturn.empty())
-		return -1;
-
-	// extract the session id
-	CJsonParser parsResponse(pReturn.c_str());
-	for (; !parsResponse.IsDone(); ++parsResponse)
-		parsResponse.ExtractValue(ABK_RSP_SESSIONID_ID, &nSessionId);
-	if (nSessionId < 0)
-	{
-		m_pOwner->AddLog(LOGSEVERITY_ERROR, _T("Got no session id from server."));
-		return -1;
-	}
-	return nSessionId;
 }
 
 CAbkClient::CAbkClient(bool bSuppressLog /*= false*/, bool bTextTranslationByServer /*=true*/)
@@ -875,7 +277,7 @@ bool CAbkClient::SendEvent(const char *pszEventType, LPCTSTR pszStringParam, dou
 	jfEvent.WriteValue(ABK_RSP_CLIENTEVENT_PRIVATE, bPrivate);
 	jfEvent.Close();
   STOPWATCH_GUARD_NAME(SendEvent);
-	bool bSuccess = pClientAux->NavigatePut(_T(ABK_REQUESTURL_CLIENTEVENT), -1, &jfEvent);
+	bool bSuccess = pClientAux->NavigatePut(_T(ABK_REQUESTURL_CLIENTEVENT), -1, jfEvent.GetStream()->str());
 	return bSuccess;
 }
 
@@ -902,7 +304,7 @@ bool CAbkClient::SendEvent(const char *pszEventType, CJsonFormatter &jfString, d
 	jfEvent.WriteValue(ABK_RSP_SERVEREVENT_PARAM2, dParam2);
 	jfEvent.WriteValue(ABK_RSP_CLIENTEVENT_PRIVATE, bPrivate);
 	jfEvent.Close();
-	return pClientAux->NavigatePut(_T(ABK_REQUESTURL_CLIENTEVENT), -1, &jfEvent);
+	return pClientAux->NavigatePut(_T(ABK_REQUESTURL_CLIENTEVENT), -1, jfEvent.GetStream()->str());
 }
 
 bool CAbkClient::SendAlertConfirmEvent(LPCTSTR pszAlertClassName, int nSeverity, int nMerged, bool bPermanent, bool bSuppressed, bool bTimeout)
@@ -1299,7 +701,7 @@ bool CAbkClient::SendForm(LPCTSTR pszFormName, const std::vector<CFormElement>& 
 	// send form
 	CString strUrl;
 	strUrl.Format(_T("%s/%s"), _T(ABK_SERVICE_FORMS), pszFormName);
-	if (!pClientAux->NavigatePut(strUrl, -1, &jfForm))
+	if (!pClientAux->NavigatePut(strUrl, -1, jfForm.GetStream()->str()))
 		return false;
 	return true;
 }
@@ -1336,9 +738,9 @@ bool CAbkClient::SendAudioRecHeader(int nId, int nSampleRateHz, int nBitsPerSamp
     else
 		  jfHeader.WriteValue(ABK_AUDIOREC_BITSPERSAMPLE, nBitsPerSample);
 		jfHeader.Close();
-		bSuccess = pClientAux->NavigatePut(_T(ABK_REQUESTURL_AUDIOREC_HEADER), -1, &jfHeader);
+		bSuccess = pClientAux->NavigatePut(_T(ABK_REQUESTURL_AUDIOREC_HEADER), -1, jfHeader.GetStream()->str());
 #ifdef LOGGER_QUIRK
-    if (pClientAux->m_uStatus == 403)
+    if (pClientAux->GetStatus() == 403)
       bSuccess=true;
 #endif
 	}
@@ -1420,9 +822,9 @@ bool CAbkClient::SendAudioRecData(int nId, const void *pData, int nBitsPerSample
 		jaData.Close();
 
 		jfData.Close();
-		bSuccess = pClientAux->NavigatePut(_T(ABK_REQUESTURL_AUDIOREC_DATA), -1, &jfData);
+		bSuccess = pClientAux->NavigatePut(_T(ABK_REQUESTURL_AUDIOREC_DATA), -1, jfData.GetStream()->str());
 #ifdef LOGGER_QUIRK
-    if (pClientAux->m_uStatus == 403)
+    if (pClientAux->GetStatus() == 403)
       bSuccess=true;
 #endif
 	}
@@ -1447,9 +849,9 @@ bool CAbkClient::SendAudioRecFooter(int nId)
 		CJsonFormatter jfFooter; // header data formatted in json
 		jfFooter.WriteValue(ABK_AUDIOREC_ID, nId);
 		jfFooter.Close();
-		bSuccess = pClientAux->NavigatePut(_T(ABK_REQUESTURL_AUDIOREC_FOOTER), -1, &jfFooter);
+		bSuccess = pClientAux->NavigatePut(_T(ABK_REQUESTURL_AUDIOREC_FOOTER), -1, jfFooter.GetStream()->str());
 #ifdef LOGGER_QUIRK
-    if (pClientAux->m_uStatus == 403)
+    if (pClientAux->GetStatus() == 403)
       bSuccess=true;
 #endif
 	}
@@ -1721,90 +1123,13 @@ bool CAbkClient::SetClientState(const char * pConfigString, LPCTSTR pszFileExten
 		assert(pszFileExtension[0] != '\0'); // please no empty extension
 		assert(pszFileExtension[0] == '.'); // extension must start with delimiter dot
 		strUrl.Format(_T("%s/%s_%s_%s%s"), _T(ABK_SERVICE_CLIENTSTATES), (LPCTSTR)CA2T(m_strClientClass.c_str()), (LPCTSTR)CA2T(m_strClientType.c_str()), (LPCTSTR)CA2T(m_strClientSerial.c_str()), pszFileExtension);
-		std::string response = pClientAux->NavigatePut(strUrl, -1, std::string(pConfigString) /*, _T(MIME_TYPE_TEXT)*/);
-		bool bSuccess = !response.empty();
+		bool bSuccess = pClientAux->NavigatePut(strUrl, -1, std::string(pConfigString) /*, _T(MIME_TYPE_TEXT)*/);
 		if (bSuccess)
 		{
 			int nStatus = pClientAux->GetStatus();
 			if ((nStatus < 200) || (nStatus >= 300)) // if not responded with an OK-code (2xx)..
 				bSuccess = false; // .. error in writing at the server
 		}
-	}
-	return bSuccess;
-}
-
-
-bool CAbkClient::CBaseAbstraction::GetVarOrMailboxList(LPCTSTR pszPath, std::vector<CString> *pGet)
-{
-	bool bSuccess = false;
-	std::string response = NavigateGet(pszPath, -1);
-	if (!response.empty())
-	{
-		CJsonParser jpVars(response.c_str());
-		for (; !jpVars.IsDone(); ++jpVars)
-		{
-			if (jpVars.TestArray(ABK_RSP_VARLIST)) // is there "VarList": [
-			{
-				for (++jpVars; !jpVars.IsDone(); ++jpVars)
-				{
-					std::string strVarName;
-					jpVars.ExtractValue(&strVarName);
-					pGet->push_back(CString(CA2T(strVarName.c_str())));
-				}
-				bSuccess = true;
-			}
-			jpVars.SkipItem();
-		}
-	}
-	return bSuccess;
-}
-
-bool CAbkClient::CBaseAbstraction::GetVarOrMailboxMeta(const std::vector<LPCTSTR>& vectVarNames, std::vector<CAbkClientMeta>* pGet, bool bMailboxFlag)
-{
-	bool bSuccess = false;
-	LPCTSTR pszPath;
-	if (bMailboxFlag)
-		pszPath = _T(ABK_REQUESTURL_MAILBOXMETA);
-	else
-		pszPath = _T(ABK_REQUESTURL_VARMETA);
-	CJsonFormatter jfRequest;
-	{
-		CJsonStreamArray jaVarList(&jfRequest, ABK_REQ_VARMETA_VARLIST); // "VarList": [
-		std::vector<LPCTSTR>::const_iterator iterVarNames;
-		for (iterVarNames = vectVarNames.begin(); iterVarNames != vectVarNames.end(); ++iterVarNames)
-		{
-			LPCTSTR pszVarName = *iterVarNames;
-			jaVarList.WriteValue(CT2A(pszVarName, CP_UTF8)); // "Var1",
-		}
-	} // jaVarList falls out of scope => "]"
-	jfRequest.Close(); // "}"
-
-	std::string strResponse = NavigatePost(pszPath, -1, &jfRequest);
-	if (!strResponse.empty())
-	{
-		size_t nReserve = pGet->size() + vectVarNames.size();
-		if (nReserve > pGet->capacity())
-			pGet->reserve(nReserve);
-		CJsonParser jpMeta(strResponse.c_str());
-		for (; !jpMeta.IsDone(); ++jpMeta)
-		{
-			if (jpMeta.TestArray(ABK_RSP_VARMETA_METADATA)) // is there an array named "MetaData":
-			{
-				for (++jpMeta; !jpMeta.IsDone(); ++jpMeta)
-				{
-					CAbkClientMeta metaVar;
-					bSuccess = metaVar.ExtractFromJson(jpMeta);
-					metaVar.m_bIsMailbox = bMailboxFlag;
-					pGet->push_back(metaVar); // append meta data to result list
-				}
-			}
-			jpMeta.SkipItem(); // skip any other members
-		}
-		bSuccess = true;
-	}
-	else
-	{
-		m_pOwner->AddLogHttp(LOGSEVERITY_WARNING, GetStatus(), pszPath, _T("POST"), strResponse.c_str());
 	}
 	return bSuccess;
 }
@@ -1835,7 +1160,7 @@ bool CAbkClient::GetClientFirmwareInfo(std::vector<CFirmwareInfo>& vectGet, LPCT
 	jfReq.WriteValue(ABK_REQ_FIRMWARE_CLASS, m_strClientClass);
 	jfReq.WriteValue(ABK_REQ_FIRMWARE_TYPE, CT2A(pszClientType, CP_UTF8));
 	jfReq.WriteValue("Serial", m_strClientSerial); // send serial unsolicitedly
-	std::string strResponse = pClientAux->NavigatePost(_T(ABK_REQUESTURL_FIRMWARE), -1, &jfReq); // send own info and get list of firmware files file info
+	std::string strResponse = pClientAux->NavigatePost(_T(ABK_REQUESTURL_FIRMWARE), -1, jfReq.GetStream()->str()); // send own info and get list of firmware files file info
 	if (strResponse.empty())
 		return false;
 
@@ -1881,13 +1206,6 @@ bool CAbkClient::GetClientFirmwareInfo(std::vector<CFirmwareInfo>& vectGet, LPCT
 	if (!bSuccess)
 		vectGet.clear(); // discard decoded content if an error occured
 	return bSuccess;
-}
-
-std::size_t CAbkClient::CBaseAbstraction::insensitive_hash::operator()(const std::string &value) const
-{
-	std::string copy(value);
-	boost::to_lower(copy);
-	return boost::hash<std::string>()(copy);
 }
 
 void CAbkClient::AddLogHttp(LOGSEVERITY nSeverity, int nHttpStatusCode, LPCTSTR pszUrl, LPCTSTR pszMethod, const char *pcszResponse, const char *pcszoPostPutData/*=NULL*/)
@@ -2017,7 +1335,7 @@ bool CAbkClient::GetClientConfigInfo(CString &strUrl, CString &strMd5, LPCTSTR p
 	jfReq.WriteValue(ABK_REQ_CLIENTCONFIG_CLASS, m_strClientClass);
 	jfReq.WriteValue(ABK_REQ_CLIENTCONFIG_TYPE, CT2A(pszClientType));
 	jfReq.WriteValue(ABK_REQ_CLIENTCONFIG_SERIAL, m_strClientSerial);
-	std::string strResponse = pClientAux->NavigatePost(_T(ABK_REQUESTURL_CLIENTCONFIG_INFO), -1, &jfReq); // send own info and get config file info
+	std::string strResponse = pClientAux->NavigatePost(_T(ABK_REQUESTURL_CLIENTCONFIG_INFO), -1, jfReq.GetStream()->str()); // send own info and get config file info
 	if (strResponse.empty())
 		return false;
 

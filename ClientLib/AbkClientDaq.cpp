@@ -31,6 +31,7 @@
 #include "AbkClient.h"
 #include "ValuesFromSpec.h"
 #include "JsonFormatter.h"
+#include "AbkClientAbstraction.h"
 
 
 namespace Abk
@@ -71,7 +72,7 @@ namespace Abk
     CJsonFormatter jfDelete;
     jfDelete.WriteValue(ABK_DEL_DAQLIST_NAME,CT2A(m_strName,CP_UTF8)); // "Name": "DaqList1"
     CAbkClient::CClientPtrRef pClientAux(m_pOwner->m_pClientAux);
-    pClientAux->NavigateDelete(m_strUrl,GetSessionId(),&jfDelete); // delete the DAQ at the server
+    pClientAux->NavigateDelete(m_strUrl,GetSessionId(),jfDelete.GetStream()->str()); // delete the DAQ at the server
     }
   }
 
@@ -110,7 +111,7 @@ bool CAbkClientDaq::Update(const std::vector<LPCTSTR>& vectVarNames, int nCycleM
       jfDaq.Close(); // "}"
       bSuccess = true;
       CAbkClient::CClientPtrRef pClientAux(m_pOwner->m_pClientAux);
-      bSuccess &= pClientAux->NavigatePut(m_strUrl, GetSessionId(), &jfDaq);
+      bSuccess &= pClientAux->NavigatePut(m_strUrl, GetSessionId(), jfDaq.GetStream()->str());
       if (bSuccess)
         m_nVarCountAtServer = vectVarNames.size();
     }
