@@ -42,6 +42,7 @@ if(USE_BOOST_ABK)
 	${CMAKE_CURRENT_SOURCE_DIR}/Common/JsonParserAtl.cpp
 
 	${CMAKE_CURRENT_SOURCE_DIR}/ClientBoost/AbkClient.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/ClientBoost/AbkClientAbstraction.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/ClientBoost/AbkClientSoup.cpp
 	)
 

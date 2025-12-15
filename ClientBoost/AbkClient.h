@@ -197,7 +197,7 @@ namespace Abk {
 
 
 
-		protected:
+		public:
 			void AddLogHttp(LOGSEVERITY nSeverity, int nHttpStatusCode, LPCTSTR pszUrl, LPCTSTR pszMethod, const char *pcszResponse, const char *pcszoPostPutData = NULL);
 
 		// blocking ABK methods

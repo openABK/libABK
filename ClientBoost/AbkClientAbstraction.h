@@ -14,19 +14,19 @@ public:
   CBaseAbstraction(class CAbkClient *pClient);
   virtual ~CBaseAbstraction();
 
-  virtual bool NavigatePut(LPCTSTR pszPath, int nSessionId, const std::string &strPutData);
-  virtual std::string NavigateGet(LPCTSTR pszPath, int nSessionId);
-  virtual bool NavigateGet(LPCTSTR pszPath, int nSessionId, std::ostream &out);
-  virtual std::string NavigatePost(LPCTSTR pszPath, int nSessionId, const std::string &strPostData);
-  virtual bool NavigateDelete(LPCTSTR pszPath, int nSessionId, const std::string &strDeleteData);
-  virtual unsigned int GetStatus() const;
+  virtual bool NavigatePut(LPCTSTR pszPath, int nSessionId, const std::string &strPutData) = 0;
+  virtual std::string NavigateGet(LPCTSTR pszPath, int nSessionId) = 0;
+  virtual bool NavigateGet(LPCTSTR pszPath, int nSessionId, std::ostream &out) = 0;
+  virtual std::string NavigatePost(LPCTSTR pszPath, int nSessionId, const std::string &strPostData) = 0;
+  virtual bool NavigateDelete(LPCTSTR pszPath, int nSessionId, const std::string &strDeleteData) = 0;
+  virtual unsigned int GetStatus() const = 0;
 
-  virtual void Close();
-  virtual bool EnsureConnection();
-  virtual void SetServerAddr(const std::string &pszServerAddress, int nPort); // re-assigns the server address and port
+  virtual void Close() = 0;
+  virtual bool EnsureConnection() = 0;
+  virtual void SetServerAddr(const std::string &pszServerAddress, int nPort) = 0; // re-assigns the server address and port
 
   // This one is new
-  virtual bool IsConnected() const;
+  virtual bool IsConnected() const = 0;
 
   // TODO: I feel like these don't belong here, they should be in AbkClient.cpp using helper functions.
   //       For now the implementations have been moved here to the base class, though to avoid having to touch too many uses.

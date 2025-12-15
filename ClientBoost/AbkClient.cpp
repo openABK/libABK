@@ -5,8 +5,7 @@
 #include "JsonParserAtl.h"
 #include "StopWatch.h"
 
-#include <libsoup/soup.h>
-#include "AbkClientAbstraction.h"
+#include "AbkClientSoup.h"
 
 #define DAQ_TIMEOUT 10000 // mutex timeout in ms
 #define MIME_TYPE_TEXT "text/plain"
@@ -169,8 +168,8 @@ bool CAbkClient::Create(LPCTSTR pszServerAddress, int nPort, CAbkServerEvent *pE
 	if (nPort > 0)
 	{
 		// create clients
-		m_pClientAux = new CBaseAbstraction(this);
-		m_pClientEvent = new CBaseAbstraction(this);
+		m_pClientAux = new CBaseAbstractionSoup(this);
+		m_pClientEvent = new CBaseAbstractionSoup(this);
 		CClientPtrRef pClientAux(m_pClientAux);
 		CClientPtrRef pClientEvent(m_pClientEvent);
 		pClientAux->SetServerAddr(m_strServerAddress, nPort);
