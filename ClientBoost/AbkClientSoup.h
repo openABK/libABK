@@ -2,6 +2,8 @@
 
 #include "AbkClientAbstraction.h"
 
+#include <libsoup/soup.h>
+
 namespace Abk
 {
 
@@ -24,6 +26,16 @@ public:
 
   // This one is new
   virtual bool IsConnected() const override;
+
+private:
+  std::string ConstructUrl(LPCTSTR pszPath, int nSessionId) const;
+
+  std::string m_strServerAddress;
+  int m_nPort = 0;
+  std::string m_strServerUrl;
+
+  SoupSession *m_pSoupSession = nullptr;
+  SoupStatus m_lastStatus = SOUP_STATUS_NONE;
 };
 
 }; // namespace Abk
