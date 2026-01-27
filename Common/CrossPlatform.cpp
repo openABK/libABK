@@ -148,7 +148,7 @@ const std::string &AbkGetOwnIpAddress (void)
     for (struct ifaddrs *ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next)
     {
       // If address is NULL or if loopback device skip or if contains docker
-      if (ifa->ifa_addr == NULL || strcmp(ifa->ifa_name, "lo") == 0 || strstr(ifa->ifa_name, "docker") != 0)
+      if (ifa->ifa_addr == NULL || strcmp(ifa->ifa_name, "lo") == 0 || strstr(ifa->ifa_name, "docker") != NULL || strstr(ifa->ifa_name, "usb") != NULL)
         continue;
 
       if (ifa->ifa_addr->sa_family == AF_INET)
