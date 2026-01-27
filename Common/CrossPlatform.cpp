@@ -112,10 +112,12 @@ const std::string &AbkGetOwnIpAddress (void)
   {
   // see also http://tangentsoft.net/wskfaq/examples/ipaddr.html
   static std::string strIpAddr;
+  static ULONGLONG nLastRetrieveMs=GetTickCount64();
   char ac[80];
 
-  if(strIpAddr.empty()) // if not yet retrieved
+  if(strIpAddr.empty() || (GetTickCount64()-nLastRetrieveMs)>2000) // refresh every 2 seconds
     {
+    nLastRetrieveMs=GetTickCount64();
 #ifdef _WIN32
     do
       {
