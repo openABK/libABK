@@ -38,9 +38,16 @@ bool CBaseAbstractionSoup::NavigatePut(LPCTSTR pszPath, int nSessionId, const st
     Close();
     return false;
   }
-  soup_message_set_request_body_from_bytes(pSoupMessage, "application/json", g_bytes_new_static(strPutData.c_str(), strPutData.size()));
+  GBytes *pBytesPut = g_bytes_new_static(strPutData.c_str(), strPutData.size());
+  soup_message_set_request_body_from_bytes(pSoupMessage, "application/json", pBytesPut);
+  g_bytes_unref(pBytesPut);
   GError *pError = NULL;
   GBytes *pBytes = soup_session_send_and_read(m_pSoupSession, pSoupMessage, NULL, &pError);
+  // We don't care about the response, but free the memory associated with it and check for errors
+  if (pBytes)
+  {
+    g_bytes_unref(pBytes);
+  }
   if (pError)
   {
     g_logMain.Error(_T("Failed in putting file to URL \"%s\", error=\"%s\""), pszPath, pError->message);
