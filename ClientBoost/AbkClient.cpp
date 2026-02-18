@@ -10,7 +10,7 @@
 #define DAQ_TIMEOUT 10000 // mutex timeout in ms
 #define MIME_TYPE_TEXT "text/plain"
 
-#define LONGPOLL_FAILURE_TOLERANCE_MS 2000 // maximum time span in ms where errors are tolerated
+#define LONGPOLL_FAILURE_TOLERANCE_MS 5000 // maximum time span in ms where errors are tolerated
 #define LONGPOLL_FAILURE_RECOVERY_MS 100 // 500 // time the longpoll thread is stalled after an http error occured. Used to reduce error log entry rate
 
 //#define LOG_BOOST_ABK
@@ -915,7 +915,9 @@ int CAbkClient::LongPollThread(void)
 {
 	AddLog(LOGSEVERITY_TRACE, _T("LongPollThread() started"));
 	// int nErrorCount=0; // incrementing on errors, decrementing on http success
-	DWORD dwTickLastSuccessfulResponse = 0; // ticks when the last successfull response was received
+  // ticks when the last successfull response was received
+  // initialize to current tick count to avoid false failure at the beginning
+	DWORD dwTickLastSuccessfulResponse = GetTickCount();
 	while (!m_bTerminateLongPoll)
 	{
 		const char *pszResponse = NULL; // answer from server with events and data

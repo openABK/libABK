@@ -15,8 +15,8 @@ CBaseAbstractionSoup::CBaseAbstractionSoup(class CAbkClient *pClient) : CBaseAbs
   // (See LONGPOLL_FAILURE_TOLERANCE_MS in AbkClient.cpp)
   // Otherwise, the long-polling thread might block indefinitely in case of a lost connection,
   // which will lead to the main thread asserting correctly it's still in use.
-  // 2 seconds timeout
-  soup_session_set_timeout(m_pSoupSession, 2);
+  // 5 seconds timeout
+  soup_session_set_timeout(m_pSoupSession, 5);
 }
 
 CBaseAbstractionSoup::~CBaseAbstractionSoup()
