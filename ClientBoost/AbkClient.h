@@ -93,26 +93,24 @@ namespace Abk {
 		class CClientPtrRef
 		{
 			CClientPtr &m_rRef;
-			CBaseAbstraction *m_pClient;
 
 		public:
-			CClientPtrRef(CClientPtr &rClient) :m_rRef(rClient) { m_pClient = rClient.GetPtr(); m_rRef.m_nUsage.fetch_add(1, boost::memory_order_relaxed); }
+			CClientPtrRef(CClientPtr &rClient) :m_rRef(rClient) { m_rRef.m_nUsage.fetch_add(1, boost::memory_order_relaxed); }
 			~CClientPtrRef() { m_rRef.m_nUsage.fetch_sub(1, boost::memory_order_release); }
-			BOOL IsValid(void) const { return m_pClient != NULL; }
-			const CBaseAbstraction *operator -> () const { return m_pClient; }
-			CBaseAbstraction *operator -> () { return m_pClient; }
+			BOOL IsValid(void) const { return m_rRef.GetPtr() != NULL; }
+			const CBaseAbstraction *operator -> () const { return m_rRef.GetPtr(); }
+			CBaseAbstraction *operator -> () { return m_rRef.GetPtr(); }
 		};
 
 		class CClientPtrRefConst
 		{
 			CClientPtr &m_rRef;
-			const CBaseAbstraction *m_pClient;
 
 		public:
-			CClientPtrRefConst(const CClientPtr &rClient) :m_rRef(const_cast<CClientPtr &>(rClient)) { m_pClient = m_rRef.GetPtr(); m_rRef.m_nUsage.fetch_add(1, boost::memory_order_relaxed); }
+			CClientPtrRefConst(const CClientPtr &rClient) :m_rRef(const_cast<CClientPtr &>(rClient)) { m_rRef.m_nUsage.fetch_add(1, boost::memory_order_relaxed); }
 			~CClientPtrRefConst() { m_rRef.m_nUsage.fetch_sub(1, boost::memory_order_release); }
-			BOOL IsValid(void) const { return m_pClient != NULL; }
-			const CBaseAbstraction *operator -> () const { return m_pClient; }
+			BOOL IsValid(void) const { return m_rRef.GetPtr() != NULL; }
+			const CBaseAbstraction *operator -> () const { return m_rRef.GetPtr(); }
 		};
 
 		enum LOGSEVERITY // inherit the log severities from the logging queue
