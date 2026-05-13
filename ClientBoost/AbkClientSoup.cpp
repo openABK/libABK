@@ -212,7 +212,11 @@ bool CBaseAbstractionSoup::IsConnected() const
 std::string CBaseAbstractionSoup::ConstructUrl(LPCTSTR pszPath, int nSessionId) const
 {
   CString strPathAndQuery;
+  // Escape the path itself, before applying the session id
+  pszPath = g_uri_escape_string(pszPath, "/", FALSE);
   strPathAndQuery.Format(_T("%s?") _T(ABK_QRY_SESSIONID) _T("=%d"), std::string(m_strServerUrl + pszPath).c_str(), nSessionId);
+  // This deletes the copy created by the escaping function
+  g_free((gchar*)pszPath);
   return std::string(strPathAndQuery.GetString());
 }
 
