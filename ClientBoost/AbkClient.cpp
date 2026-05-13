@@ -385,7 +385,14 @@ bool CAbkClient::DownloadFile(LPCTSTR pszUrl, std::ostream &out, PFNSTATUSCALLBA
 bool CAbkClient::DownloadFile(LPCTSTR pszUrl, LPCTSTR pszStorePath, PFNSTATUSCALLBACK pfnReadCallback, DWORD_PTR dwCookie)
 {
 	std::ofstream file(CT2A(pszStorePath), std::ofstream::out);
-	return DownloadFile(pszUrl, file);
+  bool bSuccess = DownloadFile(pszUrl, file);
+  if (!bSuccess)
+  {
+    file.close();
+    // File download is not successful or incomplete, delete the file if it was created
+    DeleteFile(pszStorePath);
+  }
+	return bSuccess; 
 }
 
 /** Manually receive an event */
