@@ -143,6 +143,38 @@ std::string CBaseAbstractionSoup::NavigatePost(LPCTSTR pszPath, int nSessionId, 
     Close();
     return std::string();
   }
+
+  // libsoup uses this flag to determine, if it needs to create a new connection,
+  // instead of re-using an old one. It does NOT use it to determine,
+  // if it's allowed to retry. That is handled seperately.
+  //
+  // There are concerns, that this could cause a double-send,
+  // when a request fails. For example due to a lost connection, towards the end.
+  // (When a POST is successfully received by the server, but the ACK got lost on the way back)
+  //
+  // From how I read the code, this should not be the case.
+  // The expected behaviour would be, that the request is sent once,
+  // and if it's a POST request, it will not be retried and the error is returned.
+  //
+  // The comment that is being referenced in a dicussion:
+  // https://gitlab.gnome.org/GNOME/libsoup/-/work_items/356
+  // https://bugzilla.gnome.org/show_bug.cgi?id=578990
+  // was referencing a mail from (most likely) June 2009, on the IETF mail archives.
+  // The link died since then, but I assume it references the mail by Martin Thomson,
+  // labeled "Request-response inversion...or not", which claims, that pipelining,
+  // is not allowed for non-idempotent requests.
+  // Given it's from 2009 (judging by the msg id in the URL),
+  // the RFC at that time was RFC2616.
+  // In it's section 8.1.2.2 it says the same thing.
+  // In RFC7230 section 6.3.2 the pharsing implies that pipelining of non-idempotent requests is allowed,
+  // as long as this does not cause a resend of the request.
+  //
+  // This matches the likely behavior of libsoup.
+  // Thus, setting the flag should be fine.
+  // The intended effect is, that it will allow pipelining, but not cause a resend.
+  // Even if it did, the current POST methods are on a first look idempotent.
+  soup_message_add_flags(pSoupMessage, SOUP_MESSAGE_IDEMPOTENT);
+
   GBytes *pBytesPost = g_bytes_new(strPostData.c_str(), strPostData.size());
   soup_message_set_request_body_from_bytes(pSoupMessage, "application/json", pBytesPost);
   g_bytes_unref(pBytesPost);
