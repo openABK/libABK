@@ -136,7 +136,13 @@ BOOL CAbkServerEvent::GetEvent (CData &dataGet)
 
 BOOL CAbkServerEvent::CData::IsPrimary (void) const
   {
+#ifdef NDEBUG
   return m_strRole.Compare(_T(ABK_CLIENTROLE_PRIMARY))==0;
+#else
+  // To avoid having to constantly restart the ABK server during development,
+  // as the session is often claimed by Sketch.
+  return TRUE;
+#endif
   }
 
 
