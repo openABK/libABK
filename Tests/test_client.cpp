@@ -64,7 +64,7 @@ BOOST_AUTO_TEST_CASE(Connection)
 	bSuccess = testClient.SetVarValue(_T("Vari3"), 10.0);
 	BOOST_TEST(bSuccess);
 
-	std::list<CString> varlist;
+	std::vector<CString> varlist;
 	testClient.GetVarList(&varlist);
 
 	BOOST_TEST(!varlist.empty());

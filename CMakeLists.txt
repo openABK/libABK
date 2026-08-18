@@ -16,7 +16,13 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 
 	# Find libsoup
 	find_package(PkgConfig REQUIRED)
-	pkg_check_modules(SOUP REQUIRED libsoup-3.0)
+	pkg_check_modules(SOUP REQUIRED IMPORTED_TARGET libsoup-3.0)
+endif()
+
+if(USE_BOOST)
+	find_package(Boost 1.78.0 REQUIRED COMPONENTS atomic date_time filesystem unit_test_framework thread chrono regex json)
+	message(STATUS "Using Boost")
+	add_definitions(-DUSE_BOOST)
 endif()
 
 add_subdirectory(AfxWrapper)

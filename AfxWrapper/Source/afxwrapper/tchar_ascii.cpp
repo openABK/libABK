@@ -1,4 +1,3 @@
-#include "afxwrapper/platform_config.h"
 #include "afxwrapper/tchar.h"
 #include <string.h>
 

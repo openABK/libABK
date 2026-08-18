@@ -57,8 +57,7 @@ target_include_directories(LibAbkClient PUBLIC ${INCLUDE_DIRS})
 
 if(USE_BOOST_ABK)
   target_compile_definitions(LibAbkClient PUBLIC -DBOOST_ABK)
-  target_include_directories(LibAbkClient PRIVATE ${SOUP_INCLUDE_DIRS})
-  target_link_libraries(LibAbkClient PRIVATE ${SOUP_LIBRARY})
+  target_link_libraries(LibAbkClient PRIVATE PkgConfig::SOUP)
   target_precompile_headers(LibAbkClient PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/ClientBoost/stdafx.h>")
 
 	target_link_libraries(LibAbkClient PUBLIC AfxWrapper)
@@ -73,7 +72,9 @@ if(BUILD_TESTS)
 if(USE_BOOST)
 if(Boost_FOUND)
 	add_executable(TestAbk EXCLUDE_FROM_ALL Tests/main.cpp Tests/test_client.cpp)
-	set(ABK_LIBS ws2_32 ole32 oleaut32)
+	if (WIN32)
+		set(ABK_LIBS ws2_32 ole32 oleaut32)
+	endif()
 
 	# MinGW doesn't need/have this
 	if(MSVC)
