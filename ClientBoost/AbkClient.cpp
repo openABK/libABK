@@ -3,7 +3,6 @@
 #include "AbkClient.h"
 #include "AbkClientDaq.h"
 #include "JsonParserAtl.h"
-#include "StopWatch.h"
 
 #include "AbkClientSoup.h"
 
@@ -275,7 +274,6 @@ bool CAbkClient::SendEvent(const char *pszEventType, LPCTSTR pszStringParam, dou
 	jfEvent.WriteValue(ABK_RSP_SERVEREVENT_PARAM2, dParam2);
 	jfEvent.WriteValue(ABK_RSP_CLIENTEVENT_PRIVATE, bPrivate);
 	jfEvent.Close();
-  STOPWATCH_GUARD_NAME(SendEvent);
 	bool bSuccess = pClientAux->NavigatePut(_T(ABK_REQUESTURL_CLIENTEVENT), -1, jfEvent.GetStream()->str());
 	return bSuccess;
 }
@@ -390,7 +388,7 @@ bool CAbkClient::DownloadFile(LPCTSTR pszUrl, LPCTSTR pszStorePath, PFNSTATUSCAL
   {
     file.close();
     // File download is not successful or incomplete, delete the file if it was created
-    DeleteFile(pszStorePath);
+    std::remove(pszStorePath);
   }
 	return bSuccess; 
 }
@@ -788,7 +786,7 @@ bool CAbkClient::SendAudioRecData(int nId, const void *pData, int nBitsPerSample
 		CJsonStreamArray jaData(&jfData, ABK_AUDIOREC_DATA);
 		if (nBitsPerSample == 8)
 		{
-			const BYTE *pData8 = (const BYTE *)pData;
+			const uint8_t *pData8 = (const uint8_t *)pData;
 			for (int nSample = 0; nSample < nSamplesPerChannel; ++nSample)
 			{
 				for (int nChannel = 0; nChannel < nChannels; ++nChannel)
@@ -1226,8 +1224,13 @@ void CAbkClient::AddLogHttp(LOGSEVERITY nSeverity, int nHttpStatusCode, LPCTSTR 
 	if (nHttpStatusCode < 0)
 	{
 		// 23.10.18: Desktop-PC, Fehler in c:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\atlmfc\include\atlspriv.inl Zeile 218, inline bool ZEvtSyncSocket::Read()=> WSARecv()-Fehler. WSAGetLastError(): 10053
+#ifdef _WIN32
 		DWORD dwError = GetLastError();
 		AddLog(LOGSEVERITY_ERROR, _T("HTTP status code %d => Error-Code %d"), nHttpStatusCode, (int)dwError);
+#else
+		// TODO: Error code would need to be obtained from the used base abstraction
+		AddLog(LOGSEVERITY_ERROR, _T("HTTP status code %d"), nHttpStatusCode);
+#endif
 	}
 }
 

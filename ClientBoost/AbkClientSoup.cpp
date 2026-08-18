@@ -8,6 +8,10 @@
 namespace Abk
 {
 
+#ifndef LOG_ERR
+#define LOG_ERR(...) fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n");
+#endif
+
 CBaseAbstractionSoup::CBaseAbstractionSoup(class CAbkClient *pClient) : CBaseAbstraction(pClient)
 {
   m_pSoupSession = soup_session_new();
@@ -34,7 +38,7 @@ bool CBaseAbstractionSoup::NavigatePut(LPCTSTR pszPath, int nSessionId, const st
   SoupMessage *pSoupMessage = soup_message_new(SOUP_METHOD_PUT, ConstructUrl(pszPath, nSessionId).c_str());
   if (!pSoupMessage)
   {
-    g_logMain.Error(_T("Failed in creating PUT message for URL \"%s\""), pszPath);
+    LOG_ERR(_T("Failed in creating PUT message for URL \"%s\""), pszPath);
     Close();
     return false;
   }
@@ -50,14 +54,14 @@ bool CBaseAbstractionSoup::NavigatePut(LPCTSTR pszPath, int nSessionId, const st
   }
   if (pError)
   {
-    g_logMain.Error(_T("Failed in putting file to URL \"%s\", error=\"%s\""), pszPath, pError->message);
+    LOG_ERR(_T("Failed in putting file to URL \"%s\", error=\"%s\""), pszPath, pError->message);
     g_error_free(pError);
     bSuccess = false;
   }
   m_lastStatus = soup_message_get_status(pSoupMessage);
   if (m_lastStatus != SOUP_STATUS_OK)
   {
-    g_logMain.Error(_T("PUT to URL \"%s\" returned status %d"), pszPath, m_lastStatus);
+    LOG_ERR(_T("PUT to URL \"%s\" returned status %d"), pszPath, m_lastStatus);
     bSuccess = false;
   }
   g_object_unref(pSoupMessage);
@@ -70,7 +74,7 @@ std::string CBaseAbstractionSoup::NavigateGet(LPCTSTR pszPath, int nSessionId)
   SoupMessage *pSoupMessage = soup_message_new(SOUP_METHOD_GET, ConstructUrl(pszPath, nSessionId).c_str());
   if (!pSoupMessage)
   {
-    g_logMain.Error(_T("Failed in creating GET message for URL \"%s\""), pszPath);
+    LOG_ERR(_T("Failed in creating GET message for URL \"%s\""), pszPath);
     Close();
     return std::string();
   }
@@ -78,7 +82,7 @@ std::string CBaseAbstractionSoup::NavigateGet(LPCTSTR pszPath, int nSessionId)
   GBytes *pBytes = soup_session_send_and_read(m_pSoupSession, pSoupMessage, NULL, &pError);
   if (pError)
   {
-    g_logMain.Error(_T("Failed in getting URL \"%s\", error=\"%s\""), pszPath, pError->message);
+    LOG_ERR(_T("Failed in getting URL \"%s\", error=\"%s\""), pszPath, pError->message);
     g_error_free(pError);
   }
   else
@@ -91,7 +95,7 @@ std::string CBaseAbstractionSoup::NavigateGet(LPCTSTR pszPath, int nSessionId)
   m_lastStatus = soup_message_get_status(pSoupMessage);
   if (m_lastStatus != SOUP_STATUS_OK)
   {
-    g_logMain.Error(_T("GET from URL \"%s\" returned status %d"), pszPath, m_lastStatus);
+    LOG_ERR(_T("GET from URL \"%s\" returned status %d"), pszPath, m_lastStatus);
     strResult.clear();
   }
   g_object_unref(pSoupMessage);
@@ -105,7 +109,7 @@ bool CBaseAbstractionSoup::NavigateGet(LPCTSTR pszPath, int nSessionId, std::ost
   SoupMessage *pSoupMessage = soup_message_new(SOUP_METHOD_GET, ConstructUrl(pszPath, nSessionId).c_str());
   if (!pSoupMessage)
   {
-    g_logMain.Error(_T("Failed in creating GET message for URL \"%s\""), pszPath);
+    LOG_ERR(_T("Failed in creating GET message for URL \"%s\""), pszPath);
     Close();
     return false;
   }
@@ -113,7 +117,7 @@ bool CBaseAbstractionSoup::NavigateGet(LPCTSTR pszPath, int nSessionId, std::ost
   GBytes *pBytes = soup_session_send_and_read(m_pSoupSession, pSoupMessage, NULL, &pError);
   if (pError)
   {
-    g_logMain.Error(_T("Failed in getting file from URL \"%s\", error=\"%s\""), pszPath, pError->message);
+    LOG_ERR(_T("Failed in getting file from URL \"%s\", error=\"%s\""), pszPath, pError->message);
     g_error_free(pError);
   }
   else
@@ -127,7 +131,7 @@ bool CBaseAbstractionSoup::NavigateGet(LPCTSTR pszPath, int nSessionId, std::ost
   m_lastStatus = soup_message_get_status(pSoupMessage);
   if (m_lastStatus != SOUP_STATUS_OK)
   {
-    g_logMain.Error(_T("GET from URL \"%s\" returned status %d"), pszPath, m_lastStatus);
+    LOG_ERR(_T("GET from URL \"%s\" returned status %d"), pszPath, m_lastStatus);
     bSuccess = false;
   }
   g_object_unref(pSoupMessage);
@@ -139,7 +143,7 @@ std::string CBaseAbstractionSoup::NavigatePost(LPCTSTR pszPath, int nSessionId, 
   SoupMessage *pSoupMessage = soup_message_new(SOUP_METHOD_POST, ConstructUrl(pszPath, nSessionId).c_str());
   if (!pSoupMessage)
   {
-    g_logMain.Error(_T("Failed in creating POST message for URL \"%s\""), pszPath);
+    LOG_ERR(_T("Failed in creating POST message for URL \"%s\""), pszPath);
     Close();
     return std::string();
   }
@@ -183,7 +187,7 @@ std::string CBaseAbstractionSoup::NavigatePost(LPCTSTR pszPath, int nSessionId, 
   std::string strResult;
   if (pError)
   {
-    g_logMain.Error(_T("Failed in posting to URL \"%s\", error=\"%s\""), pszPath, pError->message);
+    LOG_ERR(_T("Failed in posting to URL \"%s\", error=\"%s\""), pszPath, pError->message);
     g_error_free(pError);
   }
   else
@@ -196,7 +200,7 @@ std::string CBaseAbstractionSoup::NavigatePost(LPCTSTR pszPath, int nSessionId, 
   m_lastStatus = soup_message_get_status(pSoupMessage);
   if (m_lastStatus != SOUP_STATUS_OK)
   {
-    g_logMain.Error(_T("POST to URL \"%s\" returned status %d"), pszPath, m_lastStatus);
+    LOG_ERR(_T("POST to URL \"%s\" returned status %d"), pszPath, m_lastStatus);
     strResult.clear();
   }
   g_object_unref(pSoupMessage);
@@ -209,7 +213,7 @@ bool CBaseAbstractionSoup::NavigateDelete(LPCTSTR pszPath, int nSessionId, const
   SoupMessage *pSoupMessage = soup_message_new(SOUP_METHOD_DELETE, ConstructUrl(pszPath, nSessionId).c_str());
   if (!pSoupMessage)
   {
-    g_logMain.Error(_T("Failed in creating DELETE message for URL \"%s\""), pszPath);
+    LOG_ERR(_T("Failed in creating DELETE message for URL \"%s\""), pszPath);
     Close();
     return false;
   }
@@ -217,7 +221,7 @@ bool CBaseAbstractionSoup::NavigateDelete(LPCTSTR pszPath, int nSessionId, const
   GBytes *pBytes = soup_session_send_and_read(m_pSoupSession, pSoupMessage, NULL, &pError);
   if (pError)
   {
-    g_logMain.Error(_T("Failed in deleting file at URL \"%s\", error=\"%s\""), pszPath, pError->message);
+    LOG_ERR(_T("Failed in deleting file at URL \"%s\", error=\"%s\""), pszPath, pError->message);
     g_error_free(pError);
     bSuccess = false;
   }
@@ -225,7 +229,7 @@ bool CBaseAbstractionSoup::NavigateDelete(LPCTSTR pszPath, int nSessionId, const
   g_object_unref(pSoupMessage);
   if (m_lastStatus != SOUP_STATUS_OK)
   {
-    g_logMain.Error(_T("DELETE to URL \"%s\" returned status %d"), pszPath, m_lastStatus);
+    LOG_ERR(_T("DELETE to URL \"%s\" returned status %d"), pszPath, m_lastStatus);
     bSuccess = false;
   }
   return bSuccess;

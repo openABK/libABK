@@ -79,12 +79,12 @@ CJsonStreamBase &operator << (CJsonStreamBase &rDump, int nValue)
 
 CJsonStreamBase &operator << (CJsonStreamBase &rDump, double dValue)
   {
-  if(_isnan(dValue))
+  if(std::isnan(dValue))
     {
     *(rDump.m_pDump)<<"null"; // *(rDump.m_pDump)<<"\"---.-\"";
     return rDump;
     }
-  if(!_finite(dValue))
+  if(!std::isfinite(dValue))
     {
     *(rDump.m_pDump)<<"null"; // *(rDump.m_pDump)<<"\"--\"";
     return rDump;
