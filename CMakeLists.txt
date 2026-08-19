@@ -25,7 +25,19 @@ if(USE_BOOST)
 	add_definitions(-DUSE_BOOST)
 endif()
 
-add_subdirectory(AfxWrapper)
+# AfxWrapper is a wrapper around Win32 functions as well as a few MFC classes (like CString).
+# As it can have different implementations depending on the required functionality,
+# a minimal implementation is provided as part of this project.
+# It needs to be interchangeable with variants that can be provided by the user.
+if(NOT TARGET AfxWrapper)
+	if (NOT WIN32)
+		add_subdirectory(AfxWrapper)
+	else()
+		# AfxWrapper is not needed on Windows, treat it as a dummy library.
+		# If really needed, maybe add the libraries required as dependencies
+		add_library(AfxWrapper INTERFACE)
+	endif()
+endif()
 
 if (BUILD_ABK_CLIENT)
 	include(${CMAKE_CURRENT_SOURCE_DIR}/AbkClient.cmake)
