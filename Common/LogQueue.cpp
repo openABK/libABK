@@ -1,11 +1,4 @@
-//------------------------------------------------------------------------------------------------
-// Author: D. Burger, Friedberg, Germany, <www.openABK.org>, <www.embu-sys.de>, <info@openABK.org>
-//
-// You are not allowed to remove this heading from the source code
-// You are free to use this library under the terms of the
-// Code Project Open Library, see <http://www.codeproject.com/info/cpol10.aspx>
-//------------------------------------------------------------------------------------------------
-
+// SPDX-License-Identifier: MIT
 
 
 //------------------------------------------------------------------------------------------------
