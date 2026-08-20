@@ -1,4 +1,4 @@
- 
+![Linux Build Status](https://github.com/openABK/libABK/actions/workflows/ubuntu.yml/badge.svg) 
 ## Open Logger-to-Display Communication Standard
 
 **libABK** is a C++ reference implementation of the **openABK** standard. It's being used productively to power displays and loggers, to ensure smooth interoperation during live measurement data related visualization workloads.
