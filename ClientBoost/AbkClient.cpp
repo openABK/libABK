@@ -196,6 +196,12 @@ bool CAbkClient::Create(LPCTSTR pszServerAddress, int nPort, CAbkServerEvent *pE
 
 			bSuccess = true;
 		}
+		else
+		{
+			// Normally, LongPollThreadS would set m_evLongPollDone, once it's shutdown.
+			// As this doesn't happen, we can immediately set the event here, so that the destructor doesn't block.
+			m_evLongPollDone.Set();
+		}
 	}
 
 	return true;
