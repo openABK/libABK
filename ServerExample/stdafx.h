@@ -5,17 +5,7 @@
 
 #pragma once
 
-//#include "targetver.h"
-//
-//#include <stdio.h>
-//#include <tchar.h>
-
-
-// stdafx.h : include file for standard system include files,
-// or project specific include files that are used frequently,
-// but are changed infrequently
-
-#pragma once
+#ifdef WIN32
 
 #ifndef _SECURE_ATL
 #define _SECURE_ATL 1
@@ -47,4 +37,6 @@
 #endif // _AFX_NO_AFXCMN_SUPPORT
 
 #include <afxcontrolbars.h>     // MFC support for ribbons and control bars
-
+#else
+#include "afxwrapper.h"
+#endif

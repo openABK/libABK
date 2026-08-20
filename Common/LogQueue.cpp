@@ -17,7 +17,11 @@
 
 #include "stdafx.h"
 
-#include <LogQueue.h>
+#ifndef WIN32
+typedef wchar_t WCHAR;
+#endif
+
+#include "LogQueue.h"
 #include <assert.h>
 
 namespace Abk
@@ -58,7 +62,11 @@ void CLogQueue<char>::CEntity::SetV (LOGSEVERITY nSeverity, const char *pszMessa
   assert(pszMessage); // you have to specify a message
   m_nSeverity=nSeverity;
   char cBuf[MAX_ENTITY_STRLEN+1]; // buffer for sprintf
+#if WIN32
   vsnprintf(cBuf,MAX_ENTITY_STRLEN,_TRUNCATE,pszMessage,args);
+#else
+  vsnprintf(cBuf,MAX_ENTITY_STRLEN,pszMessage,args);
+#endif
   m_strMessage=cBuf;
   }
 
@@ -69,7 +77,11 @@ void CLogQueue<WCHAR>::CEntity::SetV (LOGSEVERITY nSeverity, const WCHAR *pszMes
   assert(pszMessage); // you have to specify a message
   m_nSeverity=nSeverity;
   WCHAR wcBuf[MAX_ENTITY_STRLEN+1]; // buffer for sprintf
+#if WIN32
   _vsnwprintf_s(wcBuf,MAX_ENTITY_STRLEN,_TRUNCATE,pszMessage,args);
+#else
+  vswprintf(wcBuf,MAX_ENTITY_STRLEN,pszMessage,args);
+#endif
   m_strMessage=wcBuf;
   }
 
@@ -114,7 +126,7 @@ bool CLogQueue<T>::Pop (LOGSEVERITY &nSeverityGet, std::basic_string<T> &strMess
   CAbkSingleLock lock(&m_mutex,TRUE);
   if(m_lst.size()>=1)
     {
-    std::list<CEntity>::const_iterator itEntity=m_lst.begin();
+    typename std::list<CEntity>::const_iterator itEntity=m_lst.begin();
     strMessageGet=itEntity->m_strMessage;
     nSeverityGet=itEntity->m_nSeverity;
     m_lst.erase(itEntity); // m_lst.pop_front();
@@ -128,8 +140,8 @@ bool CLogQueue<T>::Pop (LOGSEVERITY &nSeverityGet, std::basic_string<T> &strMess
 
 // explicit template instantiations
 
-  template CLogQueue<char>;
-  template CLogQueue<WCHAR>;
+  template class CLogQueue<char>;
+  template class CLogQueue<WCHAR>;
 
 
   } // namespace Abk

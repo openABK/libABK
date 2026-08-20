@@ -40,7 +40,7 @@ namespace Abk
 ABK_THREAD_HANDLE AbkStartThread (PFN_THREAD pfnThread, void *pArgs)
   {
   #if defined(PREFER_BOOST_PLATFORM)
-	return boost::thread(pfnThread, pArgs);
+	return new boost::thread(pfnThread, pArgs);
   #elif defined(_WIN32)
 #ifdef USE_BEGINTHREADEX
   uintptr_t hThread=_beginthreadex(NULL,0,pfnThread,pArgs,0,NULL);
@@ -65,8 +65,9 @@ ABK_THREAD_HANDLE AbkStartThread (PFN_THREAD pfnThread, void *pArgs)
 void AbkKillThread (ABK_THREAD_HANDLE hThread)
   {
   #if defined(PREFER_BOOST_PLATFORM)
-		hThread.interrupt();
-		hThread.join();
+		hThread->interrupt();
+		hThread->join();
+    delete hThread;
   #elif defined(_WIN32)
     CloseHandle((HANDLE)hThread);
   #else

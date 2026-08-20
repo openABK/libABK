@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 project(LibAbk)
 
 option(BUILD_ABK_CLIENT "Build AbkClient library" ON)
+option(BUILD_ABK_SERVER "Build AbkServer library" ON)
 option(BUILD_TESTS "Build tests" OFF)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -41,4 +42,8 @@ endif()
 
 if (BUILD_ABK_CLIENT)
 	include(${CMAKE_CURRENT_SOURCE_DIR}/AbkClient.cmake)
+endif()
+
+if (BUILD_ABK_SERVER)
+	add_subdirectory(ServerLib)
 endif()
