@@ -18,10 +18,19 @@
 #include "DiscoveryServer.h"
 
 // location this implementation stores files
+#ifdef WIN32
 #define LOCDIR_CLIENTSTATES     "c:\\abk\\client_states\\"
 #define LOCDIR_CLIENTCONFIG     "c:\\abk\\client_config\\"
 #define LOCDIR_CLIENTFIRMWARE   "c:\\abk\\client_firmware\\"
 #define LOCDIR_AUDIOREC         "c:\\abk\\audio_rec\\" // audio recording files will be put here
+#define LOCDIR_JPEGS            "c:\\abk\\jpegs\\" // jpeg files will be put here
+#else
+#define LOCDIR_CLIENTSTATES     "client_states/"
+#define LOCDIR_CLIENTCONFIG     "client_config/"
+#define LOCDIR_CLIENTFIRMWARE   "client_firmware/"
+#define LOCDIR_AUDIOREC         "audio_rec/" // audio recording files will be put here
+#define LOCDIR_JPEGS            "jpegs/" // jpeg files will be put here
+#endif
 
 using namespace Abk;
 

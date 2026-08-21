@@ -76,15 +76,38 @@ int getch(void) {
 
 using namespace std;
 
+#ifdef WIN32
 #if !defined (NDEBUG)
 #define HTML_DIR "C:\\Source\\Repos\\abk\\ClientWithBrowser\\"
 #else
 #define HTML_DIR "C:\\abk\\ClientWithBrowser\\"
 #endif
+#else
+#define HTML_DIR "ClientWithBrowser/"
+#endif
 #define JPEGS_BASE_URL "/abk/jpegs/"
 
 
-#if 0
+
+int DrogonToAbkMethod(const drogon::HttpMethod &method)
+{
+  switch (method)
+  {
+  case drogon::HttpMethod::Get:
+    return CLoggerInterface::HTTP_METHOD_GET;
+  case drogon::HttpMethod::Post:
+    return CLoggerInterface::HTTP_METHOD_POST;
+  case drogon::HttpMethod::Put:
+    return CLoggerInterface::HTTP_METHOD_PUT;
+  case drogon::HttpMethod::Delete:
+    return CLoggerInterface::HTTP_METHOD_DELETE;
+  default:
+    return CLoggerInterface::HTTP_METHOD_INVALID;
+  }
+}
+
+
+
 /** callback for a http-handler
  * @param pObject general purpose object pointer, here used to identify the instance of the logger interface
  * @param rRequest reference containing information to the request
@@ -92,36 +115,39 @@ using namespace std;
  * @param strLocalDir local directory, can be used for file accesses, ignored here
  * @param nUrlOptionFlags options specific to the request url, ignored here
  */
-void EventHandlerAbk (void *pObject, const CHttpServer::REQUEST &rRequest, CHttpServer::RESPONSE &rResponse, const std::string &strLocalDir, CHttpServer::URLOPTIONS_FLAGS nUrlOptionFlags)
-  {
-  ASSERT(pObject); // forgotten to specify the logger interface instance
-  CLoggerInterface *pIfLogger=reinterpret_cast<CLoggerInterface *>(pObject);
+void EventHandlerAbk(const drogon::HttpRequestPtr &req, std::function<void (const drogon::HttpResponsePtr &)> &&callback, CMyLoggerInterface &ifLogger)
+{
+  // Convert the request to the CLoggerInterface format
+  std::string body(req->body());
+  std::string ip = req->getPeerAddr().toIp();
 
-  // convert request data from http-server-format to openABK-interface-format
   CLoggerInterface::HTTP_REQUEST reqIf;
-  reqIf.nHttpMethod=pIfLogger->DecodeHttpMethod(rRequest.strMethod.c_str()); // decode the method
-  reqIf.pUrl=&rRequest.strUrl;
-  reqIf.pQueryString=&rRequest.strQuery;
-  reqIf.pPostData=&rRequest.strData;
-  reqIf.pClientAddr=&rRequest.strClientAddr;
+  reqIf.nHttpMethod = DrogonToAbkMethod(req->getMethod());
+  reqIf.pUrl = &req->path();
+  reqIf.pQueryString = &req->query();
+  reqIf.pPostData = &body;
+  reqIf.pClientAddr = &ip;
 
+  // Prepare the response
   CLoggerInterface::HTTP_RESPONSE respIf;
   std::string strResponse;
-  respIf.pResponseData=&strResponse; // map the response strings
-  respIf.pExtraHeaders=&rResponse.strExtraHeaders;
-  respIf.nStatusCode=rResponse.nStatusCode;
-  
-  pIfLogger->HandleHttpRequest(reqIf,respIf); // let the logger interface handle the request
+  respIf.pResponseData = &strResponse;
+  respIf.nStatusCode = 200; // Default status code
 
-  // convert response from openABK-interface-format to http-server-format
-  rResponse.nStatusCode=respIf.nStatusCode;
-  int nResponseLen=strResponse.size(); 
-  rResponse.vectData.resize(nResponseLen);
-  memcpy(rResponse.vectData.data(),strResponse.c_str(),nResponseLen);
-  }
+  // Let the logger interface handle the request
+  ifLogger.HandleHttpRequest(reqIf, respIf);
+
+  // Create the response object
+  auto resp = drogon::HttpResponse::newHttpResponse();
+  resp->setStatusCode(static_cast<drogon::HttpStatusCode>(respIf.nStatusCode));
+  resp->setBody(strResponse);
+
+  // Send the response
+  callback(resp);
+}
 
 
-
+#if 0
 /** handles image requests 
  * @param pObject general purpose object pointer, here used to identify the instance of the logger interface
  * @param rRequest reference containing information to the request
@@ -191,7 +217,7 @@ void EventHandlerImages (void *pObject, const CHttpServer::REQUEST &rRequest, CH
 
 void PrintHelpScreen (void)
   {
-  cout<<"Logger Fake Program pretents to be a logger."<<endl;
+  cout<<"Logger Fake Program pretends to be a logger."<<endl;
   cout<<"Usage: AbkServer [Port Varcount AnimationCycle]"<<endl;
   cout<<"-------------------------------------------------------------------------------"<<endl;
   cout<<"Press 0..9 to setup a param, for later use on e.g. variable selection"<<endl;
@@ -208,22 +234,7 @@ void PrintHelpScreen (void)
   cout<<"r: fire event to all clients for audio recording, R to stop"<<endl;
   }
 
-int DrogonToAbkMethod(const drogon::HttpMethod &method)
-{
-  switch (method)
-  {
-  case drogon::HttpMethod::Get:
-    return CLoggerInterface::HTTP_METHOD_GET;
-  case drogon::HttpMethod::Post:
-    return CLoggerInterface::HTTP_METHOD_POST;
-  case drogon::HttpMethod::Put:
-    return CLoggerInterface::HTTP_METHOD_PUT;
-  case drogon::HttpMethod::Delete:
-    return CLoggerInterface::HTTP_METHOD_DELETE;
-  default:
-    return CLoggerInterface::HTTP_METHOD_INVALID;
-  }
-}
+
 
 void CheckForKeypresses(CMyLoggerInterface &ifLogger, CMyFakeLogger &loggerFake, int &nParam)
 {
@@ -337,35 +348,59 @@ int main(int argc, char *argv[])
       // svrHttp.AddUrlOption(_T(JPEGS_BASE_URL),&ifLogger,EventHandlerImages,_T("c:\\abk\\jpegs\\"),NULL,CHttpServer::URLO_FILE_ALLOW_READ);
       // svrHttp.Run(addrBindLocal);
 
-      drogon::app().registerHandlerViaRegex("/abk/.*", [&ifLogger](const drogon::HttpRequestPtr &req, std::function<void (const drogon::HttpResponsePtr &)> &&callback) {
-          // Convert the request to the CLoggerInterface format
-          std::string body(req->body());
-          std::string ip = req->getPeerAddr().toIp();
+      // These are not working as the regex handler is taking precedence, so we need to register normal handlers for the static file locations.
+      // drogon::app().addALocation(ABK_SERVICE_CLIENTSTATES, "", LOCDIR_CLIENTSTATES);
+      // drogon::app().addALocation(ABK_SERVICE_CLIENTCONFIG, "", LOCDIR_CLIENTCONFIG);
+      // drogon::app().addALocation(ABK_SERVICE_CLIENTFIRMWARE, "", LOCDIR_CLIENTFIRMWARE);
+      // drogon::app().addALocation("/abk/browser/", "", HTML_DIR);
+      // drogon::app().addALocation(JPEGS_BASE_URL, "", LOCDIR_JPEGS);
 
-          CLoggerInterface::HTTP_REQUEST reqIf;
-          reqIf.nHttpMethod = DrogonToAbkMethod(req->getMethod());
-          reqIf.pUrl = &req->path();
-          reqIf.pQueryString = &req->query();
-          reqIf.pPostData = &body;
-          reqIf.pClientAddr = &ip;
+      // TODO: Implement a function that has a similar API to the addALocation function and add the other file locations
+      //     Function below is tested and works for rudimentary pages.
+      drogon::app().registerHandlerViaRegex("/abk/browser/.*", [&ifLogger](const drogon::HttpRequestPtr &req, std::function<void (const drogon::HttpResponsePtr &)> &&callback) {
+        // Remove the "/abk/browser/" prefix from the path to get the relative file path
+        std::string path = req->path();
+        if (path.find("/abk/browser/") == 0)
+        {
+          path = path.substr(strlen("/abk/browser/"));
+        }
+        else
+        {
+          // If the path doesn't start with the expected prefix, return an internal server error response
+          callback(drogon::app().getCustomErrorHandler()(drogon::k500InternalServerError, req));
+          return;
+        }
 
-          // Prepare the response
-          CLoggerInterface::HTTP_RESPONSE respIf;
-          std::string strResponse;
-          respIf.pResponseData = &strResponse;
-          respIf.nStatusCode = 200; // Default status code
+        // // Respond with the file name if path is valid
+        // auto resp = drogon::HttpResponse::newHttpResponse();
+        // resp->setStatusCode(drogon::k200OK);
+        // resp->setBody("Requested file: " + path);
 
-          // Handle the request
-          ifLogger.HandleHttpRequest(reqIf, respIf);
+        path = drogon::app().getDocumentRoot() + HTML_DIR + path; // Prepend the document root to the path
 
-          // Create the response object
-          auto resp = drogon::HttpResponse::newHttpResponse();
-          resp->setStatusCode(static_cast<drogon::HttpStatusCode>(respIf.nStatusCode));
-          resp->setBody(strResponse);
-          
-          // Send the response
+        // Check if requested file exists and if it's a directory
+        if (std::filesystem::exists(path) && std::filesystem::is_directory(path))
+        {
+          // Add index.html to the path if it's a directory
+          path.append("/index.html");
+        }
+
+        // Serve the file if it exists
+        if (std::filesystem::exists(path) && std::filesystem::is_regular_file(path))
+        {
+          auto resp = drogon::HttpResponse::newFileResponse(path);
           callback(resp);
+          return;
+        }
+
+        // If the file doesn't exist, return a 404 response
+        callback(drogon::HttpResponse::newNotFoundResponse());
       });
+
+      drogon::app().registerHandlerViaRegex("/abk/.*", [&ifLogger](const drogon::HttpRequestPtr &req, std::function<void (const drogon::HttpResponsePtr &)> &&callback) {
+        EventHandlerAbk(req, std::move(callback), ifLogger);
+      });
+
 
       drogon::app().addListener("0.0.0.0", nPortHttp);
 
