@@ -6,13 +6,22 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y build-essential cmake libboost-all-dev libsoup-3.0-dev ninja-build
+        run: sudo apt-get update && sudo apt-get install -y build-essential cmake libboost-all-dev libsoup-3.0-dev libjsoncpp-dev ninja-build
       - name: Checkout code
         uses: actions/checkout@v7
       - name: Build
-        run: cmake -B build -G Ninja -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo && cmake --build build && cmake --build build --target TestAbk
+        run: cmake -B build -G Ninja -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo -DABK_ALLOW_FETCH_CONTENT=ON -DBUILD_EXAMPLES=OFF -DBUILD_CTL=OFF && cmake --build build && cmake --build build --target TestAbk
+      - name: Build ServerExample
+        run: cmake --build build --target ServerExample
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
           name: build-artifacts
           path: build/TestAbk
+      - name: Prepare ServerExample artifact
+        run: mkdir -p build/dist-server && cp build/ServerExample/ServerExample build/dist-server/ServerExample && cp -r ClientWithBrowser build/dist-server/ClientWithBrowser
+      - name: Upload ServerExample artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: server-example-artifact
+          path: build/dist-server

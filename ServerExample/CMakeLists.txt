@@ -23,6 +23,10 @@ if (ABK_ALLOW_FETCH_CONTENT)
   endif()
 endif()
 
+if (NOT ABK_ALLOW_FETCH_CONTENT AND NOT ABK_USE_SYSTEM_DROGON)
+  message(FATAL_ERROR "Drogon is required, but should neither be fetched nor is it available on the system.")
+endif()
+
 set(SERVER_EXAMPLE_FOLDER ${CMAKE_CURRENT_SOURCE_DIR})
 
 set(SERVER_EXAMPLE_SOURCES
