@@ -40,6 +40,8 @@
 #include "MyFakeLogger.h"
 #include "ValuesFromSpec.h"
 
+#include "drogon/drogon.h"
+
 #ifdef _WIN32
 #include <winsvc.h>
 #include <conio.h>
@@ -54,6 +56,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <termios.h>
+#include <fcntl.h>
 #define DIRSEP '/'
 #define WINCDECL
 int getch(void) {
@@ -62,7 +65,9 @@ int getch(void) {
     newSettings = oldSettings;
     newSettings.c_lflag &= ~(ICANON | ECHO);
     tcsetattr(STDIN_FILENO, TCSANOW, &newSettings);
+    fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK);
     int ch = getchar();
+    fcntl(STDIN_FILENO, F_SETFL, 0);
     tcsetattr(STDIN_FILENO, TCSANOW, &oldSettings);
     return ch;
 }
@@ -203,6 +208,88 @@ void PrintHelpScreen (void)
   cout<<"r: fire event to all clients for audio recording, R to stop"<<endl;
   }
 
+int DrogonToAbkMethod(const drogon::HttpMethod &method)
+{
+  switch (method)
+  {
+  case drogon::HttpMethod::Get:
+    return CLoggerInterface::HTTP_METHOD_GET;
+  case drogon::HttpMethod::Post:
+    return CLoggerInterface::HTTP_METHOD_POST;
+  case drogon::HttpMethod::Put:
+    return CLoggerInterface::HTTP_METHOD_PUT;
+  case drogon::HttpMethod::Delete:
+    return CLoggerInterface::HTTP_METHOD_DELETE;
+  default:
+    return CLoggerInterface::HTTP_METHOD_INVALID;
+  }
+}
+
+void CheckForKeypresses(CMyLoggerInterface &ifLogger, CMyFakeLogger &loggerFake, int &nParam)
+{
+  int nKey = getch();
+  if ((nKey >= '0') && (nKey <= '9'))
+  {
+    nParam = nKey - '0';
+    cout << "You have selected parameter value of " << nParam << "." << endl;
+    return;
+  }
+  if (nKey == 'x')
+  {
+    drogon::app().quit();
+    // Important: Do not add back to the event loop after quitting.
+    return;
+  }
+  switch (nKey)
+  {
+  case '?':
+    PrintHelpScreen();
+    break;
+  case 'l': // variable limit
+    cout << "Limit alert for Variable " << nParam << "." << endl;
+    loggerFake.DoVarLimit(nParam, nParam, "DummyLimit", true);
+    break;
+  case 'M': // start measurement
+    loggerFake.DoStartMeasurement();
+    break;
+  case 'm': // end measurement
+    loggerFake.DoEndMeasurement();
+    break;
+  case 'i': // client idedtification
+    ifLogger.Identify(nParam);
+    break;
+  case 'a':
+    ifLogger.NotifyAppChanged();
+    break;
+  case 'f':
+    ifLogger.OpenForm("demo");
+    break;
+  case 'F':
+    ifLogger.CloseForm("demo");
+    break;
+  case 'v':
+    ifLogger.FireEventToAllClientsVarlistChanged();
+    break;
+  case 'r':
+    ifLogger.RequestAudioRec(nParam, 0);
+    break;
+  case 'R':
+    ifLogger.StopAudioRec(nParam);
+    break;
+  }
+
+  // Keep looping as long as the event loop is running, to check for more keypresses
+  if (drogon::app().getLoop()->isRunning())
+  {
+    drogon::app().getLoop()->queueInLoop([&ifLogger, &loggerFake, &nParam]()
+                                         { CheckForKeypresses(ifLogger, loggerFake, nParam); });
+  }
+  else
+  {
+    cout << "Event loop is not running. Exiting keypress check." << endl;
+  }
+}
+
 int main(int argc, char *argv[])
   {
   for(;;) // endless loops, allows to test shutting-down
@@ -249,61 +336,50 @@ int main(int argc, char *argv[])
       // // svrHttp.AddUrlOption(_T(JPEGS_BASE_URL),NULL,NULL,_T("c:\\abk\\jpegs\\"),NULL,(CHttpServer::URLOPTIONS_FLAGS)(CHttpServer::URLO_FILE_ALLOW_READ));
       // svrHttp.AddUrlOption(_T(JPEGS_BASE_URL),&ifLogger,EventHandlerImages,_T("c:\\abk\\jpegs\\"),NULL,CHttpServer::URLO_FILE_ALLOW_READ);
       // svrHttp.Run(addrBindLocal);
+
+      drogon::app().registerHandlerViaRegex("/abk/.*", [&ifLogger](const drogon::HttpRequestPtr &req, std::function<void (const drogon::HttpResponsePtr &)> &&callback) {
+          // Convert the request to the CLoggerInterface format
+          std::string body(req->body());
+          std::string ip = req->getPeerAddr().toIp();
+
+          CLoggerInterface::HTTP_REQUEST reqIf;
+          reqIf.nHttpMethod = DrogonToAbkMethod(req->getMethod());
+          reqIf.pUrl = &req->path();
+          reqIf.pQueryString = &req->query();
+          reqIf.pPostData = &body;
+          reqIf.pClientAddr = &ip;
+
+          // Prepare the response
+          CLoggerInterface::HTTP_RESPONSE respIf;
+          std::string strResponse;
+          respIf.pResponseData = &strResponse;
+          respIf.nStatusCode = 200; // Default status code
+
+          // Handle the request
+          ifLogger.HandleHttpRequest(reqIf, respIf);
+
+          // Create the response object
+          auto resp = drogon::HttpResponse::newHttpResponse();
+          resp->setStatusCode(static_cast<drogon::HttpStatusCode>(respIf.nStatusCode));
+          resp->setBody(strResponse);
+          
+          // Send the response
+          callback(resp);
+      });
+
+      drogon::app().addListener("0.0.0.0", nPortHttp);
+
+
       cout<<"ABK server started, press x to terminate. Port: "<<nPortHttp<<" Vars: "<<nVarCount<<" Cycle: "<<nAniCycle<<" ms."<<endl;
       PrintHelpScreen();
 
     //TestUdp();
       int nParam=0; // 0..9, param entered by keys '0'..'9'
-      for(;;)
-        {
-        int nKey=getch();
-        if((nKey>='0')&&(nKey<='9'))
-          {
-          nParam=nKey-'0';
-          cout<<"You have selected parameter value of "<<nParam<<"."<<endl;
-          continue;
-          }
-        if(nKey=='x')
-          break;
-        switch(nKey)
-          {
-        case '?':
-          PrintHelpScreen();
-          break;
-        case 'l': // variable limit
-          cout<<"Limit alert for Variable "<< nParam << "." <<endl;
-          loggerFake.DoVarLimit(nParam,nParam,"DummyLimit",true);
-          break;
-        case 'M': // start measurement
-          loggerFake.DoStartMeasurement();
-          break;
-        case 'm': // end measurement
-          loggerFake.DoEndMeasurement();
-          break;
-        case 'i': // client idedtification
-          ifLogger.Identify(nParam);
-          break;
-        case 'a':
-          ifLogger.NotifyAppChanged();
-          break;
-        case 'f':
-          ifLogger.OpenForm("demo");
-          break;
-        case 'F':
-          ifLogger.CloseForm("demo");
-          break;
-        case 'v':
-          ifLogger.FireEventToAllClientsVarlistChanged();
-          break;
-        case 'r':
-          ifLogger.RequestAudioRec(nParam,0);
-          break;
-        case 'R':
-          ifLogger.StopAudioRec(nParam);
-          break;
-          }
+      drogon::app().getLoop()->queueInLoop([&ifLogger, &loggerFake, &nParam]() {
+        CheckForKeypresses(ifLogger, loggerFake, nParam);
+      });
 
-        }
+      drogon::app().run();
       loggerFake.Shutdown();
       ifLogger.Shutdown(); // shutdown the logger interface before the destructor gets called when falling out of scope
       fflush(stdout);
