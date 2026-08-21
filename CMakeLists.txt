@@ -5,6 +5,12 @@ option(BUILD_ABK_CLIENT "Build AbkClient library" ON)
 option(BUILD_ABK_SERVER "Build AbkServer library" ON)
 option(BUILD_TESTS "Build tests" OFF)
 option(BUILD_ABK_EXAMPLES "Build examples" ON)
+option(USE_SANITIZERS "Use sanitizers for debugging" OFF)
+
+if (USE_SANITIZERS)
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address,undefined -fno-omit-frame-pointer")
+	set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address,undefined")
+endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	add_definitions(/DLINUX)
