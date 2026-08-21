@@ -15,10 +15,7 @@
 
 
 #include "LoggerIf.h"
-#include "HttpServer.h"
 #include "DiscoveryServer.h"
-
-#include <Mswsock.h>
 
 // location this implementation stores files
 #define LOCDIR_CLIENTSTATES     "c:\\abk\\client_states\\"
@@ -39,7 +36,9 @@ class CMyDiscoveryServer : public CDiscoveryServer
     const CMyLoggerInterface *m_pLoggerIf; // this discovery server gets associated with this server
     SOCKET m_sockRTx; // socket to make the UDP work
     sockaddr_in m_sadrFrom; // who has sent the last request
+#ifdef WIN32
     static LPFN_WSARECVMSG WSARecvMsg; // pointer to WSARecvMsg() function
+#endif
 
   // construction/destruction
   public:
@@ -51,7 +50,7 @@ class CMyDiscoveryServer : public CDiscoveryServer
   
   // implementation
   protected:
-    BOOL IsSamePrivateNet (IN_ADDR addr1, IN_ADDR addr2); // checks whether two addresses are of same network
+
   // overrides
   protected: // overrideables concerning the association with the logger interface
     virtual bool OnGetConnectionPreference (const char *pszClass, const char *pszType, const char *pszSerial) const override; // shall return preference of a connection
@@ -91,10 +90,12 @@ class CMyLoggerInterface : public CLoggerInterface
   // implementation
   protected:
     static std::string Md5FromFile (const char *pszFilePath); // generates MD5 from file
+#ifdef WIN32
     static BOOL GetPeModuleVersionInfo (LPCTSTR pszFileName, __out VS_FIXEDFILEINFO* pVersionInfo, __out CString* pProductName/*=NULL*/, __out CString* pFileDescription/*=NULL*/, __out CString* pLegalCopyRight/*=NULL*/, __out CString* pCompanyName/*=NULL*/);
     static BOOL GetPeModuleVersionInfo (_In_opt_ HMODULE hModule, __out VS_FIXEDFILEINFO* pVersionInfo, __out CString* pProductName/*=NULL*/, __out CString* pFileDescription/*=NULL*/, __out CString* pLegalCopyRight/*=NULL*/, __out CString* pCompanyName/*=NULL*/);
     static CString GetPeModuleVersionString (VS_FIXEDFILEINFO& fiModule); // reads version information from a Microsoft compatible module
     static CString GetPeModuleInfoString (_In_opt_ HMODULE hModule/*=NULL*/, int nLineCount/*=-1*/);
+#endif
     static CString GetClientFwVersionString (LPCTSTR pszFileName); // queries the version string of a client firmware
   // overrides
   protected:

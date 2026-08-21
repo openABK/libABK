@@ -20,6 +20,7 @@ typedef uint16_t USHORT;
 typedef uint16_t WORD;
 
 typedef uint32_t DWORD;
+typedef uint8_t BYTE;
 
 typedef DWORD *DWORD_PTR;
 
@@ -40,6 +41,8 @@ typedef const char *STRING_ID;
 
 #define WINAPI
 
+#define MAX_PATH 4096
+
 #include "afxwrapper/debug.h"
 #include "afxwrapper/networking.h"
 
@@ -52,3 +55,8 @@ typedef const char *STRING_ID;
 #include "afxwrapper/thread.h"
 
 #include "ThreadLauncher.h"
+
+static void ZeroMemory(void *dest, size_t count)
+{
+  memset(dest, '\0', count);
+}

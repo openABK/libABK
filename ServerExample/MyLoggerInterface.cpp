@@ -22,9 +22,15 @@
 #include "JsonParser.h"
 //#include "mongoose.h" // in this demo, we use the mongoose http server
 #include "ValuesFromSpec.h"
+#ifdef WIN32
 #include <wincrypt.h>
 #include <Msi.h> // used to query version information out of a microsoft installer module
 #include <ifdef.h>
+#else
+#include <glib.h>
+#include <filesystem>
+#include <fstream>
+#endif
 
 
 #define DISCOVERY_TRACE_RX
@@ -552,7 +558,7 @@ CMyLoggerInterface::CMyLoggerInterface (CMyFakeLogger *pLogger, const struct soc
   strLocalPath.append (pszClientClass);
   strLocalPath.append ("_");
   strLocalPath.append (pszClientType); // now we have the local path without file extension, e.g. "c:\abk\client_firmware\Display_MyTrionics_SuperDisplay3000"
-
+#ifdef WIN32
   CString strFind = CA2T (strLocalPath.c_str (), CP_UTF8);
   strFind.Append (_T (".*")); // wildcard for the file extension
   WIN32_FIND_DATA ffd;
@@ -581,6 +587,36 @@ CMyLoggerInterface::CMyLoggerInterface (CMyFakeLogger *pLogger, const struct soc
     }
     FindClose (hFind);
   }
+#else
+  std::filesystem::path pathLocal(strLocalPath);
+  if (std::filesystem::exists(pathLocal))
+  {
+    std::filesystem::directory_iterator dirIter(pathLocal);
+    std::filesystem::directory_iterator endIter;
+    for (; dirIter != endIter; ++dirIter)
+    {
+      if (std::filesystem::is_regular_file(*dirIter))
+      {
+        CClientFirmware cfw;
+        std::string strFilenameA = dirIter->path().filename().string();
+        std::string strLocalA = LOCDIR_CLIENTFIRMWARE;
+        strLocalA.append(strFilenameA);
+        cfw.m_strMd5 = Md5FromFile(strLocalA.c_str());
+        if (!cfw.m_strMd5.empty()) // if file is present and a valid MD5 could be created..
+        {
+          cfw.m_strUrl = ABK_SERVICE_CLIENTFIRMWARE;
+          cfw.m_strUrl.append("/");
+          cfw.m_strUrl.append(strFilenameA);
+          CString strVersion = GetClientFwVersionString(CA2T(strLocalA.c_str(), CP_UTF8));
+          cfw.m_strVersion = CT2A(strVersion);
+          if (cfw.m_strVersion.empty())
+            cfw.m_strVersion = "[unknown]"; // with this fake info, we do not support version info
+          lstGet.push_back(cfw); // append to list
+        }
+      }
+    }
+  }
+#endif
   return true; // true: we provided firmware info (even if the list was left empty)
 }
 
@@ -614,6 +650,7 @@ CMyLoggerInterface::CMyLoggerInterface (CMyFakeLogger *pLogger, const struct soc
   strLocalPath.append("_");
   strLocalPath.append(pszClientType); // now we have the local path without file extension, e.g. "c:\abk\client_config\Display_MyTrionics_SuperDisplay3000"
 
+#ifdef WIN32
   CString strFind=CA2T(strLocalPath.c_str(),CP_UTF8);
   strFind.Append(_T(".*")); // wildcard for the file extension
   WIN32_FIND_DATA ffd;
@@ -637,6 +674,31 @@ CMyLoggerInterface::CMyLoggerInterface (CMyFakeLogger *pLogger, const struct soc
       }
     FindClose(hFind);
     }
+#else
+  std::filesystem::path pathLocal(strLocalPath);
+  if (std::filesystem::exists(pathLocal))
+  {
+    std::filesystem::directory_iterator dirIter(pathLocal);
+    std::filesystem::directory_iterator endIter;
+    for (; dirIter != endIter; ++dirIter)
+    {
+      if (std::filesystem::is_regular_file(*dirIter))
+      {
+        std::string strFilenameA = dirIter->path().filename().string();
+        std::string strLocalA = LOCDIR_CLIENTCONFIG;
+        strLocalA.append(strFilenameA);
+        cfgGet.m_strMd5 = Md5FromFile(strLocalA.c_str());
+        if (!cfgGet.m_strMd5.empty()) // if file is present and a valid MD5 could be created..
+        {
+          std::string strUrlA = ABK_SERVICE_CLIENTCONFIG;
+          strUrlA.append("/");
+          strUrlA.append(strFilenameA);
+          cfgGet.m_strUrl = strUrlA; // .. return the url
+        }
+      }
+    }
+  }
+#endif
   return true; // true: we support the client-config feature
   }
 
@@ -895,6 +957,7 @@ void CMyLoggerInterface::PrintAllConnectedClients (void)
 #define NIPPLESPERBYTE 2
 
   std::string strResult;
+#ifdef WIN32
   FILE *pFile=fopen(pszFilePath,"rb");
   if(pFile)
     {
@@ -931,6 +994,31 @@ void CMyLoggerInterface::PrintAllConnectedClients (void)
 
     fclose(pFile);
     }
+#else
+    // Use GChecksum class from GTK library
+  GChecksum *pChecksum = g_checksum_new(G_CHECKSUM_MD5);
+
+  // Open file using C++17
+  std::ifstream file(pszFilePath, std::ios::binary);
+  if (file.is_open())
+  {
+    // Read file in chunks of 4k
+    constexpr size_t nBufferSize = 4096;
+    std::array<char, nBufferSize> buffer;
+    while (file.good())
+    {
+      file.read(buffer.data(), nBufferSize);
+      g_checksum_update(pChecksum, reinterpret_cast<const guchar *>(buffer.data()), file.gcount());
+    }
+    file.close();
+    strResult = g_checksum_get_string(pChecksum);
+  }
+  else
+  {
+    g_warning("Failed to open file %s", pszFilePath);
+  }
+  g_checksum_free(pChecksum);
+#endif
   return strResult;
   }
 
@@ -1009,7 +1097,7 @@ void CMyLoggerInterface::PrintAllConnectedClients (void)
 
 
 
-
+#ifdef WIN32
 /** retrieves version info of module
 @param pszFileName file path or file name. Dll and Exe load paths are applied if no drectory is specified
 @param pVersionInfo buffer recieving the version info
@@ -1182,6 +1270,7 @@ BOOL CMyLoggerInterface::GetPeModuleVersionInfo (_In_opt_ HMODULE hModule, __out
   }
   return strInfo;
 }
+#endif
 
 
 
@@ -1194,6 +1283,7 @@ BOOL CMyLoggerInterface::GetPeModuleVersionInfo (_In_opt_ HMODULE hModule, __out
 {
   CString strVersion;
 
+#ifdef WIN32
   if (1) // try the PE (Microsoft portable executable) type
   {
     VS_FIXEDFILEINFO fi = { 0 };
@@ -1214,6 +1304,9 @@ BOOL CMyLoggerInterface::GetPeModuleVersionInfo (_In_opt_ HMODULE hModule, __out
       MsiCloseHandle (hMsi);
     }
   }
+#else
+  strVersion = "0.0.1";
+#endif
 
   return strVersion;
 }
@@ -1233,8 +1326,9 @@ BOOL CMyLoggerInterface::GetPeModuleVersionInfo (_In_opt_ HMODULE hModule, __out
 
 
 
-
+#ifdef WIN32
 /*static*/ LPFN_WSARECVMSG CMyDiscoveryServer::WSARecvMsg=NULL; // pointer to WSARecvMsg() function
+#endif
 
 
 
@@ -1248,6 +1342,7 @@ CMyDiscoveryServer::CMyDiscoveryServer (const CMyLoggerInterface *pLoggerIf)
   {
   m_pLoggerIf=pLoggerIf;
 
+#ifdef WIN32
   // obtain the WSARecvMsg() function pointer
   if(NULL==WSARecvMsg)
     {
@@ -1265,6 +1360,7 @@ CMyDiscoveryServer::CMyDiscoveryServer (const CMyLoggerInterface *pLoggerIf)
     closesocket(sockDummy);
     ASSERT(WSARecvMsg!=NULL);
     }
+#endif
   }
 
 
@@ -1359,6 +1455,7 @@ CMyDiscoveryServer::~CMyDiscoveryServer ()
   // on other platforms, you may use recvmsg() instead of WSARecvMsg()
   // If the target system has only one interface, you may use recvfrom() and populate strLocalIpOfRequest with the adapters address, see also AbkGetOwnIpAddress().
   bool bSuccess=false;
+#ifdef WIN32
   if(WSARecvMsg) // do only if the required prerequisites are available
     {
     ZeroMemory(pRxBuf,nBufLen);
@@ -1412,29 +1509,39 @@ CMyDiscoveryServer::~CMyDiscoveryServer ()
     else
       bSuccess=true; // timed-out
     }
+#else // WIN32
+  // on other platforms, you may use recvmsg() instead of WSARecvMsg()
+  fd_set fds;
+  struct timeval tvRx = {0, 250};
+  FD_ZERO(&fds);
+  FD_SET(m_sockRTx, &fds);
+  select(m_sockRTx + 1, &fds, NULL, NULL, &tvRx);
+  if (FD_ISSET(m_sockRTx, &fds))
+  {
+    sockaddr_in sadrFrom;
+    socklen_t sadrFromLen = sizeof(sadrFrom);
+    msghdr msgHdr;
+    memset(&msgHdr, 0, sizeof(msgHdr));
+    int nReceived = recvmsg(m_sockRTx, &msgHdr, 0);
+    if (nReceived >= 0)
+    {
+      pRxBuf[nReceived] = '\0'; // terminate the recieved string
+      // extract the local address where the request was received
+      for (struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msgHdr); cmsg != NULL; cmsg = CMSG_NXTHDR(&msgHdr, cmsg))
+      {
+        if (cmsg->cmsg_level == IPPROTO_IP && cmsg->cmsg_type == IP_PKTINFO)
+        {
+          struct in_pktinfo *pPktInfo = (struct in_pktinfo *)CMSG_DATA(cmsg);
+          strLocalIpOfRequest = inet_ntoa(pPktInfo->ipi_addr);
+          break;
+        }
+      }
+    }
+  }
+#endif
   return bSuccess;
   }
 
-
-
-//--------------------------------------------------------------------------
-// IsSamePrivateNet()             checks whether two addresses are of same private network
-// -----------
-// Input: addr1 = address to be compared to addr2
-//        addr2 = address to be compared to addr1
-// Return: TRUE if both addresses are of the same network.
-//         FALSE if addresses are of different networks
-
-BOOL CMyDiscoveryServer::IsSamePrivateNet (IN_ADDR addr1, IN_ADDR addr2)
-  {
-  if(addr1.S_un.S_un_b.s_b1==192 && addr1.S_un.S_un_b.s_b2==168 && addr2.S_un.S_un_b.s_b1==192 && addr2.S_un.S_un_b.s_b2==168)
-    return addr1.S_un.S_un_b.s_b3==addr2.S_un.S_un_b.s_b3;
-  if(addr1.S_un.S_un_b.s_b1==172 && (addr1.S_un.S_un_b.s_b2&0xe0)==0 && addr2.S_un.S_un_b.s_b1==172 && (addr2.S_un.S_un_b.s_b2&0xe0)==0)
-    return addr1.S_un.S_un_b.s_b2==addr2.S_un.S_un_b.s_b2;
-  if(addr1.S_un.S_un_b.s_b1==10 && addr2.S_un.S_un_b.s_b1==10)
-    return TRUE;
-  return FALSE;
-  }
 
 
 //--------------------------------------------------------------------------
@@ -1463,7 +1570,11 @@ BOOL CMyDiscoveryServer::IsSamePrivateNet (IN_ADDR addr1, IN_ADDR addr2)
 
 /*virtual*/ bool CMyDiscoveryServer::OnSocketShutdown (void)
   {
+#ifdef WIN32
   return shutdown(m_sockRTx,SD_BOTH)==0;
+#else
+  return shutdown(m_sockRTx,SHUT_RDWR)==0;
+#endif
   // return true; // successfully done nothing, we let the socket time-out
   }
 

@@ -16,7 +16,24 @@
 
 #include "CrossPlatform.h"
 #include <map>
+#if defined(_WIN32)
 #include <mmreg.h> // for WAVEFORMATEX
+#else
+#pragma pack(push)
+#pragma pack(2)
+struct WAVEFORMATEX
+{
+  WORD wFormatTag;
+  WORD nChannels;
+  DWORD nSamplesPerSec;
+  DWORD nAvgBytesPerSec;
+  WORD nBlockAlign;
+  WORD wBitsPerSample;
+  WORD cbSize;
+};
+#define WAVE_FORMAT_PCM 0x1
+#pragma pack(pop)
+#endif
 #include "VarRef.h"
 
 #define FAKE_VARCOUNT_MAX 4000 // number of maximum variables in the fake logger
