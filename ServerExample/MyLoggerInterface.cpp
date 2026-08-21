@@ -1533,10 +1533,15 @@ CMyDiscoveryServer::~CMyDiscoveryServer ()
         {
           struct in_pktinfo *pPktInfo = (struct in_pktinfo *)CMSG_DATA(cmsg);
           strLocalIpOfRequest = inet_ntoa(pPktInfo->ipi_addr);
+          bSuccess = true;
           break;
         }
       }
     }
+  }
+  else
+  {
+    bSuccess = true; // timed-out
   }
 #endif
   return bSuccess;
