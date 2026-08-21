@@ -65,7 +65,7 @@ typedef boost::recursive_mutex ABK_MUTEX;
 
 typedef boost::condition_variable ABK_EVENT;
 #define ABKMUTEX_INFINITE 0
-#define ABK_THREAD_HANDLE boost::thread*
+#define ABK_THREAD_HANDLE boost::thread
 #define ABK_INVALID_THREAD_HANDLE NULL
 
 

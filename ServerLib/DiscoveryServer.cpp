@@ -249,7 +249,9 @@ bool CDiscoveryServer::SRequest::Decode (const char *pszReq)
 CDiscoveryServer::CDiscoveryServer ()
   {
   m_pOwningPool=NULL;
+#ifdef WIN32
   m_hThread=ABK_INVALID_THREAD_HANDLE;
+#endif
   }
 
 
@@ -280,7 +282,9 @@ CDiscoveryServer::CDiscoveryServer ()
   CDiscoveryServer *pThis=static_cast<CDiscoveryServer *>(pArg);
   unsigned int nResult=pThis->Run();
   pThis->m_evDone.Set(); // signal that we are done
+#ifdef WIN32
   pThis->m_hThread=ABK_INVALID_THREAD_HANDLE;
+#endif
 
   // unregister myself
   if(pThis->m_pOwningPool)
@@ -424,7 +428,11 @@ void CDiscoveryServer::StopAndDeleteDeferred (CDiscoveryServerPool *pPoolUnregis
 
 bool CDiscoveryServer::IsRunning (void) const
   {
+#ifdef PREFER_BOOST_PLATFORM
+  return m_hThread.joinable();
+#else
   return m_hThread!=ABK_INVALID_THREAD_HANDLE;  
+#endif
   }
 
 
