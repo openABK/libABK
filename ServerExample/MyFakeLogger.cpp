@@ -727,7 +727,7 @@ bool CMyFakeLogger::OnAudioRecHeader (int nId, int nSamplerateHz, int nChannels,
     {
     CMyWavFileWriter &rWavWriter=pairNew.first->second;
     char cFilePath[MAX_PATH];
-    sprintf(cFilePath,"%sWavRecoring%d.wav",LOCDIR_AUDIOREC,nId);
+    sprintf(cFilePath,"%sWavRecording%d.wav",LOCDIR_AUDIOREC,nId);
     if(rWavWriter.Create(cFilePath,nSamplerateHz,nChannels,nBitsPerSample))
       bSuccess=true;
     else
