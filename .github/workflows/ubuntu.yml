@@ -1,5 +1,11 @@
 name: Linux
 on:
+  workflow_dispatch:
+      inputs:
+        reason:
+          description: 'Manual trigger for the workflow. Specify the reason for the trigger (optional).'
+          required: false
+          default: 'Manual update'
   push:
     branches:
       - master
