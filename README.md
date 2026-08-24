@@ -99,3 +99,5 @@ Feel free to reference the Client test or the Server example for usage examples.
 
 ## Licensing
 libABK is licensed under the **MIT License**. See the accompanying [LICENSE](LICENSE) file, for the full text.
+Please note, that "Simple Tabs" is licensed under the **GPLv2 License**,
+which is used as a component for the browser-based client, making the combined work (browser-based client) subject to the terms of the GPLv2 license.
