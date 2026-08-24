@@ -15,6 +15,15 @@ A client is usually a device for displaying parts of the acquired measurement da
 * **Soup-based Client:** A client using [Soup 3.0](https://libsoup.gnome.org/libsoup-3.0/index.html)
 * **Browser-based Client:** A client, that uses JavaScript to demonstrate, that the protocol is capable of working within a browser.
 
+| Exchange of measurement data | Inform about expected ranges |
+|----|----|
+| ![](Documentation/Screenshots/Browser/DataView.png) | ![](Documentation/Screenshots/Browser//RangesView.png) |
+
+| Live Data | Client and Server Information |
+|----|----|
+| ![](Documentation/Screenshots/Browser/LargeView.png) | ![](Documentation/Screenshots/Browser/Tools.png) |
+| Obtain live data from the logger (server) | Exchange client and server information |
+
 ## Dependencies
 * [CMake](https://cmake.org/) >= 3.25
 * [C++17](https://en.cppreference.com/w/cpp/17) compatible compiler
