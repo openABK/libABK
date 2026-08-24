@@ -57,8 +57,45 @@ The client library code, contains an ATL-based implementation (for Windows).
 It's not actively maintained or tested and provided only for reference.
 The only actively maintained implementation is the Soup-based client library.
 
-## Installation and Usage
-Installation and Usage instructions can be found in the respective subfolders of the modules.
+## Build instruction
+In order to build the library, you need to have the dependencies installed.
+To achieve this on Ubuntu 24.04, you can run the following commands:
+
+```bash
+sudo apt update
+sudo apt-get install -y build-essential cmake libboost-all-dev libsoup-3.0-dev libjsoncpp-dev ninja-build
+```
+
+Checkout the repository:
+
+```bash
+git clone https://github.com/openABK/libABK.git
+cd libABK
+```
+
+And build the server example (this will download and build Drogon and its dependencies):
+
+```bash
+cmake -B build -G Ninja -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo -DABK_ALLOW_FETCH_CONTENT=ON -DBUILD_EXAMPLES=OFF -DBUILD_CTL=OFF
+cmake --build build --target ServerExample
+```
+
+After a successful build, the path to the server example executable will be `build/ServerExample/ServerExample`.
+
+In order to build the client test, you can run the following command:
+
+```bash
+cmake --build build --target TestABK
+```
+
+This test will attempt to connect to a running server and do basic checks to ensure,
+that the client code is working as expected.
+
+To use this project in your own CMake project, you can add it as a subdirectory and add
+"ServerLib" or "LibAbkClient" to your target link libraries,
+which will also automatically add the include directories to your target.
+
+Feel free to reference the Client test or the Server example for usage examples.
 
 ## Licensing
 libABK is licensed under the **MIT License**. See the accompanying [LICENSE](LICENSE) file, for the full text.
