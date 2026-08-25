@@ -97,6 +97,17 @@ which will also automatically add the include directories to your target.
 
 Feel free to reference the Client test or the Server example for usage examples.
 
+## Usage
+Once built, the server binary can be started with the following command:
+
+```bash
+./build/ServerExample/ServerExample
+```
+
+To access the browser-based client, the server needs to be started from a folder containing the "ClientWithBrowser" folder.
+Once the server is running, you can access the client by opening a browser and navigating to
+http://localhost:8080/abk/browser/index.html
+
 ## Licensing
 libABK is licensed under the **MIT License**. See the accompanying [LICENSE](LICENSE) file, for the full text.
 Please note, that "Simple Tabs" is licensed under the **GPLv2 License**,
