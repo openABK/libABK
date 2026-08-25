@@ -18,7 +18,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
       - name: Build
-        run: cmake -B build -G Ninja -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo -DABK_ALLOW_FETCH_CONTENT=ON -DBUILD_EXAMPLES=OFF -DBUILD_CTL=OFF && cmake --build build && cmake --build build --target TestAbk
+        run: cmake -B build -G Ninja -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo -DABK_ALLOW_FETCH_CONTENT=ON -DBUILD_EXAMPLES=OFF -DBUILD_CTL=OFF -DBoost_USE_STATIC_LIBS=ON && cmake --build build && cmake --build build --target TestAbk
       - name: Build ServerExample
         run: cmake --build build --target ServerExample
       - name: Upload artifacts

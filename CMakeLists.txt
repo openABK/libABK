@@ -6,6 +6,8 @@ option(BUILD_ABK_SERVER "Build AbkServer library" ON)
 option(BUILD_TESTS "Build tests" OFF)
 option(BUILD_ABK_EXAMPLES "Build examples" ON)
 option(USE_SANITIZERS "Use sanitizers for debugging" OFF)
+# Use Boost_USE_STATIC_LIBS=ON to enable static linking of Boost libraries, if needed.
+# Suggested when building cross-distribution packages, to avoid handling multiple versions of Boost libraries on the target system.
 
 if (USE_SANITIZERS)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address,undefined -fno-omit-frame-pointer")
