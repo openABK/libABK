@@ -246,6 +246,11 @@
           var objAlert = objEvent.Events[iterEvent];
           if (objAlert.EventType == "LimitAlert")
           {
+            console.warn("LimitAlert is deprecated, use \"Alert\" event type instead");
+            AddAlert(objAlert);
+          }
+          if (objAlert.EventType == "Alert")
+          {
             AddAlert(objAlert);
           }
         }
@@ -810,7 +815,7 @@
       var bStackable = false; // default: when same alert type with same context, the alert will be suppressed
       var nDisplayCount = -1; // default: do not suppress, show alert infinite times
       var strSound = "Alert.wav";
-      if (objAlert.EventType == "LimitAlert")
+      if (objAlert.EventType == "LimitAlert" || objAlert.EventType == "Alert")
       {
         objAlert.Severity = 3;
         // objAlert.nPersistance = 3;
@@ -858,6 +863,16 @@
             g_SuppressedAlerts[strHash].nCounter = nDisplayCount - 1;
           }
         }
+      }
+
+      // Only provided for "Alert" events
+      if (objAlert.AuxData._NoClientSideSuppress)
+      {
+        if (objAlert.EventType == "LimitAlert")
+        {
+          console.warn("LimitAlert called with _NoClientSideSuppress, this belongs to Alert event type");
+        }
+        bSuppress = false;
       }
 
       if (bSuppress == false)
