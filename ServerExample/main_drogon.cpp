@@ -402,6 +402,7 @@ int main(int argc, char *argv[])
       });
 
 
+      drogon::app().setThreadNum(4);
       drogon::app().addListener("0.0.0.0", nPortHttp);
 
 
