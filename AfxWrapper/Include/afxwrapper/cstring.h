@@ -572,6 +572,7 @@ public:
 		// Create a new string, where occurrences of strOld are replaced by strNew
 		std::basic_string<BaseType> newStr;
 		const BaseType *buf = GetBuffer();
+		size_t nReplacements = 0;
 		while(*buf)
 		{
 			const BaseType *found = FindStringInString(buf, strOld);
@@ -583,6 +584,7 @@ public:
 				newStr.append(strNew);
 				// Skip the old string
 				buf = found + strlen(strOld);
+				nReplacements++;
 			}
 			else
 			{
@@ -592,20 +594,22 @@ public:
 			}
 		}
 		SetString(newStr.c_str());
-		return 0;
+		return nReplacements;
 	}
 
 	int Replace(BaseType chOld, BaseType chNew)
 	{
 		char *buf = GetBuffer();
+		size_t nReplacements = 0;
 		for (size_t i = 0; i < m_BufSize; i++)
 		{
 			if (buf[i] == chOld)
 			{
 				buf[i] = chNew;
+				nReplacements++;
 			}
 		}
-		return 0;
+		return nReplacements;
 	}
 
 	CStringT Left(int length) const
