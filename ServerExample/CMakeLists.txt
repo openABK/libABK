@@ -35,14 +35,27 @@ set(SERVER_EXAMPLE_SOURCES
   main_drogon.cpp
 )
 
+set(SERVER_REPLAY_SOURCES
+  MyLoggerInterface.cpp
+  MyFakeLogger.cpp
+  ReplayEngine.cpp
+  replay_main.cpp
+)
+
 list(TRANSFORM SERVER_EXAMPLE_SOURCES PREPEND ${SERVER_EXAMPLE_FOLDER}/)
 add_executable(ServerExample ${SERVER_EXAMPLE_SOURCES})
 target_include_directories(ServerExample PUBLIC ${SERVER_EXAMPLE_FOLDER})
 target_link_libraries(ServerExample PUBLIC ServerLib ${ABK_DROGON_TARGET})
+
+list(TRANSFORM SERVER_REPLAY_SOURCES PREPEND ${SERVER_EXAMPLE_FOLDER}/)
+add_executable(ServerReplay ${SERVER_REPLAY_SOURCES})
+target_include_directories(ServerReplay PUBLIC ${SERVER_EXAMPLE_FOLDER})
+target_link_libraries(ServerReplay PUBLIC ServerLib ${ABK_DROGON_TARGET})
 
 # Locate glib by using pkg-config, which is the recommended way to find glib
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   find_package(PkgConfig REQUIRED)
   pkg_check_modules(GLIB REQUIRED IMPORTED_TARGET glib-2.0)
   target_link_libraries(ServerExample PUBLIC PkgConfig::GLIB)
+  target_link_libraries(ServerReplay PUBLIC PkgConfig::GLIB)
 endif()

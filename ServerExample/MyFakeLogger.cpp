@@ -218,6 +218,7 @@ CMyFakeLogger::CMyFakeLogger (int nVarCount, int nAniCycle)
   m_nStorageAvailable=m_nStorageTotal;
   m_nVarCount=nVarCount;
   m_nAniCycle=nAniCycle;
+  m_bReplayMode=false;
 
   // init the fake variables
   memset(m_vars,0,sizeof(m_vars));
@@ -440,6 +441,8 @@ bool CMyFakeLogger::Sleep (int nTimeMs)
     
     // animate the values
     CAbkSingleLock guard(&pThis->m_mutexVars,true,FAKE_VARMUTEX_TIMEOUT); // gain access to the variables etc.
+    if(!pThis->m_bReplayMode)
+      {
 #if defined (TESTBENCH_ABKBUTTONS)
     for(int nVar=0;nVar<pThis->m_nVarCount;nVar++)
       {
@@ -480,6 +483,7 @@ bool CMyFakeLogger::Sleep (int nTimeMs)
       pLoggerVar->dAvg=(pLoggerVar->dAvg*15.+pLoggerVar->dValue)/16.; // averaging
       }
 #endif
+      }
 
     // animate the storage capacity
     if((!nPrescale10)&&(pThis->m_nStorageAvailable>0))
@@ -518,6 +522,48 @@ FAKEVAR *CMyFakeLogger::GetVar (int nIndex)
   {
   assert((nIndex>=0)&&(nIndex<m_nVarCount));
   return &m_vars[nIndex]; // return the variable
+  }
+
+
+//--------------------------------------------------------------------------
+// SetReplayMode()         enables/disables replay mode
+// -------------
+
+void CMyFakeLogger::SetReplayMode (bool bReplayMode)
+  {
+  CAbkSingleLock guard(&m_mutexVars,true,FAKE_VARMUTEX_TIMEOUT);
+  m_bReplayMode=bReplayMode;
+  }
+
+
+//--------------------------------------------------------------------------
+// SetVariableName()       updates variable name/display name
+// ----------------
+
+bool CMyFakeLogger::SetVariableName (int nIndex, const char *pszName)
+  {
+  if((nIndex<0)||(nIndex>=m_nVarCount)||(!pszName))
+    return false;
+  CAbkSingleLock guard(&m_mutexVars,true,FAKE_VARMUTEX_TIMEOUT);
+  strncpy(m_vars[nIndex].szName,pszName,sizeof(m_vars[nIndex].szName)-1);
+  m_vars[nIndex].szName[sizeof(m_vars[nIndex].szName)-1]='\0';
+  strncpy(m_vars[nIndex].szDisplayName,pszName,sizeof(m_vars[nIndex].szDisplayName)-1);
+  m_vars[nIndex].szDisplayName[sizeof(m_vars[nIndex].szDisplayName)-1]='\0';
+  return true;
+  }
+
+
+//--------------------------------------------------------------------------
+// SetVariableValue()      updates one variable value
+// -----------------
+
+bool CMyFakeLogger::SetVariableValue (int nIndex, double dValue)
+  {
+  if((nIndex<0)||(nIndex>=m_nVarCount))
+    return false;
+  CAbkSingleLock guard(&m_mutexVars,true,FAKE_VARMUTEX_TIMEOUT);
+  m_vars[nIndex].dValue=dValue;
+  return true;
   }
 
 

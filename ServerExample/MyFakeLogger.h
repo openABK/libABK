@@ -154,6 +154,7 @@ class CMyFakeLogger
     CMyLoggerInterface *m_pAbk; // pointer to the interface handling ABK client requests
     int m_nVarCount; // number of variables for animation
     int m_nAniCycle; // animation cycle in ms    
+    bool m_bReplayMode; // true if values are externally controlled by replay engine
     AUDIOREC_MAP m_mapAudioRec; // currently running audio recordings
     Abk::CAbkMutex m_mutexAudioRec; // protecting m_mapAudioRec
   
@@ -180,6 +181,10 @@ class CMyFakeLogger
     const char *GetVersion (void); // returns the version info
     int GetStorageTotal (void); // returns the total logging capacity in terms of MB
     int GetStorageAvailable (void); // returns the available logging capacity in terms of MB
+    void SetReplayMode (bool bReplayMode); // enables/disables replay mode
+    bool IsReplayMode (void) const {return m_bReplayMode;} // returns true if replay mode is active
+    bool SetVariableName (int nIndex, const char *pszName); // updates variable name/display name
+    bool SetVariableValue (int nIndex, double dValue); // updates one variable value
     bool LockVars (void); // locks variable mutex
     void UnlockVars (void); // unlocks variable mutex
     bool StopPaceThread (void); // ends the pace thread
