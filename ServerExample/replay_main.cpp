@@ -372,12 +372,16 @@ int main(int argc, char *argv[])
         return;
       }
 
-      if(!replay.IsSessionEstablished(sessionId))
+      // like the real event polling: an unknown (e.g. expired, or from a previous server run) session is
+      // rejected, so the client negotiates a new one. A known session gets its lifetime refreshed, since
+      // server_event is answered here and does not pass the ABK interface.
+      if(!ifLogger.RefreshSession(sessionId) || !replay.IsSessionEstablished(sessionId))
       {
-        std::cerr << "No active ABK session yet for SessionId=" << sessionId << "; waiting for /abk/system_information/session_id before replaying the capture.\n";
+        std::cerr << "server_event for unknown SessionId=" << sessionId << " rejected; client has to negotiate a new session.\n";
+        replay.SetSessionEstablished(sessionId, false);
         auto resp = drogon::HttpResponse::newHttpResponse();
-        resp->setStatusCode(drogon::k200OK);
-        resp->setBody("{\"DataLists\":{},\"Events\":[]}");
+        resp->setStatusCode(drogon::k400BadRequest);
+        resp->setBody("Unknown session ID: " + query);
         callback(resp);
         return;
       }

@@ -162,6 +162,7 @@ class CLoggerInterface
     bool DeleteSession (int nIdDelete); // deletes a session
     bool DeleteSession (CSession *pSession); // deletes a session
     int EnumSessions (std::list <CClientUid> *pReturn) const; // lists all connected clients
+    bool RefreshSession (int nSessionId); // refreshes the lifetime of a session, false if the session is unknown
     bool IdentifyClient (const CClientUid &clientUid, const char *pszMessage=NULL); // a client shall identify itself
     virtual void OnClientConnected (const char *pszClass, const char *pszType, const char *pszSerial, const char *pszFwVersion, const char *pszHwVersion, int nSessionId)=0; // called to notify the server about client connection
   private:

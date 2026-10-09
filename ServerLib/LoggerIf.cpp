@@ -381,6 +381,23 @@ CSession *CLoggerInterface::GetSession (const HTTP_REQUEST &rRequest) const
 
 
 //--------------------------------------------------------------------------
+// RefreshSession()        refreshes the lifetime of a session
+// ----------------
+// Input: nSessionId = id of the session
+// Return: true if the session exists (and got refreshed), false if unknown
+// Remark: for request handling outside of this interface (e.g. replaying a capture)
+
+bool CLoggerInterface::RefreshSession (int nSessionId)
+  {
+  if(!m_mutexSessionList.Lock(SID_TIMEOUT))
+    return false;
+  const bool bFound=(GetSession(nSessionId)!=NULL); // GetSession() refreshes the session
+  m_mutexSessionList.Unlock();
+  return bFound;
+  }
+
+
+//--------------------------------------------------------------------------
 // EnumSessions()          lists all connected clients
 // --------------
 // Input: pReturn = pointer to list recieving the client properties
