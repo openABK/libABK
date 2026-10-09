@@ -19,6 +19,7 @@
 #include <assert.h>
 #include "float.h"
 #include <limits>
+#include <new>
 #include "MyFakeLogger.h"
 #include "MyLoggerInterface.h"
 
@@ -225,6 +226,8 @@ CMyFakeLogger::CMyFakeLogger (int nVarCount, int nAniCycle)
   int nVar;
   for(nVar=0;nVar<FAKE_VARCOUNT_MAX;nVar++)
     {
+    new (&m_vars[nVar].m_tblValToText) Abk::CVarRef::CMeta::CValueTable(); // memset destroyed the non-trivial member: construct it again
+
     m_vars[nVar].dRangeMin=0.;
     m_vars[nVar].dRangeMax=100.;
 
@@ -533,6 +536,30 @@ void CMyFakeLogger::SetReplayMode (bool bReplayMode)
   {
   CAbkSingleLock guard(&m_mutexVars,true,FAKE_VARMUTEX_TIMEOUT);
   m_bReplayMode=bReplayMode;
+  if(!bReplayMode)
+    return;
+
+  // replayed variables are plain measurement values: remove the demo specialties
+  // (var #0 scaling/thresholds/text table, var #4/#5 announced as JPEG video objects)
+  for(int nVar=0;nVar<FAKE_VARCOUNT_MAX;nVar++)
+    {
+    FAKEVAR &var=m_vars[nVar];
+    var.dRangeMin=0.;
+    var.dRangeMax=100.;
+    var.dFactor=1.;
+    var.dOffset=0.;
+    var.dThresholds[0]=-numeric_limits<double>::infinity();
+    var.dThresholds[1]=-numeric_limits<double>::infinity();
+    var.dThresholds[2]=0.;
+    var.dThresholds[3]=numeric_limits<double>::infinity();
+    var.dThresholds[4]=numeric_limits<double>::infinity();
+    var.nFractionalDigits=0;
+    var.pszImageUrl=NULL;
+    var.szTags[0]='\0';
+    var.szUnit[0]='\0';
+    sprintf(var.szComment,"Replayed variable %d",nVar);
+    var.m_tblValToText=Abk::CVarRef::CMeta::CValueTable();
+    }
   }
 
 
