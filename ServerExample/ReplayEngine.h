@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <cstddef>
+#include <map>
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -25,7 +26,8 @@ public:
     double timestampSec;
     std::string body;
     std::vector<double> values;
-    bool hasAudioRecEvent;
+    std::string eventType;
+    bool truncated;
   };
 
   CPcapReplayEngine();
@@ -36,10 +38,16 @@ public:
   bool IsSessionEstablished(int sessionId) const;
   void StartAfterSessionEstablished(int sessionId);
 
+  // time-sequenced replay of /abk/events/server_event
   std::string NextServerEventResponse(int sessionId, ReplayEventInfo *pInfo = nullptr);
-  std::string BuildVarListResponse() const;
-  std::string BuildVarValueResponse(int sessionId, const std::string &requestBody) const;
-  bool RegisterDaqList(const std::string &requestBody, std::string &listNameOut, std::string &errOut);
+
+  // generic request -> recorded response matching (all other endpoints)
+  bool FindRecordedResponse(const std::string &method,
+                            const std::string &path,
+                            const std::string &query,
+                            const std::string &requestBody,
+                            std::string &responseOut,
+                            int &statusOut);
 
   int GetEstimatedVarCount() const;
   const std::vector<std::string> &GetVariableNames() const;
@@ -62,11 +70,34 @@ private:
     }
   };
 
+  struct RecordedExchange
+  {
+    double timestampSec;
+    std::string canonicalBody;
+    std::string responseBody;
+    int statusCode;
+  };
+
+  struct ExchangeGroup
+  {
+    std::vector<RecordedExchange> exchanges;
+    std::map<std::string, std::size_t> cursorByBody; // round-robin per canonical request body
+    std::size_t cursorAny;
+
+    ExchangeGroup() : cursorAny(0) {}
+  };
+
   SessionReplayState &GetOrCreateSessionState(int sessionId);
   const SessionReplayState *FindSessionState(int sessionId) const;
 
   bool ExtractTraffic(std::string &err);
+  void AddServerEventFrame(double ts, const std::string &body);
   void FinalizeVariableModel();
+
+  static std::string MakeKey(const std::string &method, const std::string &path, const std::string &query);
+  static std::string CanonicalQuery(const std::string &query);
+  static std::string CanonicalBody(const std::string &body);
+  static void SplitUri(const std::string &uri, std::string &path, std::string &query);
 
   static bool RunCommand(const std::string &cmd, std::string &output, std::string &err);
   static std::vector<std::string> SplitLines(const std::string &text);
@@ -74,19 +105,17 @@ private:
   static std::string DecodeHexPayload(const std::string &hexText);
   static std::string Trim(const std::string &s);
   static bool ParseVarListFromBody(const std::string &body, std::vector<std::string> &varsOut);
+  static bool ParseServerEventJson(const std::string &body, std::vector<double> &valuesOut, std::string &eventTypeOut);
   static std::vector<double> ParseFirstDataListValuesLoose(const std::string &body);
-  static int CountElementsInFirstDataListLoose(const std::string &body);
-  static std::vector<std::string> ParseGetListNamesLoose(const std::string &body);
-  static std::string EscapeJson(const std::string &s);
+  static std::string ParseEventTypeLoose(const std::string &body);
   static std::string BuildDataArrayJson(const std::vector<double> &values);
 
 private:
   std::string m_pcapPath;
   mutable std::mutex m_mutex;
   std::vector<std::string> m_varNames;
-  std::unordered_map<std::string, std::size_t> m_varIndex;
-  std::unordered_map<std::string, std::vector<std::string>> m_createdDaqLists;
   std::vector<ReplayFrame> m_frames;
+  std::unordered_map<std::string, ExchangeGroup> m_exchanges;
   std::unordered_map<int, SessionReplayState> m_sessionStates;
 
   int m_fallbackVarCount;

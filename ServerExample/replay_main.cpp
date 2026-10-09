@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <iostream>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <regex>
 #include <sstream>
@@ -59,11 +60,18 @@ int ParseSessionIdFromQuery(const std::string &query)
 
 int ParseSessionIdFromBody(const std::string &body)
 {
-  std::smatch m;
-  static const std::regex re("\\\"SessionId\\\"\\s*:\\s*([0-9]+)", std::regex::icase);
-  if(!std::regex_search(body, m, re) || m.size() < 2)
+  Json::Value root;
+  Json::CharReaderBuilder builder;
+  std::unique_ptr<Json::CharReader> reader(builder.newCharReader());
+  std::string errs;
+  if(!reader->parse(body.data(), body.data() + body.size(), &root, &errs) || !root.isObject())
     return -1;
-  return std::atoi(m[1].str().c_str());
+  const Json::Value &id = root["SessionId"];
+  if(id.isIntegral())
+    return id.asInt();
+  if(id.isString())
+    return std::atoi(id.asCString());
+  return -1;
 }
 
 struct ReplayTraceState
@@ -307,49 +315,21 @@ int main(int argc, char *argv[])
       return;
     }
 
-    if(req->getMethod() == drogon::HttpMethod::Get && path == "/abk/variables/var_list")
+    // all other requests: answer with the matching response recorded in the capture
     {
-      auto resp = drogon::HttpResponse::newHttpResponse();
-      resp->setStatusCode(drogon::k200OK);
-      resp->setBody(replay.BuildVarListResponse());
-      callback(resp);
-      return;
-    }
-
-    if(req->getMethod() == drogon::HttpMethod::Put && (path == "/abk/variables/daq_list" || path == "/abk/variables/mailbox_daq_list"))
-    {
-      std::string body(req->body());
-      std::string daqName;
-      std::string dqErr;
-      if(!replay.RegisterDaqList(body, daqName, dqErr))
+      std::string recordedBody;
+      int recordedStatus = 200;
+      if(replay.FindRecordedResponse(req->methodString(), path, std::string(req->query()), std::string(req->body()), recordedBody, recordedStatus))
       {
-        std::cerr << "DAQ list rejected: " << dqErr << "\n";
         auto resp = drogon::HttpResponse::newHttpResponse();
-        resp->setStatusCode(drogon::k400BadRequest);
-        resp->setBody("{\"error\":\"" + dqErr + "\"}");
+        resp->setStatusCode(static_cast<drogon::HttpStatusCode>(recordedStatus));
+        resp->setBody(recordedBody);
         callback(resp);
         return;
       }
-
-      std::cerr << "[DAQ] registered list '" << daqName << "' using " << replay.GetVariableNames().size() << " replay variable names\n";
-      auto resp = drogon::HttpResponse::newHttpResponse();
-      resp->setStatusCode(drogon::k200OK);
-      resp->setBody("{}");
-      callback(resp);
-      return;
     }
 
-    if(req->getMethod() == drogon::HttpMethod::Post && path == "/abk/variables/var_value")
-    {
-      const std::string query = std::string(req->query());
-      const int sessionId = ParseSessionIdFromQuery(query);
-      auto resp = drogon::HttpResponse::newHttpResponse();
-      resp->setStatusCode(drogon::k200OK);
-      resp->setBody(replay.BuildVarValueResponse(sessionId, std::string(req->body())));
-      callback(resp);
-      return;
-    }
-
+    // nothing recorded for this request: let the fake logger answer
     ForwardToAbk(req, std::move(callback), ifLogger);
   });
 

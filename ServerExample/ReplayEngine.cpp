@@ -3,7 +3,6 @@
 #include "ReplayEngine.h"
 
 #include <algorithm>
-#include <cassert>
 #include <cctype>
 #include <cerrno>
 #include <cmath>
@@ -11,16 +10,22 @@
 #include <cstdlib>
 #include <iomanip>
 #include <limits>
+#include <memory>
 #include <regex>
 #include <sstream>
 #include <thread>
+
+#include <json/json.h>
 
 #include "MyFakeLogger.h"
 
 namespace
 {
 
-static std::string QuoteShellArg(const std::string &s)
+const char *const SERVER_EVENT_PATH = "/abk/events/server_event";
+const char *const VAR_LIST_PATH = "/abk/variables/var_list";
+
+std::string QuoteShellArg(const std::string &s)
 {
   std::string out("'");
   for(char c : s)
@@ -34,28 +39,51 @@ static std::string QuoteShellArg(const std::string &s)
   return out;
 }
 
-static std::string TrimCopy(const std::string &s)
+bool IsJsonNumberToken(const std::string &t)
 {
-  std::size_t b = 0;
-  while(b < s.size() && std::isspace((unsigned char)s[b]))
-    ++b;
-  std::size_t e = s.size();
-  while(e > b && std::isspace((unsigned char)s[e - 1]))
-    --e;
-  return s.substr(b, e - b);
-}
-
-static bool IsJsonNumberToken(const std::string &token)
-{
-  const std::string t = TrimCopy(token);
-  if(t.empty())
-    return false;
-  if(t == "null" || t == "nan" || t == "NaN")
+  if(t.empty() || t == "null" || t == "nan" || t == "NaN")
     return false;
   char *pEnd = nullptr;
   errno = 0;
   std::strtod(t.c_str(), &pEnd);
   return (errno == 0 && pEnd && *pEnd == '\0');
+}
+
+bool ParseJson(const std::string &text, Json::Value &out)
+{
+  Json::CharReaderBuilder builder;
+  builder["collectComments"] = false;
+  std::unique_ptr<Json::CharReader> reader(builder.newCharReader());
+  std::string errs;
+  return reader->parse(text.data(), text.data() + text.size(), &out, &errs);
+}
+
+double JsonToDouble(const Json::Value &v)
+{
+  if(v.isNumeric())
+    return v.asDouble();
+  if(v.isBool())
+    return v.asBool() ? 1.0 : 0.0;
+  return std::numeric_limits<double>::quiet_NaN();
+}
+
+void StripSessionId(Json::Value &v)
+{
+  if(v.isObject())
+  {
+    for(const std::string &name : v.getMemberNames())
+    {
+      if(name == "SessionId")
+        v.removeMember(name);
+      else
+        StripSessionId(v[name]);
+    }
+  }
+  else if(v.isArray())
+  {
+    for(Json::Value &e : v)
+      StripSessionId(e);
+  }
 }
 
 } // namespace
@@ -72,8 +100,8 @@ bool CPcapReplayEngine::LoadFromPcapng(const std::string &pcapPath, std::string 
   std::lock_guard<std::mutex> lock(m_mutex);
   m_pcapPath = pcapPath;
   m_varNames.clear();
-  m_varIndex.clear();
   m_frames.clear();
+  m_exchanges.clear();
   m_sessionStates.clear();
   m_fallbackVarCount = 0;
   m_firstFrameTs = 0.0;
@@ -132,9 +160,7 @@ void CPcapReplayEngine::StartAfterSessionEstablished(int sessionId)
 {
   std::lock_guard<std::mutex> lock(m_mutex);
   SessionReplayState &state = GetOrCreateSessionState(sessionId);
-  if(!state.sessionEstablished)
-    return;
-  if(state.started)
+  if(!state.sessionEstablished || state.started)
     return;
   state.started = true;
   state.frameIndex = 0;
@@ -144,7 +170,7 @@ void CPcapReplayEngine::StartAfterSessionEstablished(int sessionId)
 std::string CPcapReplayEngine::NextServerEventResponse(int sessionId, ReplayEventInfo *pInfo)
 {
   std::size_t frameCount = 0;
-  ReplayFrame frame;
+  double frameTs = 0.0;
   double firstTs = 0.0;
   double speed = 1.0;
   std::chrono::steady_clock::time_point startWall;
@@ -164,157 +190,87 @@ std::string CPcapReplayEngine::NextServerEventResponse(int sessionId, ReplayEven
       state.frameIndex = 0;
     }
 
-    std::size_t frameIndex = state.frameIndex;
-    if(frameIndex >= m_frames.size())
-      frameIndex = m_frames.size() - 1;
-
-    frame = m_frames[frameIndex];
+    const std::size_t frameIndex = std::min(state.frameIndex, m_frames.size() - 1);
+    frameTs = m_frames[frameIndex].timestampSec;
     firstTs = m_firstFrameTs;
     speed = m_speed;
     startWall = state.startWall;
   }
 
   {
-    const double deltaSec = (frame.timestampSec - firstTs) / speed;
+    const double deltaSec = (frameTs - firstTs) / speed;
     const auto targetTime = startWall + std::chrono::milliseconds((long long)std::llround(deltaSec * 1000.0));
     const auto now = std::chrono::steady_clock::now();
     if(targetTime > now)
       std::this_thread::sleep_for(targetTime - now);
   }
 
+  std::lock_guard<std::mutex> lock(m_mutex);
+  SessionReplayState &state = GetOrCreateSessionState(sessionId);
+  ReplayFrame frame;
+  if(state.frameIndex < m_frames.size())
+    frame = m_frames[state.frameIndex++];
+  else
+    frame = m_frames.back();
+
+  if(!frame.values.empty())
+    state.currentValues = frame.values;
+
+  if(pInfo)
   {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    SessionReplayState &state = GetOrCreateSessionState(sessionId);
-    if(state.frameIndex < m_frames.size())
-    {
-      frame = m_frames[state.frameIndex];
-      state.frameIndex++;
-    }
-    else
-    {
-      frame = m_frames.back();
-    }
-
-    if(!frame.values.empty())
-      state.currentValues = frame.values;
-
-    if(pInfo)
-    {
-      pInfo->packetCount = frameCount;
-      pInfo->packetIndex = std::min<std::size_t>(state.frameIndex, frameCount);
-      pInfo->progress = (frameCount > 0) ? ((double)pInfo->packetIndex / (double)frameCount) : 0.0;
-      pInfo->eventType.clear();
-      std::smatch m;
-      static const std::regex reEventType("\\\"EventType\\\"\\s*:\\s*\\\"((?:\\\\.|[^\\\"\\\\])*)\\\"");
-      if(std::regex_search(frame.body, m, reEventType) && m.size() > 1)
-        pInfo->eventType = m[1].str();
-    }
-
-    if(frame.body.empty())
-      return std::string("{\"DataLists\":{\"ReplayList\":") + BuildDataArrayJson(state.currentValues) + "},\"Events\":[]}";
-
-    const bool likelyTruncated = frame.body.find("DataLists") != std::string::npos && frame.body.find('}') == std::string::npos;
-    if(likelyTruncated)
-      return std::string("{\"DataLists\":{\"ReplayList\":") + BuildDataArrayJson(state.currentValues) + "},\"Events\":[]}";
-
-    return frame.body;
+    pInfo->packetCount = frameCount;
+    pInfo->packetIndex = std::min<std::size_t>(state.frameIndex, frameCount);
+    pInfo->progress = (frameCount > 0) ? ((double)pInfo->packetIndex / (double)frameCount) : 0.0;
+    pInfo->eventType = frame.eventType;
   }
+
+  // workaround for truncated packets: synthesize a valid response from the last known values
+  if(frame.truncated || frame.body.empty())
+    return std::string("{\"DataLists\":{\"ReplayList\":") + BuildDataArrayJson(state.currentValues) + "},\"Events\":[]}";
+
+  return frame.body;
 }
 
-std::string CPcapReplayEngine::BuildVarListResponse() const
+bool CPcapReplayEngine::FindRecordedResponse(const std::string &method,
+                                             const std::string &path,
+                                             const std::string &query,
+                                             const std::string &requestBody,
+                                             std::string &responseOut,
+                                             int &statusOut)
 {
   std::lock_guard<std::mutex> lock(m_mutex);
-
-  std::ostringstream out;
-  out << "{\"VarList\":[";
-  for(std::size_t i = 0; i < m_varNames.size(); ++i)
-  {
-    if(i)
-      out << ',';
-    out << '"' << EscapeJson(m_varNames[i]) << '"';
-  }
-  out << "]}";
-  return out.str();
-}
-
-bool CPcapReplayEngine::RegisterDaqList(const std::string &requestBody, std::string &listNameOut, std::string &errOut)
-{
-  std::smatch m;
-  static const std::regex reName("\\\"Name\\\"\\s*:\\s*\\\"((?:\\\\.|[^\\\"\\\\])*)\\\"", std::regex::icase);
-  if(!std::regex_search(requestBody, m, reName))
-  {
-    errOut = "DAQ list request missing Name field";
+  const auto it = m_exchanges.find(MakeKey(method, path, query));
+  if(it == m_exchanges.end() || it->second.exchanges.empty())
     return false;
-  }
 
-  listNameOut = m[1].str();
+  ExchangeGroup &group = it->second;
+  const std::string canonical = CanonicalBody(requestBody);
 
-  std::vector<std::string> names;
-  static const std::regex reArray("\\\"DaqList\\\"\\s*:\\s*\\[(.*?)\\]", std::regex::icase);
-  if(std::regex_search(requestBody, m, reArray))
+  // 1. exact match on the canonical request body (cycle through repeated identical requests)
+  std::vector<std::size_t> candidates;
+  for(std::size_t i = 0; i < group.exchanges.size(); ++i)
   {
-    const std::string arr = m[1].str();
-    static const std::regex reStr("\\\"((?:\\\\.|[^\\\"\\\\])*)\\\"");
-    auto it = std::sregex_iterator(arr.begin(), arr.end(), reStr);
-    auto end = std::sregex_iterator();
-    for(; it != end; ++it)
-    {
-      std::string name = (*it)[1].str();
-      if(name.empty())
-        name = "ReplayVar_" + std::to_string(names.size());
-      names.push_back(name);
-    }
+    if(group.exchanges[i].canonicalBody == canonical)
+      candidates.push_back(i);
   }
 
-  if(names.empty())
+  const RecordedExchange *pMatch = nullptr;
+  if(!candidates.empty())
   {
-    const std::size_t baseCount = std::max<std::size_t>(m_varNames.size(), 1U);
-    names.reserve(baseCount);
-    for(std::size_t i = 0; i < baseCount; ++i)
-    {
-      if(i < m_varNames.size() && !m_varNames[i].empty())
-        names.push_back(m_varNames[i]);
-      else
-        names.push_back("ReplayVar_" + std::to_string(i));
-    }
+    std::size_t &cursor = group.cursorByBody[canonical];
+    pMatch = &group.exchanges[candidates[cursor % candidates.size()]];
+    ++cursor;
+  }
+  else
+  {
+    // 2. fall back to any response recorded for the same method/path/query
+    pMatch = &group.exchanges[group.cursorAny % group.exchanges.size()];
+    ++group.cursorAny;
   }
 
-  std::lock_guard<std::mutex> lock(m_mutex);
-  m_varNames = names;
-  m_varIndex.clear();
-  for(std::size_t i = 0; i < m_varNames.size(); ++i)
-    m_varIndex[m_varNames[i]] = i;
-  m_createdDaqLists[listNameOut] = names;
-  for(auto &itSession : m_sessionStates)
-  {
-    if(itSession.second.currentValues.size() < m_varNames.size())
-      itSession.second.currentValues.resize(m_varNames.size(), std::numeric_limits<double>::quiet_NaN());
-  }
+  responseOut = pMatch->responseBody;
+  statusOut = pMatch->statusCode;
   return true;
-}
-
-std::string CPcapReplayEngine::BuildVarValueResponse(int sessionId, const std::string &requestBody) const
-{
-  std::lock_guard<std::mutex> lock(m_mutex);
-
-  const SessionReplayState *pState = FindSessionState(sessionId);
-  const std::vector<double> *pValues = pState ? &pState->currentValues : nullptr;
-
-  const std::vector<std::string> requested = ParseGetListNamesLoose(requestBody);
-  std::ostringstream out;
-  out << "{\"Data\":[";
-  for(std::size_t i = 0; i < requested.size(); ++i)
-  {
-    if(i)
-      out << ',';
-    const auto it = m_varIndex.find(requested[i]);
-    if(!pValues || it == m_varIndex.end() || it->second >= pValues->size() || std::isnan((*pValues)[it->second]))
-      out << "null";
-    else
-      out << std::setprecision(15) << (*pValues)[it->second];
-  }
-  out << "]}";
-  return out.str();
 }
 
 int CPcapReplayEngine::GetEstimatedVarCount() const
@@ -352,7 +308,8 @@ bool CPcapReplayEngine::ExtractTraffic(std::string &err)
 
   const std::string reqCmd =
     "tshark -r " + quotedPath +
-    " -Y 'http.request' -T fields -E separator='|' -e frame.number -e http.request.uri";
+    " -Y 'http.request' -T fields -E separator='|'"
+    " -e frame.number -e http.request.method -e http.request.uri -e http.file_data";
 
   if(!RunCommand(reqCmd, requestsOut, cmdErr))
   {
@@ -360,20 +317,32 @@ bool CPcapReplayEngine::ExtractTraffic(std::string &err)
     return false;
   }
 
-  std::unordered_map<std::string, std::string> reqUriByFrame;
+  struct RequestInfo
+  {
+    std::string method;
+    std::string uri;
+    std::string body;
+  };
+  std::unordered_map<std::string, RequestInfo> requestByFrame;
   for(const std::string &line : SplitLines(requestsOut))
   {
     if(line.empty())
       continue;
-    const std::vector<std::string> f = SplitFields(line, '|', 2);
-    if(f.size() < 2)
+    const std::vector<std::string> f = SplitFields(line, '|', 4);
+    if(f.size() < 3)
       continue;
-    reqUriByFrame[Trim(f[0])] = Trim(f[1]);
+    RequestInfo info;
+    info.method = Trim(f[1]);
+    info.uri = Trim(f[2]);
+    if(f.size() >= 4)
+      info.body = DecodeHexPayload(f[3]);
+    requestByFrame[Trim(f[0])] = info;
   }
 
   const std::string rspCmd =
     "tshark -r " + quotedPath +
-    " -Y 'http.response && http.request_in && http.file_data' -T fields -E separator='|' -e frame.time_epoch -e http.request_in -e http.file_data";
+    " -Y 'http.response && http.request_in' -T fields -E separator='|'"
+    " -e frame.time_epoch -e http.request_in -e http.response.code -e http.file_data";
 
   if(!RunCommand(rspCmd, responsesOut, cmdErr))
   {
@@ -385,43 +354,44 @@ bool CPcapReplayEngine::ExtractTraffic(std::string &err)
   {
     if(line.empty())
       continue;
-    const std::vector<std::string> f = SplitFields(line, '|', 3);
+    const std::vector<std::string> f = SplitFields(line, '|', 4);
     if(f.size() < 3)
       continue;
 
-    const double ts = std::atof(Trim(f[0]).c_str());
-    const std::string reqFrame = Trim(f[1]);
-    const std::string uri = reqUriByFrame[reqFrame];
-    const std::string body = DecodeHexPayload(f[2]);
-
-    if(uri.empty())
+    const auto itReq = requestByFrame.find(Trim(f[1]));
+    if(itReq == requestByFrame.end() || itReq->second.uri.empty())
       continue;
+    const RequestInfo &req = itReq->second;
 
-    if(uri.find("/abk/variables/var_list") != std::string::npos)
+    const double ts = std::atof(Trim(f[0]).c_str());
+    int status = std::atoi(Trim(f[2]).c_str());
+    if(status <= 0)
+      status = 200;
+    const std::string body = (f.size() >= 4) ? DecodeHexPayload(f[3]) : std::string();
+
+    std::string path;
+    std::string query;
+    SplitUri(req.uri, path, query);
+
+    if(path == SERVER_EVENT_PATH)
+    {
+      AddServerEventFrame(ts, body);
+      continue;
+    }
+
+    if(path == VAR_LIST_PATH)
     {
       std::vector<std::string> vars;
-      if(ParseVarListFromBody(body, vars) && !vars.empty())
+      if(ParseVarListFromBody(body, vars))
         m_varNames = vars;
-      continue;
     }
 
-    if(uri.find("/abk/events/server_event") != std::string::npos)
-    {
-      ReplayFrame frame;
-      frame.timestampSec = ts;
-      frame.body = body;
-      frame.values = ParseFirstDataListValuesLoose(body);
-      if(frame.values.size() > (std::size_t)m_fallbackVarCount)
-        m_fallbackVarCount = (int)frame.values.size();
-      else if(frame.values.empty())
-      {
-        const int looseCount = CountElementsInFirstDataListLoose(body);
-        if(looseCount > m_fallbackVarCount)
-          m_fallbackVarCount = looseCount;
-      }
-      frame.hasAudioRecEvent = (body.find("AudioRec") != std::string::npos);
-      m_frames.push_back(frame);
-    }
+    RecordedExchange ex;
+    ex.timestampSec = ts;
+    ex.canonicalBody = CanonicalBody(req.body);
+    ex.responseBody = body;
+    ex.statusCode = status;
+    m_exchanges[MakeKey(req.method, path, query)].exchanges.push_back(ex);
   }
 
   if(m_frames.empty())
@@ -433,32 +403,131 @@ bool CPcapReplayEngine::ExtractTraffic(std::string &err)
   std::sort(m_frames.begin(), m_frames.end(), [](const ReplayFrame &a, const ReplayFrame &b) {
     return a.timestampSec < b.timestampSec;
   });
+  for(auto &itGroup : m_exchanges)
+  {
+    std::stable_sort(itGroup.second.exchanges.begin(), itGroup.second.exchanges.end(),
+                     [](const RecordedExchange &a, const RecordedExchange &b) { return a.timestampSec < b.timestampSec; });
+  }
 
   return true;
 }
 
-void CPcapReplayEngine::FinalizeVariableModel()
+void CPcapReplayEngine::AddServerEventFrame(double ts, const std::string &body)
 {
-  if(m_varNames.empty())
-  {
-    int count = m_fallbackVarCount;
-    if(count <= 0 && !m_frames.empty())
-      count = (int)m_frames.front().values.size();
-    if(count <= 0)
-      count = 10;
+  ReplayFrame frame;
+  frame.timestampSec = ts;
+  frame.body = body;
+  frame.truncated = false;
 
-    m_varNames.reserve((std::size_t)count);
-    for(int i = 0; i < count; ++i)
-    {
-      std::ostringstream n;
-      n << "ReplayVar_" << std::setw(4) << std::setfill('0') << i;
-      m_varNames.push_back(n.str());
-    }
+  if(!ParseServerEventJson(body, frame.values, frame.eventType))
+  {
+    // truncated packet: read the JSON manually as far as it goes
+    frame.truncated = true;
+    frame.values = ParseFirstDataListValuesLoose(body);
+    frame.eventType = ParseEventTypeLoose(body);
   }
 
-  m_varIndex.clear();
-  for(std::size_t i = 0; i < m_varNames.size(); ++i)
-    m_varIndex[m_varNames[i]] = i;
+  if(frame.values.size() > (std::size_t)m_fallbackVarCount)
+    m_fallbackVarCount = (int)frame.values.size();
+
+  m_frames.push_back(frame);
+}
+
+void CPcapReplayEngine::FinalizeVariableModel()
+{
+  if(!m_varNames.empty())
+    return;
+
+  int count = m_fallbackVarCount;
+  if(count <= 0)
+    count = 10;
+
+  m_varNames.reserve((std::size_t)count);
+  for(int i = 0; i < count; ++i)
+  {
+    std::ostringstream n;
+    n << "ReplayVar_" << std::setw(4) << std::setfill('0') << i;
+    m_varNames.push_back(n.str());
+  }
+}
+
+std::string CPcapReplayEngine::MakeKey(const std::string &method, const std::string &path, const std::string &query)
+{
+  std::string m = method;
+  std::transform(m.begin(), m.end(), m.begin(), [](unsigned char c) { return (char)std::toupper(c); });
+  return m + ' ' + path + '?' + CanonicalQuery(query);
+}
+
+std::string CPcapReplayEngine::CanonicalQuery(const std::string &query)
+{
+  std::vector<std::string> params;
+  std::size_t pos = 0;
+  while(pos <= query.size())
+  {
+    std::size_t end = query.find('&', pos);
+    if(end == std::string::npos)
+      end = query.size();
+    const std::string p = query.substr(pos, end - pos);
+    if(!p.empty())
+    {
+      const std::string name = p.substr(0, p.find('='));
+      std::string lower = name;
+      std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return (char)std::tolower(c); });
+      if(lower != "sessionid") // session ids differ between capture and replay
+        params.push_back(p);
+    }
+    pos = end + 1;
+  }
+  std::sort(params.begin(), params.end());
+
+  std::string out;
+  for(std::size_t i = 0; i < params.size(); ++i)
+  {
+    if(i)
+      out.push_back('&');
+    out += params[i];
+  }
+  return out;
+}
+
+std::string CPcapReplayEngine::CanonicalBody(const std::string &body)
+{
+  const std::string trimmed = Trim(body);
+  if(trimmed.empty())
+    return std::string();
+
+  Json::Value root;
+  if(!ParseJson(trimmed, root))
+    return trimmed;
+
+  StripSessionId(root);
+  Json::StreamWriterBuilder writer;
+  writer["indentation"] = "";
+  return Json::writeString(writer, root); // object keys are emitted sorted
+}
+
+void CPcapReplayEngine::SplitUri(const std::string &uri, std::string &path, std::string &query)
+{
+  std::string u = uri;
+  // strip scheme/host if tshark reports an absolute URI
+  const std::size_t pScheme = u.find("://");
+  if(pScheme != std::string::npos)
+  {
+    const std::size_t pPath = u.find('/', pScheme + 3);
+    u = (pPath == std::string::npos) ? std::string("/") : u.substr(pPath);
+  }
+
+  const std::size_t q = u.find('?');
+  if(q == std::string::npos)
+  {
+    path = u;
+    query.clear();
+  }
+  else
+  {
+    path = u.substr(0, q);
+    query = u.substr(q + 1);
+  }
 }
 
 bool CPcapReplayEngine::RunCommand(const std::string &cmd, std::string &output, std::string &err)
@@ -550,8 +619,7 @@ std::string CPcapReplayEngine::DecodeHexPayload(const std::string &hexText)
   for(std::size_t i = 0; i + 1 < hex.size(); i += 2)
   {
     const char byteStr[3] = {hex[i], hex[i + 1], '\0'};
-    const int v = std::strtol(byteStr, nullptr, 16);
-    out.push_back((char)v);
+    out.push_back((char)std::strtol(byteStr, nullptr, 16));
   }
   return out;
 }
@@ -570,20 +638,62 @@ std::string CPcapReplayEngine::Trim(const std::string &s)
 bool CPcapReplayEngine::ParseVarListFromBody(const std::string &body, std::vector<std::string> &varsOut)
 {
   varsOut.clear();
-
-  std::smatch m;
-  static const std::regex reVarList("\\\"VarList\\\"\\s*:\\s*\\[(.*?)\\]", std::regex::icase);
-  if(!std::regex_search(body, m, reVarList))
+  Json::Value root;
+  if(!ParseJson(body, root) || !root.isObject())
     return false;
 
-  const std::string arr = m[1].str();
-  static const std::regex reStr("\\\"((?:\\\\.|[^\\\"])*)\\\"");
-  auto it = std::sregex_iterator(arr.begin(), arr.end(), reStr);
-  auto end = std::sregex_iterator();
-  for(; it != end; ++it)
-    varsOut.push_back((*it)[1].str());
+  const Json::Value &list = root["VarList"];
+  if(!list.isArray())
+    return false;
 
+  for(const Json::Value &v : list)
+  {
+    if(v.isString())
+      varsOut.push_back(v.asString());
+    else if(v.isObject() && v["Name"].isString())
+      varsOut.push_back(v["Name"].asString());
+  }
   return !varsOut.empty();
+}
+
+bool CPcapReplayEngine::ParseServerEventJson(const std::string &body, std::vector<double> &valuesOut, std::string &eventTypeOut)
+{
+  valuesOut.clear();
+  eventTypeOut.clear();
+
+  Json::Value root;
+  if(!ParseJson(body, root) || !root.isObject())
+    return false;
+
+  const Json::Value &dataLists = root["DataLists"];
+  if(dataLists.isObject() && !dataLists.empty())
+  {
+    // first data list; if it holds several samples (array of arrays) use the latest one
+    const Json::Value &list = dataLists[dataLists.getMemberNames().front()];
+    const Json::Value *pSample = &list;
+    if(list.isArray() && !list.empty() && list[list.size() - 1].isArray())
+      pSample = &list[list.size() - 1];
+    if(pSample->isArray())
+    {
+      for(const Json::Value &v : *pSample)
+        valuesOut.push_back(JsonToDouble(v));
+    }
+  }
+
+  const Json::Value &events = root["Events"];
+  if(events.isArray())
+  {
+    for(const Json::Value &e : events)
+    {
+      if(e.isObject() && e["EventType"].isString())
+      {
+        eventTypeOut = e["EventType"].asString();
+        break;
+      }
+    }
+  }
+
+  return true;
 }
 
 std::vector<double> CPcapReplayEngine::ParseFirstDataListValuesLoose(const std::string &body)
@@ -602,23 +712,26 @@ std::vector<double> CPcapReplayEngine::ParseFirstDataListValuesLoose(const std::
   int nested = 0;
   std::string token;
 
+  auto flushToken = [&out, &token]() {
+    const std::string t = Trim(token);
+    if(IsJsonNumberToken(t))
+      out.push_back(std::strtod(t.c_str(), nullptr));
+    else if(!t.empty())
+      out.push_back(std::numeric_limits<double>::quiet_NaN());
+    token.clear();
+  };
+
   for(std::size_t i = pArray + 1; i < body.size(); ++i)
   {
     const char c = body[i];
     if(inStr)
     {
       if(escape)
-      {
         escape = false;
-      }
       else if(c == '\\')
-      {
         escape = true;
-      }
       else if(c == '"')
-      {
         inStr = false;
-      }
       token.push_back(c);
       continue;
     }
@@ -627,162 +740,43 @@ std::vector<double> CPcapReplayEngine::ParseFirstDataListValuesLoose(const std::
     {
       inStr = true;
       token.push_back(c);
-      continue;
     }
-
-    if(c == '[' || c == '{')
+    else if(c == '[' || c == '{')
     {
       nested++;
       token.push_back(c);
-      continue;
     }
-    if(c == ']' || c == '}')
+    else if(c == ']' || c == '}')
     {
       if(nested == 0)
       {
-        const std::string t = Trim(token);
-        if(IsJsonNumberToken(t))
-          out.push_back(std::strtod(t.c_str(), nullptr));
-        else if(!t.empty())
-          out.push_back(std::numeric_limits<double>::quiet_NaN());
+        flushToken();
         break;
       }
       nested--;
       token.push_back(c);
-      continue;
     }
-
-    if(c == ',' && nested == 0)
+    else if(c == ',' && nested == 0)
     {
-      const std::string t = Trim(token);
-      if(IsJsonNumberToken(t))
-        out.push_back(std::strtod(t.c_str(), nullptr));
-      else if(!t.empty())
-        out.push_back(std::numeric_limits<double>::quiet_NaN());
-      token.clear();
-      continue;
+      flushToken();
     }
-
-    token.push_back(c);
+    else
+    {
+      token.push_back(c);
+    }
   }
 
+  // a token cut off at the end of a truncated packet is unreliable and therefore dropped
   return out;
 }
 
-int CPcapReplayEngine::CountElementsInFirstDataListLoose(const std::string &body)
+std::string CPcapReplayEngine::ParseEventTypeLoose(const std::string &body)
 {
-  const std::size_t pDataLists = body.find("\"DataLists\"");
-  if(pDataLists == std::string::npos)
-    return 0;
-
-  const std::size_t pArray = body.find('[', pDataLists);
-  if(pArray == std::string::npos)
-    return 0;
-
-  bool inStr = false;
-  bool escape = false;
-  int nested = 0;
-  int count = 0;
-  bool haveToken = false;
-
-  for(std::size_t i = pArray + 1; i < body.size(); ++i)
-  {
-    const char c = body[i];
-
-    if(inStr)
-    {
-      haveToken = true;
-      if(escape)
-      {
-        escape = false;
-      }
-      else if(c == '\\')
-      {
-        escape = true;
-      }
-      else if(c == '"')
-      {
-        inStr = false;
-      }
-      continue;
-    }
-
-    if(c == '"')
-    {
-      inStr = true;
-      haveToken = true;
-      continue;
-    }
-
-    if(c == '[' || c == '{')
-    {
-      nested++;
-      haveToken = true;
-      continue;
-    }
-
-    if(c == ']' || c == '}')
-    {
-      if(nested == 0)
-      {
-        if(haveToken)
-          ++count;
-        break;
-      }
-      nested--;
-      haveToken = true;
-      continue;
-    }
-
-    if(c == ',' && nested == 0)
-    {
-      ++count;
-      haveToken = false;
-      continue;
-    }
-
-    if(!std::isspace((unsigned char)c))
-      haveToken = true;
-  }
-
-  return count;
-}
-
-std::vector<std::string> CPcapReplayEngine::ParseGetListNamesLoose(const std::string &body)
-{
-  std::vector<std::string> out;
   std::smatch m;
-  static const std::regex reGetList("\\\"GetList\\\"\\s*:\\s*\\[(.*?)\\]", std::regex::icase);
-  if(!std::regex_search(body, m, reGetList))
-    return out;
-
-  const std::string arr = m[1].str();
-  static const std::regex reStr("\\\"((?:\\\\.|[^\\\"])*)\\\"");
-  auto it = std::sregex_iterator(arr.begin(), arr.end(), reStr);
-  auto end = std::sregex_iterator();
-  for(; it != end; ++it)
-    out.push_back((*it)[1].str());
-
-  return out;
-}
-
-std::string CPcapReplayEngine::EscapeJson(const std::string &s)
-{
-  std::string out;
-  out.reserve(s.size());
-  for(char c : s)
-  {
-    switch(c)
-    {
-      case '\\': out += "\\\\"; break;
-      case '"': out += "\\\""; break;
-      case '\n': out += "\\n"; break;
-      case '\r': out += "\\r"; break;
-      case '\t': out += "\\t"; break;
-      default: out.push_back(c); break;
-    }
-  }
-  return out;
+  static const std::regex reEventType("\\\"EventType\\\"\\s*:\\s*\\\"((?:\\\\.|[^\\\"\\\\])*)\\\"");
+  if(std::regex_search(body, m, reEventType) && m.size() > 1)
+    return m[1].str();
+  return std::string();
 }
 
 std::string CPcapReplayEngine::BuildDataArrayJson(const std::vector<double> &values)
