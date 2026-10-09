@@ -1511,19 +1511,33 @@ CMyDiscoveryServer::~CMyDiscoveryServer ()
     }
 #else // WIN32
   // on other platforms, you may use recvmsg() instead of WSARecvMsg()
+  assert(nBufLen > 0);
+  pRxBuf[0] = '\0';
   fd_set fds;
-  struct timeval tvRx = {0, 250};
+  struct timeval tvRx = {0, 250000}; // 250ms
   FD_ZERO(&fds);
   FD_SET(m_sockRTx, &fds);
-  select(m_sockRTx + 1, &fds, NULL, NULL, &tvRx);
-  if (FD_ISSET(m_sockRTx, &fds))
+  const int nSel = select(m_sockRTx + 1, &fds, NULL, NULL, &tvRx);
+  if (nSel < 0)
   {
-    sockaddr_in sadrFrom;
-    socklen_t sadrFromLen = sizeof(sadrFrom);
+    bSuccess = (errno == EINTR); // socket was shut down/closed -> abort, signal interruption -> retry
+  }
+  else if (nSel > 0 && FD_ISSET(m_sockRTx, &fds))
+  {
+    char cControlBuffer[CMSG_SPACE(sizeof(struct in_pktinfo))];
+    iovec iov;
+    iov.iov_base = pRxBuf;
+    iov.iov_len = nBufLen - 1; // leave room for the terminating '\0'
     msghdr msgHdr;
     memset(&msgHdr, 0, sizeof(msgHdr));
-    int nReceived = recvmsg(m_sockRTx, &msgHdr, 0);
-    if (nReceived >= 0)
+    msgHdr.msg_name = &m_sadrFrom; // the answer is sent back to the requester
+    msgHdr.msg_namelen = sizeof(m_sadrFrom);
+    msgHdr.msg_iov = &iov;
+    msgHdr.msg_iovlen = 1;
+    msgHdr.msg_control = cControlBuffer;
+    msgHdr.msg_controllen = sizeof(cControlBuffer);
+    const ssize_t nReceived = recvmsg(m_sockRTx, &msgHdr, 0);
+    if (nReceived > 0)
     {
       pRxBuf[nReceived] = '\0'; // terminate the recieved string
       // extract the local address where the request was received
@@ -1532,11 +1546,18 @@ CMyDiscoveryServer::~CMyDiscoveryServer ()
         if (cmsg->cmsg_level == IPPROTO_IP && cmsg->cmsg_type == IP_PKTINFO)
         {
           struct in_pktinfo *pPktInfo = (struct in_pktinfo *)CMSG_DATA(cmsg);
-          strLocalIpOfRequest = inet_ntoa(pPktInfo->ipi_addr);
-          bSuccess = true;
+          // ipi_addr is the destination address of the packet (e.g. 255.255.255.255 for broadcasts),
+          // ipi_spec_dst is the local address of the interface that received it
+          strLocalIpOfRequest = inet_ntoa(pPktInfo->ipi_spec_dst);
           break;
         }
       }
+      bSuccess = true;
+    }
+    else if (nReceived == 0 || errno == EINTR || errno == EAGAIN)
+    {
+      // nReceived==0 is also returned after shutdown(); the thread loop terminates via m_evSleep in that case
+      bSuccess = true;
     }
   }
   else
