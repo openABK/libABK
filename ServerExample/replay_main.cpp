@@ -12,6 +12,8 @@
 #include <mutex>
 #include <regex>
 #include <sstream>
+#include <unordered_map>
+#include <vector>
 
 #include "MyFakeLogger.h"
 #include "MyLoggerInterface.h"
@@ -151,6 +153,100 @@ void ForwardToAbk(const drogon::HttpRequestPtr &req,
   auto resp = drogon::HttpResponse::newHttpResponse();
   resp->setStatusCode(static_cast<drogon::HttpStatusCode>(respIf.nStatusCode));
   resp->setBody(responseData);
+  callback(resp);
+}
+
+// calls the fake logger interface directly and returns its status code and response
+int CallAbk(CMyLoggerInterface &ifLogger, int nMethod, const std::string &path, const std::string &query, const std::string &body, std::string &responseOut)
+{
+  std::string postData(body);
+  std::string ip("127.0.0.1");
+  CLoggerInterface::HTTP_REQUEST reqIf;
+  reqIf.nHttpMethod = nMethod;
+  reqIf.pUrl = &path;
+  reqIf.pQueryString = &query;
+  reqIf.pPostData = &postData;
+  reqIf.pClientAddr = &ip;
+
+  CLoggerInterface::HTTP_RESPONSE respIf;
+  responseOut.clear();
+  respIf.pResponseData = &responseOut;
+  respIf.nStatusCode = 200;
+  ifLogger.HandleHttpRequest(reqIf, respIf);
+  return respIf.nStatusCode;
+}
+
+// answers var_meta/mailbox_meta per variable: recorded meta data first, fake logger for the rest
+void HandleMetaRequest(const drogon::HttpRequestPtr &req,
+                       std::function<void(const drogon::HttpResponsePtr &)> &&callback,
+                       CPcapReplayEngine &replay,
+                       CMyLoggerInterface &ifLogger)
+{
+  const std::string path = req->path();
+  const std::string query(req->query());
+  const std::string body(req->body());
+
+  std::vector<std::string> requested;
+  std::unordered_map<std::string, Json::Value> meta;
+  replay.LookupRecordedMeta(path, body, requested, meta);
+  if(requested.empty()) // nothing (valid) requested: let the fake logger answer as usual
+  {
+    ForwardToAbk(req, std::move(callback), ifLogger);
+    return;
+  }
+
+  Json::Value missing(Json::arrayValue);
+  for(const std::string &name : requested)
+  {
+    if(!meta.count(name))
+      missing.append(name);
+  }
+
+  auto resp = drogon::HttpResponse::newHttpResponse();
+  if(!missing.empty())
+  {
+    Json::Value fakeReq(Json::objectValue);
+    fakeReq["VarList"] = missing;
+    Json::StreamWriterBuilder writer;
+    writer["indentation"] = "";
+    std::string fakeBody;
+    const int status = CallAbk(ifLogger, CLoggerInterface::HTTP_METHOD_POST, path, query, Json::writeString(writer, fakeReq), fakeBody);
+    if(status != 200) // e.g. unknown variable: report the error of the logger
+    {
+      resp->setStatusCode(static_cast<drogon::HttpStatusCode>(status));
+      resp->setBody(fakeBody);
+      callback(resp);
+      return;
+    }
+
+    Json::Value fakeRoot;
+    Json::CharReaderBuilder builder;
+    std::unique_ptr<Json::CharReader> reader(builder.newCharReader());
+    std::string errs;
+    if(reader->parse(fakeBody.data(), fakeBody.data() + fakeBody.size(), &fakeRoot, &errs) && fakeRoot["MetaData"].isArray())
+    {
+      for(const Json::Value &entry : fakeRoot["MetaData"])
+      {
+        if(entry.isObject() && entry["Name"].isString())
+          meta[entry["Name"].asString()] = entry;
+      }
+    }
+  }
+
+  Json::Value root(Json::objectValue);
+  Json::Value &arr = root["MetaData"];
+  arr = Json::Value(Json::arrayValue);
+  for(const std::string &name : requested)
+  {
+    const auto it = meta.find(name);
+    if(it != meta.end())
+      arr.append(it->second);
+  }
+
+  Json::StreamWriterBuilder writer;
+  writer["indentation"] = "";
+  resp->setStatusCode(drogon::k200OK);
+  resp->setBody(Json::writeString(writer, root));
   callback(resp);
 }
 
@@ -314,6 +410,17 @@ int main(int argc, char *argv[])
       callback(resp);
       return;
     }
+
+    if(req->getMethod() == drogon::HttpMethod::Post && CPcapReplayEngine::IsMetaRequestPath(path))
+    {
+      HandleMetaRequest(req, std::move(callback), replay, ifLogger);
+      return;
+    }
+
+    // remember the list names the client creates, so server_event responses use these names
+    CPcapReplayEngine::ListKind listKind;
+    if(req->getMethod() == drogon::HttpMethod::Put && CPcapReplayEngine::ListKindFromPath(path, listKind))
+      replay.NoteDaqListRequest(ParseSessionIdFromQuery(std::string(req->query())), path, std::string(req->body()));
 
     // all other requests: answer with the matching response recorded in the capture
     {
