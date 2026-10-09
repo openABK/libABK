@@ -93,11 +93,9 @@ bool CDiscoveryServerPool::RemoveAndDeleteServer (CDiscoveryServer *pRemove)
     return false;
 
   // initiate deletion
-  CAbkSingleLock guardKill(&m_mutexKill,true); // ensure atomic running state read-modify-write.
-  if(pRemove->IsRunning()) // why does the thread is stopped. Deferred removal is not supported when thread gets stopped elsewhere
-    pRemove->StopAndDeleteDeferred(this); // stop the service. As soon as it has stopped, it shall unregister and delete itself
-  else
-    UnregisterAndDelete(pRemove); // service is stopped: unregister it immediately
+  CAbkSingleLock guardKill(&m_mutexKill,true);
+  if(!pRemove->StopAndDeleteDeferred(this)) // running: it unregisters and deletes itself as soon as it has stopped
+    UnregisterAndDelete(pRemove); // service is already stopped: unregister it immediately
 
   return true;
   }
@@ -115,7 +113,8 @@ bool CDiscoveryServerPool::RemoveAndDeleteAll (void)
   if(1)
     {
     CAbkSingleLock guardPool(&m_mutexPool,true);
-    for(std::set<CDiscoveryServer *>::iterator itServer=m_setPool.begin();itServer!=m_setPool.end();++itServer)
+    const std::set<CDiscoveryServer *> setCopy(m_setPool); // RemoveAndDeleteServer() may erase from m_setPool
+    for(std::set<CDiscoveryServer *>::const_iterator itServer=setCopy.begin();itServer!=setCopy.end();++itServer)
       RemoveAndDeleteServer(*itServer); // stop and initiate deferred deletion. this will not block
     }
 
@@ -249,6 +248,7 @@ bool CDiscoveryServer::SRequest::Decode (const char *pszReq)
 CDiscoveryServer::CDiscoveryServer ()
   {
   m_pOwningPool=NULL;
+  m_bRunning=false;
 #ifdef WIN32
   m_hThread=ABK_INVALID_THREAD_HANDLE;
 #endif
@@ -281,17 +281,24 @@ CDiscoveryServer::CDiscoveryServer ()
   assert(pArg);
   CDiscoveryServer *pThis=static_cast<CDiscoveryServer *>(pArg);
   unsigned int nResult=pThis->Run();
-  pThis->m_evDone.Set(); // signal that we are done
+
+  // mark as stopped and fetch the pool atomically, so StopAndDeleteDeferred() either sees us running and
+  // hands over the pool, or sees us stopped and lets the pool delete us directly
+  CDiscoveryServerPool *pPool=NULL;
+  if(1)
+    {
+    CAbkSingleLock guard(&pThis->m_mutexState,true);
+    pThis->m_bRunning=false;
 #ifdef WIN32
-  pThis->m_hThread=ABK_INVALID_THREAD_HANDLE;
+    pThis->m_hThread=ABK_INVALID_THREAD_HANDLE;
 #endif
+    pPool=pThis->m_pOwningPool;
+    pThis->m_evDone.Set(); // signal that we are done
+    }
 
   // unregister myself
-  if(pThis->m_pOwningPool)
-    {
-    pThis->m_pOwningPool->UnregisterAndDelete(pThis); // unregister me at the owning pool and delete pThis
-    pThis=NULL; // pThis MUST NOT ACCESSED BELOW since it was deleted here. Any attempt would result in an access violation
-    }
+  if(pPool)
+    pPool->UnregisterAndDelete(pThis); // unregister me at the owning pool and delete pThis. pThis MUST NOT be accessed below
 
   return nResult;
   }
@@ -386,7 +393,15 @@ void CDiscoveryServer::Start (void)
   {
   m_evSleep.Reset(); // prevent thread from terminating immediately
   m_evDone.Reset();
+  if(1)
+    {
+    CAbkSingleLock guard(&m_mutexState,true);
+    m_bRunning=true;
+    }
   m_hThread=AbkStartThread(ThreadWrapperS,this);
+#ifdef PREFER_BOOST_PLATFORM
+  m_hThread.detach(); // the thread may delete this instance itself, so it must not be joined; running state is tracked by m_bRunning
+#endif
   }
 
 
@@ -410,13 +425,16 @@ void CDiscoveryServer::Stop (void)
 // Input: pPoolUnregister = service pool where this unregisters itself
 // Return: 
 
-void CDiscoveryServer::StopAndDeleteDeferred (CDiscoveryServerPool *pPoolUnregister)
+bool CDiscoveryServer::StopAndDeleteDeferred (CDiscoveryServerPool *pPoolUnregister)
   {
   assert(pPoolUnregister); // you have to specify a pool where this will unregister!!
-  assert(IsRunning()); // deferred un-registering a non-running service is not supported. Please do not stop the service elsewhere!!
+  CAbkSingleLock guard(&m_mutexState,true);
+  if(!m_bRunning)
+    return false; // thread has already terminated, caller must delete
   m_pOwningPool=pPoolUnregister;
   m_evSleep.Set(); // stop from any waiting
   OnSocketShutdown(); // bring the socket out of its blocking state. If not supported, we will let the socket time-out
+  return true;
   }
 
 
@@ -428,11 +446,8 @@ void CDiscoveryServer::StopAndDeleteDeferred (CDiscoveryServerPool *pPoolUnregis
 
 bool CDiscoveryServer::IsRunning (void) const
   {
-#ifdef PREFER_BOOST_PLATFORM
-  return m_hThread.joinable();
-#else
-  return m_hThread!=ABK_INVALID_THREAD_HANDLE;  
-#endif
+  CAbkSingleLock guard(&m_mutexState,true);
+  return m_bRunning;
   }
 
 

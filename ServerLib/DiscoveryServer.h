@@ -88,7 +88,9 @@ namespace Abk
     protected:
       CAbkEvent m_evSleep; // event for timing and terminating the thread
       CAbkEvent m_evDone; // signalled when thread has terminated
-      ABK_THREAD_HANDLE m_hThread; // !=ABK_INVALID_THREAD_HANDLE as long as the thread is running
+      ABK_THREAD_HANDLE m_hThread; // handle of the thread (detached on boost platforms)
+      CAbkMutex m_mutexState; // protects m_bRunning and m_pOwningPool
+      bool m_bRunning; // true as long as the thread is running
       CDiscoveryServerPool *m_pOwningPool; // pointer to a discovery-server-pool, NULL if standalone
     protected:
       //CLoggerInterface *m_pLoggerIf; // logger interface feed through to the virtual functions giving them the ability to make interface-specific decisions
@@ -121,7 +123,7 @@ namespace Abk
       static unsigned int THREAD_CALLCONV ThreadWrapperS (void *pArg); // static function wrapper for the thread
       unsigned int Run (void); // udp answering thread
       void FormatAnswer (CJsonFormatter &jfTarget, const SServerInfo &serverInfo, const std::string &strLocalIpOfRequest, bool bPreference) const; // formats the answer to json formatter
-      void StopAndDeleteDeferred (CDiscoveryServerPool *pPoolUnregister); // stops and invokes a deferred unregistering and deletion
+      bool StopAndDeleteDeferred (CDiscoveryServerPool *pPoolUnregister); // stops and invokes a deferred unregistering and deletion, false if not running
 
     };
   
