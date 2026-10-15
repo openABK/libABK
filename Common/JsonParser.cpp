@@ -29,6 +29,10 @@
 #include <WceExtensions.h>
 #endif
 
+#ifndef WIN32
+// Use JsonCpp as fallback for \u on non-Windows platforms. 
+#include "json/json.h"
+#endif
 
 using namespace std;
 
@@ -989,8 +993,26 @@ bool CJsonParser::ScanDate (const char *pszDate, size_t nLen, time_t *pReturn) c
           c='\t';
           break;
         case 'u':
+#ifdef WIN32
           assert(false); // \u not implemented
           bSuccess=false;
+#else
+          // Fall back to using JsonCpp for \u unescaping on non-Windows platforms
+          Json::CharReaderBuilder builder;
+          std::unique_ptr<Json::CharReader> reader(builder.newCharReader());
+          pStart--;
+          assert(*pStart == '\"'); // Ensure the string starts with a quote
+          std::string_view sv(pStart, pEnd + 1 - pStart);
+          Json::Value unescaped;
+          std::string errors;
+          if (!reader->parse(sv.data(), sv.data() + sv.size(), &unescaped, &errors))
+          {
+            bSuccess = false;
+          }
+          std::string strUnescaped = unescaped.asString();
+          pGet->assign(strUnescaped);
+          return true;
+#endif
           break;
           }
         }

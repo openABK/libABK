@@ -20,6 +20,11 @@
 #include <comutil.h>
 #endif
 
+#ifndef WIN32
+// Use JsonCpp as fallback for \u on non-Windows platforms. 
+#include "json/json.h"
+#endif
+
 //--------------------------------------------------------------------------
 // CJsonParserAtl()        Constructor of CJsonParserAtl
 // ----------------
@@ -249,7 +254,25 @@ bool CJsonParserAtl::GetValueString (CString &strGet) const
           tChar='\t';
           break;
         case 'u':
+#ifdef WIN32
           assert(false); // \u not implemented
+          bSuccess=false;
+#else
+          // Fall back to using JsonCpp for \u unescaping on non-Windows platforms
+          Json::CharReaderBuilder builder;
+          std::unique_ptr<Json::CharReader> reader(builder.newCharReader());
+          pStart--;
+          assert(*pStart == '\"'); // Ensure the string starts with a quote
+          std::string_view sv(pStart, pEnd + 1 - pStart);
+          Json::Value unescaped;
+          std::string errors;
+          if (!reader->parse(sv.data(), sv.data() + sv.size(), &unescaped, &errors))
+          {
+            return false;
+          }
+          *pGet = unescaped.asString().c_str();
+          return true;
+#endif
           break;
           }
         }
@@ -258,6 +281,7 @@ bool CJsonParserAtl::GetValueString (CString &strGet) const
 
     else // multi-byte sequence
       {
+#ifdef WIN32 // This was the case for converting UTF-8 to TCHAR, implicitly
       TCHAR tcMask=0xe0;
       TCHAR tcPattern=0xc0;
       int nLen=2; // sequence length
@@ -288,6 +312,9 @@ bool CJsonParserAtl::GetValueString (CString &strGet) const
         tcMask=(tcMask>>1)|0x80;
         tcPattern=(tcPattern>>1)|0x80;
         }
+#else
+        pGet->AppendChar(tChar);
+#endif
       }
 
     }

@@ -55,6 +55,18 @@ add_library(LibAbkClient ${LIB_ABK_SRC})
 # Export include directories to the target
 target_include_directories(LibAbkClient PUBLIC ${INCLUDE_DIRS})
 
+# Get JsonCpp library through pkg-config for non-Windows platforms
+if(NOT WIN32)
+  find_package(PkgConfig REQUIRED)
+  pkg_check_modules(JSONCPP jsoncpp)
+  if(JSONCPP_FOUND)
+       target_include_directories(LibAbkClient PRIVATE ${JSONCPP_INCLUDE_DIRS})
+       target_link_libraries(LibAbkClient PRIVATE ${JSONCPP_LIBRARIES})
+  else()
+       message(SEND_ERROR "JsonCpp not found")
+  endif()
+endif()
+
 if(USE_BOOST_ABK)
   target_compile_definitions(LibAbkClient PUBLIC -DBOOST_ABK)
   target_link_libraries(LibAbkClient PRIVATE PkgConfig::SOUP)
